@@ -1,0 +1,40 @@
+CODEX TASK 1 — DIAGNOSE BEFORE PATCHING
+
+Read the repository files first, especially:
+1. MoeBot_Codex_Strategy_Spec_Full.txt
+2. moebot_professional_trading_brain_v1_final_full.mq5
+3. moebot_debug2.tar.gz and any extracted CSV/log files inside it
+4. failed_xauusd_trade_chart.png
+
+Important:
+Do NOT modify code yet.
+Do NOT assume the MQ5 implementation is correct.
+Treat the strategy spec as the source of truth.
+Treat the MQ5 file as a failed prototype/reference.
+
+Your first job is diagnosis only.
+
+Failed trade context:
+The EA opened an XAUUSD BUY around 4082.6 with reason similar to:
+"Retest bullish OB + Discount + New York boost"
+Shortly after, the logs showed:
+"Reversal Confirmed Bear"
+"M15 bearish CHOCH/MSS"
+The trade closed losing.
+
+Diagnose and answer clearly:
+1. What exactly did the EA do on the failed XAUUSD trade?
+2. Which MQ5 functions/classes allowed the BUY entry?
+3. Why did the EA classify that area as a bullish Order Block or valid demand zone?
+4. Was the Order Block logic too simplified? If yes, explain exactly how.
+5. Did the EA enter from a poor OB location, late entry, wick zone, mitigated zone, or without enough confirmation?
+6. Did the EA ignore a reversal warning or fail to protect/exit after detecting bearish reversal?
+7. Which strategy rules from MoeBot_Codex_Strategy_Spec_Full.txt were violated or missing in code?
+8. Which exact modules must be rebuilt/refactored?
+9. What patch plan will make this same failed setup become WAIT, protected exit, or no entry in the future?
+10. What logs are missing and must be added, especially close audit and OB audit?
+
+Do not give generic advice.
+Use exact evidence from the code and logs.
+Name the functions and line areas involved.
+After your diagnosis, wait for confirmation before editing code.

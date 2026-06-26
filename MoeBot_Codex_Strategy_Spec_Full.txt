@@ -1,0 +1,335 @@
+MOEBOT PROFESSIONAL TRADING BRAIN — CODEX PROJECT SPEC
+
+Project goal:
+Build an MT5 Expert Advisor in MQL5 named "MoeBot Professional Trading Brain" from the ground up or by heavily refactoring the provided reference code. This must not be a simple signal bot. It must behave like a professional trading decision engine: read the market, determine market state, map high-probability zones, resolve multi-timeframe conflict, score evidence, decide BUY / SELL / WAIT / EXIT, execute only when the trade story is complete, manage the trade after entry, log every decision in detail, and learn from closed trades through file-based statistics.
+
+Important instruction to Codex:
+Do not assume the current MQ5 code is correct. Treat the existing MQ5 file as a reference implementation and a failed prototype. Use the strategy specification below as the source of truth. Read the MQ5 file, logs, CSV reports, and screenshots, identify which parts of the code violate this specification, then rebuild/refactor the modules properly. If a module is too simplified, replace it rather than patching around it. Every fix must be backed by detailed logs and testable rules.
+
+Core principle:
+The bot must not enter because of one signal. It must enter only when the full market story is complete:
+Market State + HTF Context + Zone + Liquidity + Structure + Displacement + Retest/Confirmation + Risk/Reward + Execution Safety.
+If the story is incomplete, the decision must be WAIT.
+
+Operating model:
+The EA must work on the chart symbol only using _Symbol. It must not scan a hardcoded symbol list and must not search for USOUSD or any oil symbol automatically. If the user wants oil, they attach the EA directly to the broker's oil chart. The EA must analyze only the open chart symbol.
+
+Trading style:
+Growth Mode / Small Account Growth Mode. The user wants the account to grow and does not want normal filters that reduce good trades. Do not use MaxTradesPerDay. Do not use strict percentage-risk lot sizing if it reduces the number of trades. Use fixed lots by default:
+- Forex: 0.02
+- Gold: 0.01
+- Silver: 0.01
+- Oil: 0.01, and oil must be allowed if EA is attached to oil chart.
+Risk percent must be OFF by default. The EA should take every strong setup if the full setup rules pass. Safety checks are allowed only to prevent catastrophic or technically invalid trading: invalid lot, broker trade disabled, market closed, impossible stop levels, missing SL/TP, order failure, insufficient margin, abnormal spread only if explicitly enabled, and broken data.
+
+Multi-timeframe brain:
+Use H4, H1, and M15.
+- H4 = big map, major context, major liquidity, major zones, premium/discount, major structure.
+- H1 = current market structure and transition state.
+- M15 = execution trigger, early reversal warning, retest/entry refinement.
+No timeframe gives a direct command by itself. H4 bearish does not mean sell forever. M15 bullish CHOCH against bearish HTF does not mean buy instantly. The decision comes from the relationship between timeframes.
+
+Market State Engine:
+The EA must classify the market into clear states:
+- Trend Continuation
+- Pullback
+- Range
+- Reversal Warning
+- Reversal Confirmed
+- Expansion / Displacement
+- News/Spike / abnormal volatility
+- No Trade
+
+Critical reversal rule:
+If H4/H1 are bearish but M15 prints credible bullish CHOCH/MSS against the trend, the EA must stop new SELL trades and set Reversal Warning. It must not buy immediately. BUY is allowed only after bullish reversal confirmation: sweep/liquidity event + displacement + BOS/MSS + valid retest/refined zone + good risk/reward.
+The same applies in reverse for bullish HTF with bearish M15 reversal warning.
+
+Conflict Engine:
+If timeframes conflict and the story is incomplete, decision must be WAIT. Examples:
+- H4 bearish + H1 bearish + M15 bullish CHOCH = WAIT, not SELL and not immediate BUY.
+- H4 bullish + H1 range + M15 sell setup = WAIT unless a very strong independent reversal setup is proven.
+- H4/H1/M15 contradictory with no clean liquidity/structure confirmation = WAIT.
+This engine must prevent the EA from forcing trades when the market is transitioning.
+
+ICT/SMC concepts to implement as real rules, not labels:
+- Liquidity highs/lows
+- Equal highs/equal lows
+- Buy-side liquidity
+- Sell-side liquidity
+- Liquidity sweep / stop hunt
+- CHOCH
+- MSS
+- BOS
+- Displacement
+- Fair Value Gap (FVG)
+- Order Block (OB)
+- Breaker / mitigation if implemented
+- Premium / Discount / Equilibrium
+- Retest / mitigation
+These must never be single-signal triggers. A CHOCH alone is not a BUY. An OB alone is not a BUY. A sweep alone is not a BUY. EMA alone is not a SELL.
+
+Order Block requirement:
+Do not implement Order Block as "any opposite candle before a move" or a generic zone. A valid OB must be built from a strict process:
+1. Identify structure first using swing highs/lows.
+2. Identify a real displacement leg, not normal candle noise.
+3. Confirm displacement created BOS/MSS/CHOCH or broke meaningful structure.
+4. Locate the last opposite candle or refined candle range that caused the displacement.
+5. Validate whether liquidity was swept before the move, or whether the OB is in a logical premium/discount area.
+6. Evaluate candle anatomy: body size, wick size, wick/body ratio, close location, and whether a long wick means liquidity sweep rather than a clean OB body.
+7. Define the zone correctly: full candle, body zone, or refined 50% zone depending on quality.
+8. Track freshness: fresh, mitigated, tapped, invalidated.
+9. Do not enter from the top of a wide bullish OB just because price touched the zone. Prefer refined entry from 50%/lower part of bullish OB, or require confirmation on M15 after retest.
+10. For bullish OB, SL/invalidation must be below the valid OB low/sweep low with buffer. For bearish OB, above valid OB high/sweep high with buffer.
+11. If a candle has an extremely long wick, the EA must not blindly treat the full candle as a high-quality OB. It must classify wick context: sweep wick, rejection wick, or invalid/noisy candle.
+12. If price reacts against the trade immediately and a reversal is confirmed, the EA must protect/exit rather than wait passively for SL.
+The prior failed trade should be used as a test case: the EA entered XAUUSD BUY around 4082.6 with reason "Retest bullish OB + Discount + New York boost" and then quickly detected Bear Reversal Confirmed / M15 bearish CHOCH-MSS. Codex must inspect why the code considered that area a bullish OB, whether the OB rules were too simplistic, and prevent this type of wrong OB entry from recurring.
+
+Price Action and Wyckoff:
+The EA must include price action structure:
+- HH / HL / LH / LL
+- Support/resistance
+- Break and retest
+- Trend transition
+Include Wyckoff-style awareness:
+- Accumulation
+- Distribution
+- Spring
+- Upthrust
+- Change of Character after range
+Wyckoff must support context and market state, not act as a single entry signal.
+
+Traditional confirmations:
+Use traditional indicators only as confirmation/context:
+- EMA slope
+- ADX trend/range strength
+- RSI exhaustion/divergence
+- ATR volatility and SL/TP buffers
+- Candle strength
+EMA bearish must not equal SELL by itself. Indicators help score evidence; they do not replace structure and liquidity.
+
+Multi-timeframe Zone Map:
+On H4/H1/M15, the EA must map:
+- Major highs/lows
+- Internal highs/lows
+- Liquidity pools
+- OBs
+- FVGs
+- Support/resistance
+- Premium/discount
+- Nearest target liquidity above and below
+- Current price location relative to zones
+A strong M15 zone can matter even when H4 is still biased, but it must be interpreted through the conflict engine.
+
+Decision Scoring:
+Every setup must receive a detailed evidence score. The EA must compute BuyScore, SellScore, WaitScore/BlockReason, and optional ExitScore. Scoring factors:
+- Market state
+- HTF direction/context
+- H1 structure
+- M15 trigger
+- Zone quality
+- OB/FVG quality
+- Liquidity sweep quality
+- BOS/CHOCH/MSS quality
+- Displacement strength
+- Retest quality
+- Premium/discount location
+- Risk/reward and distance to target liquidity
+- ATR volatility
+- ADX trend/range
+- RSI exhaustion/divergence
+- Session context
+- Spread/execution condition
+- Data quality
+A trade is allowed only if one side is clearly stronger than the other and no hard block exists.
+
+Entry models:
+BUY setup ideal conditions:
+- Price in discount or logical demand zone
+- Sell-side liquidity swept or valid demand context
+- Bullish displacement
+- Bullish CHOCH/MSS/BOS
+- Retest on valid FVG/OB/breaker or refined zone
+- Good TP space to liquidity or opposite zone
+- SL logical under structure/invalidation
+- No major conflict or active bearish reversal confirmation
+- Execution safety passes
+
+SELL setup ideal conditions:
+- Price in premium or logical supply zone
+- Buy-side liquidity swept or valid supply context
+- Bearish displacement
+- Bearish CHOCH/MSS/BOS
+- Retest on valid FVG/OB/breaker or refined zone
+- Good TP space to liquidity or opposite zone
+- SL logical above structure/invalidation
+- No major conflict or active bullish reversal confirmation
+- Execution safety passes
+
+No-Trade Engine:
+The EA must WAIT if:
+- Timeframes conflict and no confirmation
+- Price is in the middle/no-man's land
+- Range without sweep
+- Before/inside manual high-impact news window
+- After abnormal spike if enabled
+- Spread too high if spread guard enabled
+- SL is too far or invalid
+- TP space is weak
+- Entry is late after large move
+- BUY near top/liquidity without confirmation
+- SELL near bottom/liquidity without confirmation
+- No retest or no displacement
+- No real structure confirmation
+- OB/FVG is mitigated, invalid, too wide, noisy, or based on bad wick logic
+The goal is not to reduce good trades; it is to prevent bad/incomplete trades.
+
+Trade Management:
+Must include:
+- Structure-based SL
+- Liquidity/zone-based TP
+- BreakEven
+- Profit Lock
+- Trailing Stop
+- TP Runner / TP extension only after the trade is protected
+Golden rule: never extend TP before SL is at break-even or locked in profit.
+If the trade moves into profit, SL must protect profit progressively. If the market gives confirmed reversal against an open trade, the EA must protect, reduce risk, or exit according to rules, not blindly wait for original SL.
+
+Reversal Management:
+If in BUY and M15/H1 prints credible bearish reversal confirmation:
+- Stop new BUY entries
+- Block add-ons
+- Move SL closer/protect if possible
+- Exit if reversal score is strong and trade is not protected or structure invalidates
+Same logic reversed for SELL.
+If EA detects "Bear Reversal Confirmed" one candle after entering BUY, it must not ignore that. It must log and act.
+
+Smart Add-ons:
+No martingale. Add-ons are allowed only when:
+- Existing same-direction position is in profit
+- Trade is protected or can be protected
+- Same-direction setup score is strong
+- No active reversal warning against the trade
+- Add-on has its own SL/TP and reason log
+Never add to a losing trade.
+
+Risk and Growth Mode:
+Default behavior must be fixed lot growth mode:
+- Use fixed lot values, not percentage risk.
+- No MaxTradesPerDay.
+- Do not reject good setups just because account is small.
+- Risk engine is only catastrophic protection, not a trade limiter.
+- If multiple positions on the same chart are allowed, they must follow smart add-on rules.
+- If portfolio/correlation ranking is implemented later, it only applies in multi-symbol mode. For the current chart-symbol-only version, do not implement hard correlation blocking.
+
+Symbol/Broker Calibration:
+For _Symbol, read:
+- tick size
+- tick value
+- contract size
+- digits
+- min lot
+- lot step
+- max lot
+- stop level
+- freeze level
+- spread
+- trade mode
+- margin requirements
+- trading session availability
+Lot must be normalized to broker lot step. SL/TP must respect stop level/freeze level.
+
+Session / News Context:
+The EA must understand sessions:
+- Asian session
+- London open
+- New York open
+- London/NY overlap
+- End of session
+- Friday/low liquidity risk
+Session context can boost or describe quality but must not reduce good setups by default unless explicitly enabled. Manual news windows must be available. Auto news calendar is optional/not required initially, but the EA must support manual no-trade windows and spike protection.
+
+Data Quality and Backtest Integrity:
+Before trusting decisions, the EA must check:
+- enough historical bars on all timeframes
+- no missing candles/gaps where detectable
+- no bad ticks/extreme abnormal data
+- time synchronization across H4/H1/M15
+- closed candles only for decision logic to avoid repaint/lookahead bias
+Backtests must use realistic spread/slippage/commission when possible. Avoid lookahead bias: never use future candles to decide current entries.
+
+Execution Reality Filter:
+Before sending order:
+- market open
+- trade allowed
+- lot valid
+- margin enough
+- spread acceptable if enabled
+- SL/TP valid and not too close
+- stop/freeze level respected
+- order send result checked
+If order opens without SL/TP due broker issue, immediately attempt to set SL/TP. If that fails, log critical error and stop new entries.
+
+Logging / Explainability:
+Every decision must be logged in detail to CSV and Experts log. This is mandatory. Logs must include:
+- timestamp
+- symbol
+- timeframe
+- bid/ask/spread
+- market state
+- H4/H1/M15 bias and structure
+- detected zones and prices
+- OB details: timeframe, high/low/body, wick/body ratio, displacement score, BOS/CHOCH/MSS link, freshness, mitigation state, invalidation, refined entry zone
+- FVG details
+- sweep/liquidity details
+- buy score and sell score
+- wait/block reasons
+- final decision BUY/SELL/WAIT/EXIT
+- order ticket/position ID
+- entry, SL, TP, lot
+- reason text
+- management actions: BE, profit lock, trailing, TP extension, exit due reversal
+- close audit: close time, close price, profit/loss, close reason SL/TP/manual/reversal/unknown, original setup key, diagnosis
+The EA must have a Close Audit / OnTradeTransaction module. It must record closed trades, not only entries. The previous issue where only entry logs existed is unacceptable.
+
+Learning Layer:
+Implement file-based learning, not fake AI. The EA should store setup performance by setup key:
+- setup key can include symbol class, session, market state, entry model, zone type, timeframe alignment
+- wins/losses, average profit, average loss, last result
+- optional score boost/penalty
+By default, learning must not reduce trades aggressively. It can be in observe-only mode or only provide small adjustments unless enabled. Learning must not override hard strategy rules.
+
+Testing workflow:
+Use the failed trade as a regression test:
+- XAUUSD M15 BUY around 4082.6
+- reason logged as Retest bullish OB + Discount + New York boost
+- soon after, EA detected Bear Reversal Confirmed / M15 bearish CHOCH-MSS
+Tasks:
+1. Locate the exact code path and functions that allowed this BUY.
+2. Explain why the EA believed there was a bullish OB.
+3. Identify missing validations.
+4. Fix OB validation, entry timing, and reversal protection.
+5. Add detailed OB audit logs.
+6. Add close audit logs.
+7. Ensure the same setup would be WAIT or protected/exit under corrected rules.
+Do not change Growth Mode constraints while fixing this.
+
+Deliverables:
+- Clean MQL5 EA file that compiles in MetaEditor.
+- Strategy/spec file updated.
+- Changelog explaining what changed.
+- If possible, unit-like helper comments or debug functions for OB/structure logic.
+- Example log output for a decision.
+- No hardcoded multi-symbol scanner.
+- No MaxTradesPerDay.
+- RiskPercent off by default.
+- Forex fixed lot 0.02, Gold/Silver/Oil 0.01.
+- Oil allowed when attached to oil chart.
+
+Final instruction:
+Before modifying code, first produce a diagnosis report from the current repo and logs. Do not immediately patch. The first response should answer:
+1. What did the EA do on the failed XAUUSD trade?
+2. Which functions allowed the entry?
+3. Which strategy rules were missing or too simplified?
+4. What exact modules must be rebuilt?
+5. What patch plan will make this test case fail safely in the future?
+After the diagnosis, implement the patch with clear commits/changes.
