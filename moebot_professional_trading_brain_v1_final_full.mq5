@@ -150,6 +150,7 @@ input bool   InpWriteCSVLog = true;
 input string InpCSVFileName = "MoeBot_Brain_v1_Full_Log.csv";
 input string InpCloseAuditFileName = "MoeBot_Brain_v1_Close_Audit.csv";
 input bool   InpPrintEveryNewBar = true;
+input bool   InpRunFailedXAUUSDDebugHarness = false; // Optional one-shot regression/audit print for the failed XAUUSD class.
 
 // Session / time context: scoring only by default, not a hard trade blocker.
 input bool   InpUseSessionContext = true;
@@ -216,10 +217,16 @@ struct Zone
    double wickBodyRatio;
    double displacementScore;
    double invalidationLevel;
+   double targetLevel;
+   double obstacleLevel;
    datetime time;
    datetime displacementTime;
    int direction; // 1 bullish zone, -1 bearish zone
    int qualityScore;
+   int tapCount;
+   string sourceEventID;
+   string displacementLink;
+   string targetRelation;
    bool hasStructureLink;
    bool hasSweepLink;
    bool hasDisplacement;
@@ -234,6 +241,51 @@ struct Zone
    string blockReason;
    string audit;
    string name;
+};
+
+struct StructureEvent
+{
+   bool valid;
+   int direction;
+   string eventType;
+   string eventID;
+   double level;
+   double brokenLevel;
+   datetime eventTime;
+   double displacementScore;
+   double closeBackQuality;
+   string audit;
+};
+
+struct EntryModelResult
+{
+   int direction;
+   bool hardBlock;
+   bool storyComplete;
+   bool zoneOK;
+   bool liquidityOK;
+   bool structureOK;
+   bool displacementOK;
+   bool retestOK;
+   bool rrOK;
+   bool locationOK;
+   bool lateEntryOK;
+   double entry;
+   double sl;
+   double tp;
+   double rr;
+   double targetLevel;
+   double obstacleLevel;
+   string blockReasons;
+   string zoneResult;
+   string liquidityResult;
+   string structureResult;
+   string displacementResult;
+   string retestResult;
+   string rrTargetResult;
+   string lateEntryResult;
+   string verdict;
+   string audit;
 };
 
 struct TFBrain
@@ -310,6 +362,28 @@ struct TFBrain
    bool rsiBullDiv;
    bool rsiBearDiv;
 
+   double majorHigh;
+   double majorLow;
+   double internalHigh;
+   double internalLow;
+   double equalHighLevel;
+   double equalLowLevel;
+   double buySideLiquidity;
+   double sellSideLiquidity;
+   double sweepHighLevel;
+   double sweepLowLevel;
+   datetime sweepHighTime;
+   datetime sweepLowTime;
+   double sweepHighQuality;
+   double sweepLowQuality;
+   double bosBrokenLevel;
+   double chochBrokenLevel;
+   double mssBrokenLevel;
+   string eventAudit;
+   string liquidityAudit;
+   StructureEvent lastBullEvent;
+   StructureEvent lastBearEvent;
+
    int bullScore;
    int bearScore;
    string notes;
@@ -336,6 +410,12 @@ struct BrainDecision
    double tp;
    double lot;
    double entry;
+   double bid;
+   double ask;
+   double spread;
+   string decisionTF;
+   string buyEntryAudit;
+   string sellEntryAudit;
 };
 
 
@@ -353,6 +433,7 @@ struct PositionKeyMap
    string key;
    string entryReason;
    string managementActions;
+   string closeReasonOverride;
 };
 
 //====================================================================
@@ -540,9 +621,9 @@ void SavePositionMap()
 {
    int h = FileOpen(InpPositionMapFileName, FILE_WRITE|FILE_CSV|FILE_COMMON);
    if(h==INVALID_HANDLE) return;
-   FileWrite(h,"positionId","setupKey","entryReason","managementActions");
+   FileWrite(h,"positionId","setupKey","entryReason","managementActions","closeReasonOverride");
    for(int i=0;i<ArraySize(g_posKeys);i++)
-      FileWrite(h,IntegerToString(g_posKeys[i].positionId),g_posKeys[i].key,g_posKeys[i].entryReason,g_posKeys[i].managementActions);
+      FileWrite(h,IntegerToString(g_posKeys[i].positionId),g_posKeys[i].key,g_posKeys[i].entryReason,g_posKeys[i].managementActions,g_posKeys[i].closeReasonOverride);
    FileClose(h);
 }
 
@@ -551,20 +632,31 @@ void LoadPositionMap()
    ArrayResize(g_posKeys,0);
    int h = FileOpen(InpPositionMapFileName, FILE_READ|FILE_CSV|FILE_COMMON);
    if(h==INVALID_HANDLE) return;
-   if(!FileIsEnding(h)) { FileReadString(h); FileReadString(h); FileReadString(h); FileReadString(h); }
+   if(!FileIsEnding(h))
+   {
+      FileReadString(h); FileReadString(h);
+      if(!FileIsLineEnding(h)) FileReadString(h);
+      if(!FileIsLineEnding(h)) FileReadString(h);
+      if(!FileIsLineEnding(h)) FileReadString(h);
+   }
    while(!FileIsEnding(h))
    {
       string sid = FileReadString(h);
       if(sid=="") break;
       string key = FileReadString(h);
-      string entryReason = FileReadString(h);
-      string actions = FileReadString(h);
+      string entryReason = "";
+      string actions = "";
+      string closeOverride = "";
+      if(!FileIsLineEnding(h)) entryReason = FileReadString(h);
+      if(!FileIsLineEnding(h)) actions = FileReadString(h);
+      if(!FileIsLineEnding(h)) closeOverride = FileReadString(h);
       int n=ArraySize(g_posKeys);
       ArrayResize(g_posKeys,n+1);
       g_posKeys[n].positionId=(long)StringToInteger(sid);
       g_posKeys[n].key=key;
       g_posKeys[n].entryReason=entryReason;
       g_posKeys[n].managementActions=actions;
+      g_posKeys[n].closeReasonOverride=closeOverride;
    }
    FileClose(h);
 }
@@ -581,6 +673,7 @@ void StorePositionKey(long posid, string key)
       g_posKeys[n].key=key;
       g_posKeys[n].entryReason="";
       g_posKeys[n].managementActions="";
+      g_posKeys[n].closeReasonOverride="";
    }
    else g_posKeys[idx].key=key;
    SavePositionMap();
@@ -625,6 +718,21 @@ string ManagementActionsForPosition(long posid)
 {
    int idx=FindPositionKeyIndex(posid);
    if(idx>=0) return g_posKeys[idx].managementActions;
+   return "";
+}
+
+void SetCloseReasonOverride(long posid, string reason)
+{
+   int idx=FindPositionKeyIndex(posid);
+   if(idx<0) return;
+   g_posKeys[idx].closeReasonOverride=reason;
+   SavePositionMap();
+}
+
+string CloseReasonOverrideForPosition(long posid)
+{
+   int idx=FindPositionKeyIndex(posid);
+   if(idx>=0) return g_posKeys[idx].closeReasonOverride;
    return "";
 }
 
@@ -1014,10 +1122,29 @@ void InitZone(Zone &z)
    z.low=0; z.high=0; z.refinedLow=0; z.refinedHigh=0; z.bodyLow=0; z.bodyHigh=0;
    z.sourceOpen=0; z.sourceHigh=0; z.sourceLow=0; z.sourceClose=0;
    z.bodySize=0; z.upperWick=0; z.lowerWick=0; z.wickBodyRatio=0; z.displacementScore=0; z.invalidationLevel=0;
-   z.time=0; z.displacementTime=0; z.direction=0; z.qualityScore=0;
+   z.targetLevel=0; z.obstacleLevel=0;
+   z.time=0; z.displacementTime=0; z.direction=0; z.qualityScore=0; z.tapCount=0;
+   z.sourceEventID=""; z.displacementLink=""; z.targetRelation="";
    z.hasStructureLink=false; z.hasSweepLink=false; z.hasDisplacement=false;
    z.fresh=false; z.mitigated=false; z.invalidated=false; z.tooWide=false; z.noisyWick=false;
    z.wickClass="NONE"; z.structureLink="NONE"; z.freshness="NONE"; z.blockReason=""; z.audit=""; z.name="";
+}
+
+void InitStructureEvent(StructureEvent &e)
+{
+   e.valid=false; e.direction=0; e.eventType="NONE"; e.eventID="";
+   e.level=0; e.brokenLevel=0; e.eventTime=0; e.displacementScore=0; e.closeBackQuality=0; e.audit="";
+}
+
+void InitEntryModelResult(EntryModelResult &r, int direction)
+{
+   r.direction=direction;
+   r.hardBlock=false; r.storyComplete=false; r.zoneOK=false; r.liquidityOK=false; r.structureOK=false;
+   r.displacementOK=false; r.retestOK=false; r.rrOK=false; r.locationOK=false; r.lateEntryOK=false;
+   r.entry=0; r.sl=0; r.tp=0; r.rr=0; r.targetLevel=0; r.obstacleLevel=0;
+   r.blockReasons=""; r.zoneResult=""; r.liquidityResult=""; r.structureResult="";
+   r.displacementResult=""; r.retestResult=""; r.rrTargetResult=""; r.lateEntryResult="";
+   r.verdict="WAIT"; r.audit="";
 }
 
 bool PriceNearZone(double price, Zone &z, double atr, double toleranceATR)
@@ -1074,11 +1201,11 @@ int CountTouchesAfter(ENUM_TIMEFRAMES tf, Zone &z, datetime sourceTime, int dire
 
 void FinalizeOBAudit(ENUM_TIMEFRAMES tf, Zone &z)
 {
-   z.audit = StringFormat("OB[%s,%s] Valid=%s Quality=%d Zone=%.5f-%.5f Refined=%.5f-%.5f Body=%.5f-%.5f SrcOHLC=%.5f/%.5f/%.5f/%.5f BodySize=%.5f UpperWick=%.5f LowerWick=%.5f WickBody=%.2f WickClass=%s DispScore=%.2f StructLink=%s SweepLink=%s Freshness=%s Invalid=%.5f Block=%s",
-                          TFToString(tf), z.direction>0?"BULL":"BEAR", BoolYN(z.valid), z.qualityScore,
+   z.audit = StringFormat("OB[%s,%s] Event=%s Valid=%s Quality=%d Zone=%.5f-%.5f Refined=%.5f-%.5f Body=%.5f-%.5f SrcOHLC=%.5f/%.5f/%.5f/%.5f BodySize=%.5f UpperWick=%.5f LowerWick=%.5f WickBody=%.2f WickClass=%s DispScore=%.2f DispLink=%s StructLink=%s SweepLink=%s Freshness=%s Taps=%d Invalid=%.5f Target=%s Block=%s",
+                          TFToString(tf), z.direction>0?"BULL":"BEAR", z.sourceEventID, BoolYN(z.valid), z.qualityScore,
                           z.low,z.high,z.refinedLow,z.refinedHigh,z.bodyLow,z.bodyHigh,
                           z.sourceOpen,z.sourceHigh,z.sourceLow,z.sourceClose,z.bodySize,z.upperWick,z.lowerWick,z.wickBodyRatio,z.wickClass,
-                          z.displacementScore,z.structureLink,BoolYN(z.hasSweepLink),z.freshness,z.invalidationLevel,z.blockReason);
+                          z.displacementScore,z.displacementLink,z.structureLink,BoolYN(z.hasSweepLink),z.freshness,z.tapCount,z.invalidationLevel,z.targetRelation,z.blockReason);
 }
 
 void DetectFVG(ENUM_TIMEFRAMES tf, TFBrain &b)
@@ -1098,6 +1225,22 @@ void DetectFVG(ENUM_TIMEFRAMES tf, TFBrain &b)
       b.bullFVG.time = r[1].time;
       b.bullFVG.direction = 1;
       b.bullFVG.name = "Bullish FVG";
+      b.bullFVG.refinedLow = b.bullFVG.low + (b.bullFVG.high-b.bullFVG.low)*0.00;
+      b.bullFVG.refinedHigh = b.bullFVG.low + (b.bullFVG.high-b.bullFVG.low)*0.55;
+      b.bullFVG.invalidationLevel = b.bullFVG.low;
+      b.bullFVG.sourceEventID = (b.lastBullEvent.valid ? b.lastBullEvent.eventID : TFToString(tf)+"_BULL_FVG_"+TimeToString(r[1].time,TIME_DATE|TIME_MINUTES));
+      b.bullFVG.displacementScore = (b.atr>0 ? MathAbs(r[2].close-r[2].open)/b.atr : 0);
+      b.bullFVG.hasDisplacement = (b.bullFVG.displacementScore>=InpDisplacementATR);
+      b.bullFVG.hasStructureLink = (b.lastBullEvent.valid || b.bosUp || b.chochUp || b.mssUp);
+      b.bullFVG.hasSweepLink = (b.sweepLow || b.inDiscount);
+      bool invBull=false; b.bullFVG.tapCount=CountTouchesAfter(tf,b.bullFVG,b.bullFVG.time,1,invBull);
+      b.bullFVG.invalidated=invBull; b.bullFVG.mitigated=(b.bullFVG.tapCount>1); b.bullFVG.fresh=(b.bullFVG.tapCount==0 && !invBull);
+      b.bullFVG.freshness = b.bullFVG.invalidated ? "INVALIDATED" : (b.bullFVG.fresh ? "FRESH" : (b.bullFVG.tapCount==1 ? "TAPPED" : "MITIGATED"));
+      b.bullFVG.qualityScore = 30 + (b.bullFVG.hasStructureLink?25:0) + (b.bullFVG.hasSweepLink?15:0) + (b.bullFVG.hasDisplacement?10:0) - (b.bullFVG.mitigated?15:0) - (b.bullFVG.invalidated?40:0);
+      b.bullFVG.targetLevel=b.buySideLiquidity;
+      b.bullFVG.targetRelation=StringFormat("target=%.5f obstacle=%.5f",b.bullFVG.targetLevel,b.bullFVG.obstacleLevel);
+      b.bullFVG.audit=StringFormat("FVG[%s,BULL] Event=%s Valid=%s Quality=%d Zone=%.5f-%.5f Refined=%.5f-%.5f Disp=%.2f Struct=%s Sweep=%s Freshness=%s Taps=%d Target=%s",
+                                   TFToString(tf),b.bullFVG.sourceEventID,BoolYN(b.bullFVG.valid),b.bullFVG.qualityScore,b.bullFVG.low,b.bullFVG.high,b.bullFVG.refinedLow,b.bullFVG.refinedHigh,b.bullFVG.displacementScore,BoolYN(b.bullFVG.hasStructureLink),BoolYN(b.bullFVG.hasSweepLink),b.bullFVG.freshness,b.bullFVG.tapCount,b.bullFVG.targetRelation);
    }
 
    // Bearish FVG: high of recent candle < low of older candle.
@@ -1109,6 +1252,22 @@ void DetectFVG(ENUM_TIMEFRAMES tf, TFBrain &b)
       b.bearFVG.time = r[1].time;
       b.bearFVG.direction = -1;
       b.bearFVG.name = "Bearish FVG";
+      b.bearFVG.refinedLow = b.bearFVG.high - (b.bearFVG.high-b.bearFVG.low)*0.55;
+      b.bearFVG.refinedHigh = b.bearFVG.high;
+      b.bearFVG.invalidationLevel = b.bearFVG.high;
+      b.bearFVG.sourceEventID = (b.lastBearEvent.valid ? b.lastBearEvent.eventID : TFToString(tf)+"_BEAR_FVG_"+TimeToString(r[1].time,TIME_DATE|TIME_MINUTES));
+      b.bearFVG.displacementScore = (b.atr>0 ? MathAbs(r[2].close-r[2].open)/b.atr : 0);
+      b.bearFVG.hasDisplacement = (b.bearFVG.displacementScore>=InpDisplacementATR);
+      b.bearFVG.hasStructureLink = (b.lastBearEvent.valid || b.bosDown || b.chochDown || b.mssDown);
+      b.bearFVG.hasSweepLink = (b.sweepHigh || b.inPremium);
+      bool invBear=false; b.bearFVG.tapCount=CountTouchesAfter(tf,b.bearFVG,b.bearFVG.time,-1,invBear);
+      b.bearFVG.invalidated=invBear; b.bearFVG.mitigated=(b.bearFVG.tapCount>1); b.bearFVG.fresh=(b.bearFVG.tapCount==0 && !invBear);
+      b.bearFVG.freshness = b.bearFVG.invalidated ? "INVALIDATED" : (b.bearFVG.fresh ? "FRESH" : (b.bearFVG.tapCount==1 ? "TAPPED" : "MITIGATED"));
+      b.bearFVG.qualityScore = 30 + (b.bearFVG.hasStructureLink?25:0) + (b.bearFVG.hasSweepLink?15:0) + (b.bearFVG.hasDisplacement?10:0) - (b.bearFVG.mitigated?15:0) - (b.bearFVG.invalidated?40:0);
+      b.bearFVG.targetLevel=b.sellSideLiquidity;
+      b.bearFVG.targetRelation=StringFormat("target=%.5f obstacle=%.5f",b.bearFVG.targetLevel,b.bearFVG.obstacleLevel);
+      b.bearFVG.audit=StringFormat("FVG[%s,BEAR] Event=%s Valid=%s Quality=%d Zone=%.5f-%.5f Refined=%.5f-%.5f Disp=%.2f Struct=%s Sweep=%s Freshness=%s Taps=%d Target=%s",
+                                   TFToString(tf),b.bearFVG.sourceEventID,BoolYN(b.bearFVG.valid),b.bearFVG.qualityScore,b.bearFVG.low,b.bearFVG.high,b.bearFVG.refinedLow,b.bearFVG.refinedHigh,b.bearFVG.displacementScore,BoolYN(b.bearFVG.hasStructureLink),BoolYN(b.bearFVG.hasSweepLink),b.bearFVG.freshness,b.bearFVG.tapCount,b.bearFVG.targetRelation);
    }
 }
 
@@ -1143,9 +1302,13 @@ void BuildOrderBlockCandidate(ENUM_TIMEFRAMES tf, TFBrain &b, MqlRates &r[], int
       z.invalidationLevel=src.low;
       z.hasStructureLink = (disp.close > b.swings.lastHigh || b.bosUp || b.chochUp || b.mssUp || disp.high > b.swings.lastHigh);
       z.structureLink = (b.mssUp?"MSS_UP":(b.chochUp?"CHOCH_UP":(b.bosUp?"BOS_UP":(disp.close>b.swings.lastHigh?"DISP_BROKE_SWING_HIGH":"NONE"))));
+      z.sourceEventID = (b.lastBullEvent.valid ? b.lastBullEvent.eventID : TFToString(tf)+"_BULL_DISP_"+TimeToString(disp.time,TIME_DATE|TIME_MINUTES));
+      z.displacementLink = StringFormat("dispTime=%s dispScore=%.2f broken=%.5f",TimeToString(disp.time,TIME_DATE|TIME_MINUTES),z.displacementScore,b.lastBullEvent.brokenLevel);
       z.hasSweepLink = b.sweepLow || (src.low < b.swings.lastLow && src.close > b.swings.lastLow) || b.inDiscount;
       z.refinedLow = z.low + (z.high-z.low)*0.00;
       z.refinedHigh = z.low + (z.high-z.low)*0.55; // lower half of bullish OB only
+      z.targetLevel = b.buySideLiquidity;
+      z.obstacleLevel = b.bearOB.valid ? b.bearOB.low : 0;
    }
    else
    {
@@ -1155,9 +1318,13 @@ void BuildOrderBlockCandidate(ENUM_TIMEFRAMES tf, TFBrain &b, MqlRates &r[], int
       z.invalidationLevel=src.high;
       z.hasStructureLink = (disp.close < b.swings.lastLow || b.bosDown || b.chochDown || b.mssDown || disp.low < b.swings.lastLow);
       z.structureLink = (b.mssDown?"MSS_DOWN":(b.chochDown?"CHOCH_DOWN":(b.bosDown?"BOS_DOWN":(disp.close<b.swings.lastLow?"DISP_BROKE_SWING_LOW":"NONE"))));
+      z.sourceEventID = (b.lastBearEvent.valid ? b.lastBearEvent.eventID : TFToString(tf)+"_BEAR_DISP_"+TimeToString(disp.time,TIME_DATE|TIME_MINUTES));
+      z.displacementLink = StringFormat("dispTime=%s dispScore=%.2f broken=%.5f",TimeToString(disp.time,TIME_DATE|TIME_MINUTES),z.displacementScore,b.lastBearEvent.brokenLevel);
       z.hasSweepLink = b.sweepHigh || (src.high > b.swings.lastHigh && src.close < b.swings.lastHigh) || b.inPremium;
       z.refinedLow = z.high - (z.high-z.low)*0.55; // upper half of bearish OB only
       z.refinedHigh = z.high;
+      z.targetLevel = b.sellSideLiquidity;
+      z.obstacleLevel = b.bullOB.valid ? b.bullOB.high : 0;
    }
 
    double width = z.high-z.low;
@@ -1167,7 +1334,9 @@ void BuildOrderBlockCandidate(ENUM_TIMEFRAMES tf, TFBrain &b, MqlRates &r[], int
    z.mitigated = (touches>1);
    z.invalidated = invalid;
    z.fresh = (touches==0 && !invalid);
+   z.tapCount = touches;
    z.freshness = z.invalidated ? "INVALIDATED" : (z.fresh ? "FRESH" : (touches==1 ? "TAPPED" : "MITIGATED"));
+   z.targetRelation = StringFormat("target=%.5f obstacle=%.5f",z.targetLevel,z.obstacleLevel);
 
    z.qualityScore = 0;
    if(z.hasDisplacement) z.qualityScore += 20;
@@ -1278,6 +1447,90 @@ bool EqualLowsDetected(ENUM_TIMEFRAMES tf, double atr)
    return false;
 }
 
+double FindEqualLiquidityLevel(ENUM_TIMEFRAMES tf, double atr, bool highs)
+{
+   if(atr<=0) return 0;
+   MqlRates r[];
+   if(!CopyRatesSafe(tf, 80, r)) return 0;
+   double tol = atr * InpEqualLiquidityATR;
+   for(int i=2;i<30;i++)
+   {
+      for(int j=i+3;j<60;j++)
+      {
+         double a = highs ? r[i].high : r[i].low;
+         double b = highs ? r[j].high : r[j].low;
+         if(MathAbs(a-b) <= tol) return (a+b)/2.0;
+      }
+   }
+   return 0;
+}
+
+void BuildStructureLiquidityEvents(ENUM_TIMEFRAMES tf, TFBrain &b)
+{
+   b.majorHigh = b.swings.prevHigh>0 ? MathMax(b.swings.lastHigh,b.swings.prevHigh) : b.swings.lastHigh;
+   b.majorLow  = b.swings.prevLow>0 ? MathMin(b.swings.lastLow,b.swings.prevLow) : b.swings.lastLow;
+   b.internalHigh = b.swings.lastHigh;
+   b.internalLow = b.swings.lastLow;
+   b.equalHighLevel = FindEqualLiquidityLevel(tf,b.atr,true);
+   b.equalLowLevel = FindEqualLiquidityLevel(tf,b.atr,false);
+   b.buySideLiquidity = (b.equalHighLevel>0 ? b.equalHighLevel : b.internalHigh);
+   b.sellSideLiquidity = (b.equalLowLevel>0 ? b.equalLowLevel : b.internalLow);
+
+   if(b.sweepHigh)
+   {
+      b.sweepHighLevel=b.swings.lastHigh;
+      b.sweepHighTime=iTime(_Symbol,tf,1);
+      b.sweepHighQuality = (b.atr>0 ? MathAbs(b.high1-b.close1)/b.atr : 0);
+   }
+   if(b.sweepLow)
+   {
+      b.sweepLowLevel=b.swings.lastLow;
+      b.sweepLowTime=iTime(_Symbol,tf,1);
+      b.sweepLowQuality = (b.atr>0 ? MathAbs(b.close1-b.low1)/b.atr : 0);
+   }
+
+   if(b.bosUp) b.bosBrokenLevel=b.swings.lastHigh;
+   if(b.bosDown) b.bosBrokenLevel=b.swings.lastLow;
+   if(b.chochUp) b.chochBrokenLevel=b.swings.lastHigh;
+   if(b.chochDown) b.chochBrokenLevel=b.swings.lastLow;
+   if(b.mssUp) b.mssBrokenLevel=(b.swings.validHigh ? b.swings.lastHigh : b.high2);
+   if(b.mssDown) b.mssBrokenLevel=(b.swings.validLow ? b.swings.lastLow : b.low2);
+
+   InitStructureEvent(b.lastBullEvent);
+   InitStructureEvent(b.lastBearEvent);
+   if(b.bosUp || b.chochUp || b.mssUp)
+   {
+      b.lastBullEvent.valid=true;
+      b.lastBullEvent.direction=1;
+      b.lastBullEvent.eventType = b.mssUp ? "MSS_UP" : (b.chochUp ? "CHOCH_UP" : "BOS_UP");
+      b.lastBullEvent.eventID = TFToString(tf)+"_"+b.lastBullEvent.eventType+"_"+TimeToString(iTime(_Symbol,tf,1),TIME_DATE|TIME_MINUTES);
+      b.lastBullEvent.level=b.high1;
+      b.lastBullEvent.brokenLevel=(b.mssBrokenLevel>0?b.mssBrokenLevel:(b.chochBrokenLevel>0?b.chochBrokenLevel:b.bosBrokenLevel));
+      b.lastBullEvent.eventTime=iTime(_Symbol,tf,1);
+      b.lastBullEvent.displacementScore=(b.atr>0?MathAbs(b.close1-b.open1)/b.atr:0);
+      b.lastBullEvent.closeBackQuality=b.sweepLowQuality;
+      b.lastBullEvent.audit=StringFormat("%s broken=%.5f disp=%.2f sweepLow=%.5f quality=%.2f",b.lastBullEvent.eventID,b.lastBullEvent.brokenLevel,b.lastBullEvent.displacementScore,b.sweepLowLevel,b.sweepLowQuality);
+   }
+   if(b.bosDown || b.chochDown || b.mssDown)
+   {
+      b.lastBearEvent.valid=true;
+      b.lastBearEvent.direction=-1;
+      b.lastBearEvent.eventType = b.mssDown ? "MSS_DOWN" : (b.chochDown ? "CHOCH_DOWN" : "BOS_DOWN");
+      b.lastBearEvent.eventID = TFToString(tf)+"_"+b.lastBearEvent.eventType+"_"+TimeToString(iTime(_Symbol,tf,1),TIME_DATE|TIME_MINUTES);
+      b.lastBearEvent.level=b.low1;
+      b.lastBearEvent.brokenLevel=(b.mssBrokenLevel>0?b.mssBrokenLevel:(b.chochBrokenLevel>0?b.chochBrokenLevel:b.bosBrokenLevel));
+      b.lastBearEvent.eventTime=iTime(_Symbol,tf,1);
+      b.lastBearEvent.displacementScore=(b.atr>0?MathAbs(b.close1-b.open1)/b.atr:0);
+      b.lastBearEvent.closeBackQuality=b.sweepHighQuality;
+      b.lastBearEvent.audit=StringFormat("%s broken=%.5f disp=%.2f sweepHigh=%.5f quality=%.2f",b.lastBearEvent.eventID,b.lastBearEvent.brokenLevel,b.lastBearEvent.displacementScore,b.sweepHighLevel,b.sweepHighQuality);
+   }
+
+   b.liquidityAudit = StringFormat("Liquidity[%s] BSL=%.5f SSL=%.5f EQH=%.5f EQL=%.5f SweepH=%.5f q=%.2f SweepL=%.5f q=%.2f",
+                                   TFToString(tf),b.buySideLiquidity,b.sellSideLiquidity,b.equalHighLevel,b.equalLowLevel,b.sweepHighLevel,b.sweepHighQuality,b.sweepLowLevel,b.sweepLowQuality);
+   b.eventAudit = StringFormat("Events[%s] pattern=%s BOS=%.5f CHOCH=%.5f MSS=%.5f BullEvent={%s} BearEvent={%s}",
+                               TFToString(tf),b.swings.pattern,b.bosBrokenLevel,b.chochBrokenLevel,b.mssBrokenLevel,b.lastBullEvent.audit,b.lastBearEvent.audit);
+}
+
 bool SimpleBullishDivergence(ENUM_TIMEFRAMES tf, double atr)
 {
    if(atr<=0) return false;
@@ -1331,6 +1584,12 @@ void ResetTFBrain(TFBrain &b)
    b.priceInBullOBRefined=false; b.priceInBearOBRefined=false;
    b.wyckoffSpring=false; b.wyckoffUpthrust=false; b.accumulationHint=false; b.distributionHint=false;
    b.rsiBullishExhaustion=false; b.rsiBearishExhaustion=false; b.rsiBullDiv=false; b.rsiBearDiv=false;
+   b.majorHigh=0; b.majorLow=0; b.internalHigh=0; b.internalLow=0;
+   b.equalHighLevel=0; b.equalLowLevel=0; b.buySideLiquidity=0; b.sellSideLiquidity=0;
+   b.sweepHighLevel=0; b.sweepLowLevel=0; b.sweepHighTime=0; b.sweepLowTime=0;
+   b.sweepHighQuality=0; b.sweepLowQuality=0; b.bosBrokenLevel=0; b.chochBrokenLevel=0; b.mssBrokenLevel=0;
+   b.eventAudit=""; b.liquidityAudit="";
+   InitStructureEvent(b.lastBullEvent); InitStructureEvent(b.lastBearEvent);
    b.bullScore=0; b.bearScore=0; b.notes="";
 }
 
@@ -1410,6 +1669,7 @@ bool BuildTFBrain(ENUM_TIMEFRAMES tf, string name, TFBrain &b)
    b.chochDown = (b.finalBias>0 && b.bosDown);
    b.mssUp = (b.sweepLow && b.displacementUp && (b.close1 > b.high2 || b.bosUp));
    b.mssDown = (b.sweepHigh && b.displacementDown && (b.close1 < b.low2 || b.bosDown));
+   BuildStructureLiquidityEvents(tf,b);
 
    // Premium / Discount based on current relevant range.
    if(b.swings.validHigh && b.swings.validLow)
@@ -1588,43 +1848,113 @@ bool HTFConflictBlocksDirection(int dir, TFBrain &h4, TFBrain &h1, TFBrain &m15,
    return false;
 }
 
-bool EntryStoryComplete(int dir, TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d, string &why)
+bool BuildPreEntryRiskModel(int dir, TFBrain &h1, TFBrain &m15, EntryModelResult &r, string &why)
 {
    why="";
-   if(d.state==STATE_UNKNOWN)
+   double atr = MathMax(m15.atr, PointValue()*50);
+   r.entry = (dir>0 ? CurrentAsk() : CurrentBid());
+   double baseSL=0;
+   if(dir>0)
    {
-      bool independent = (dir>0 && (m15.sweepLow || h1.sweepLow) && (m15.displacementUp || h1.displacementUp) && (m15.bosUp || m15.chochUp || m15.mssUp || h1.chochUp || h1.mssUp)) ||
-                         (dir<0 && (m15.sweepHigh || h1.sweepHigh) && (m15.displacementDown || h1.displacementDown) && (m15.bosDown || m15.chochDown || m15.mssDown || h1.chochDown || h1.mssDown));
-      if(!independent) SoftAdd(why,"State Unknown and no complete independent setup");
+      if(m15.swings.validLow) baseSL=m15.swings.lastLow;
+      if(m15.bullOB.valid) baseSL=(baseSL==0 ? m15.bullOB.invalidationLevel : MathMin(baseSL,m15.bullOB.invalidationLevel));
+      if(m15.bullFVG.valid) baseSL=(baseSL==0 ? m15.bullFVG.invalidationLevel : MathMin(baseSL,m15.bullFVG.invalidationLevel));
+      if(baseSL<=0 || baseSL>=r.entry) { SoftAdd(why,"BUY invalidation not logical"); return false; }
+      r.sl=NormalizePrice(baseSL-atr*InpSL_ATR_Buffer);
+      r.targetLevel=0;
+      if(m15.buySideLiquidity>r.entry) r.targetLevel=m15.buySideLiquidity;
+      if(h1.buySideLiquidity>r.entry) r.targetLevel=MathMax(r.targetLevel,h1.buySideLiquidity);
+      if(r.targetLevel<=r.entry && m15.swings.validHigh && m15.swings.lastHigh>r.entry) r.targetLevel=m15.swings.lastHigh;
+      if(r.targetLevel<=r.entry) { SoftAdd(why,"No buy-side target liquidity above entry"); return false; }
+      r.obstacleLevel=(m15.bearOB.valid && m15.bearOB.low>r.entry ? m15.bearOB.low : 0);
+      if(r.obstacleLevel>0 && r.obstacleLevel<r.targetLevel) r.tp=NormalizePrice(r.obstacleLevel);
+      else r.tp=NormalizePrice(r.targetLevel);
+   }
+   else
+   {
+      if(m15.swings.validHigh) baseSL=m15.swings.lastHigh;
+      if(m15.bearOB.valid) baseSL=(baseSL==0 ? m15.bearOB.invalidationLevel : MathMax(baseSL,m15.bearOB.invalidationLevel));
+      if(m15.bearFVG.valid) baseSL=(baseSL==0 ? m15.bearFVG.invalidationLevel : MathMax(baseSL,m15.bearFVG.invalidationLevel));
+      if(baseSL<=0 || baseSL<=r.entry) { SoftAdd(why,"SELL invalidation not logical"); return false; }
+      r.sl=NormalizePrice(baseSL+atr*InpSL_ATR_Buffer);
+      r.targetLevel=0;
+      if(m15.sellSideLiquidity<r.entry && m15.sellSideLiquidity>0) r.targetLevel=m15.sellSideLiquidity;
+      if(h1.sellSideLiquidity<r.entry && h1.sellSideLiquidity>0) r.targetLevel=(r.targetLevel==0 ? h1.sellSideLiquidity : MathMin(r.targetLevel,h1.sellSideLiquidity));
+      if((r.targetLevel<=0 || r.targetLevel>=r.entry) && m15.swings.validLow && m15.swings.lastLow<r.entry) r.targetLevel=m15.swings.lastLow;
+      if(r.targetLevel<=0 || r.targetLevel>=r.entry) { SoftAdd(why,"No sell-side target liquidity below entry"); return false; }
+      r.obstacleLevel=(m15.bullOB.valid && m15.bullOB.high<r.entry ? m15.bullOB.high : 0);
+      if(r.obstacleLevel>0 && r.obstacleLevel>r.targetLevel) r.tp=NormalizePrice(r.obstacleLevel);
+      else r.tp=NormalizePrice(r.targetLevel);
    }
 
+   double risk=MathAbs(r.entry-r.sl);
+   double reward=MathAbs(r.tp-r.entry);
+   if(risk<=PointValue()*5) { SoftAdd(why,"Risk distance invalid/tiny"); return false; }
+   r.rr=reward/risk;
+   if(r.rr < InpMinRRSoft) { SoftAdd(why,StringFormat("RR %.2f below minimum %.2f",r.rr,InpMinRRSoft)); return false; }
+   string stopWhy;
+   ENUM_BRAIN_DECISION d=(dir>0 ? DECISION_BUY : DECISION_SELL);
+   if(!StopsOK(d,r.entry,r.sl,r.tp,stopWhy)) { SoftAdd(why,stopWhy); return false; }
+   return true;
+}
+
+void EvaluateEntryModel(int dir, TFBrain &h4, TFBrain &h1, TFBrain &m15, ENUM_BRAIN_STATE state, EntryModelResult &r)
+{
+   InitEntryModelResult(r,dir);
+   Zone z; Zone fvg;
+   if(dir>0) { z=m15.bullOB; fvg=m15.bullFVG; }
+   else { z=m15.bearOB; fvg=m15.bearFVG; }
+   bool nearOB=(dir>0 ? m15.priceNearBullOB : m15.priceNearBearOB);
+   bool nearFVG=(dir>0 ? m15.priceNearBullFVG : m15.priceNearBearFVG);
+   bool refined=(dir>0 ? m15.priceInBullOBRefined : m15.priceInBearOBRefined);
    string conflictWhy="";
-   if(HTFConflictBlocksDirection(dir,h4,h1,m15,d.state,conflictWhy)) SoftAdd(why,conflictWhy);
+   bool conflict=HTFConflictBlocksDirection(dir,h4,h1,m15,state,conflictWhy);
 
-   Zone z;
-   if(dir>0) z = m15.bullOB;
-   else z = m15.bearOB;
-   bool nearOB = (dir>0 ? m15.priceNearBullOB : m15.priceNearBearOB);
-   bool refined = (dir>0 ? m15.priceInBullOBRefined : m15.priceInBearOBRefined);
-   bool nearFVG = (dir>0 ? m15.priceNearBullFVG : m15.priceNearBearFVG);
-   bool zoneOK = (nearOB && z.valid && refined) || nearFVG;
-   bool sweepOK = (dir>0 ? (m15.sweepLow || h1.sweepLow || z.hasSweepLink) : (m15.sweepHigh || h1.sweepHigh || z.hasSweepLink));
-   bool dispOK = (dir>0 ? (m15.displacementUp || h1.displacementUp || z.hasDisplacement) : (m15.displacementDown || h1.displacementDown || z.hasDisplacement));
-   bool structOK = (dir>0 ? (m15.bosUp || m15.chochUp || m15.mssUp || h1.chochUp || h1.mssUp || z.hasStructureLink) :
-                            (m15.bosDown || m15.chochDown || m15.mssDown || h1.chochDown || h1.mssDown || z.hasStructureLink));
-   bool locationOK = (dir>0 ? (m15.inDiscount || h1.inDiscount || z.hasSweepLink) : (m15.inPremium || h1.inPremium || z.hasSweepLink));
+   bool fvgUsable = nearFVG && fvg.valid && fvg.qualityScore>=45 && !fvg.invalidated && !fvg.mitigated;
+   bool obUsable = nearOB && z.valid && refined;
+   r.zoneOK = (obUsable || fvgUsable);
+   r.retestOK = r.zoneOK;
+   r.liquidityOK = (dir>0 ? (m15.sweepLow || h1.sweepLow || z.hasSweepLink || fvg.hasSweepLink) : (m15.sweepHigh || h1.sweepHigh || z.hasSweepLink || fvg.hasSweepLink));
+   r.displacementOK = (dir>0 ? (m15.displacementUp || h1.displacementUp || z.hasDisplacement || fvg.hasDisplacement) : (m15.displacementDown || h1.displacementDown || z.hasDisplacement || fvg.hasDisplacement));
+   r.structureOK = (dir>0 ? (m15.lastBullEvent.valid || h1.lastBullEvent.valid || z.hasStructureLink || fvg.hasStructureLink) : (m15.lastBearEvent.valid || h1.lastBearEvent.valid || z.hasStructureLink || fvg.hasStructureLink));
+   r.locationOK = (dir>0 ? (m15.inDiscount || h1.inDiscount || z.hasSweepLink || fvg.hasSweepLink) : (m15.inPremium || h1.inPremium || z.hasSweepLink || fvg.hasSweepLink));
+   double distFromEMA = (m15.atr>0 ? MathAbs(m15.close1-m15.emaFast)/m15.atr : 0);
+   r.lateEntryOK = (distFromEMA <= 2.40 && !m15.nearEquilibrium);
 
-   if(!zoneOK) SoftAdd(why,dir>0?"BUY lacks valid refined OB/FVG retest":"SELL lacks valid refined OB/FVG retest");
-   if(nearOB && !z.valid) SoftAdd(why,"Nearest OB rejected: "+z.blockReason);
-   if(nearOB && z.valid && !refined) SoftAdd(why,dir>0?"BUY is not in lower/refined bullish OB entry zone":"SELL is not in upper/refined bearish OB entry zone");
-   if(!sweepOK) SoftAdd(why,"No liquidity sweep or valid liquidity context");
-   if(!dispOK) SoftAdd(why,"No meaningful displacement");
-   if(!structOK) SoftAdd(why,"No BOS/CHOCH/MSS or swing-break structure link");
-   if(!locationOK) SoftAdd(why,"Not in logical premium/discount demand/supply location");
+   if(!r.zoneOK) SoftAdd(r.blockReasons,dir>0?"BUY zone/retest incomplete":"SELL zone/retest incomplete");
+   if(nearOB && !z.valid) SoftAdd(r.blockReasons,"OB rejected: "+z.blockReason);
+   if(nearOB && z.valid && !refined) SoftAdd(r.blockReasons,"OB touched outside refined entry zone");
+   if(!r.liquidityOK) SoftAdd(r.blockReasons,"Liquidity/sweep context missing");
+   if(!r.displacementOK) SoftAdd(r.blockReasons,"Displacement missing");
+   if(!r.structureOK) SoftAdd(r.blockReasons,"Structure event missing");
+   if(!r.locationOK) SoftAdd(r.blockReasons,"Premium/discount or logical location missing");
+   if(!r.lateEntryOK) SoftAdd(r.blockReasons,"Late entry/no-man's-land risk");
+   if(conflict) SoftAdd(r.blockReasons,conflictWhy);
 
-   d.entryModel = StringFormat("%s Story zone=%s sweep=%s displacement=%s structure=%s location=%s refined=%s OBQuality=%d",
-                               dir>0?"BUY":"SELL",BoolYN(zoneOK),BoolYN(sweepOK),BoolYN(dispOK),BoolYN(structOK),BoolYN(locationOK),BoolYN(refined),z.qualityScore);
-   return (why=="");
+   string riskWhy="";
+   r.rrOK = BuildPreEntryRiskModel(dir,h1,m15,r,riskWhy);
+   if(!r.rrOK) SoftAdd(r.blockReasons,"RR/target invalid: "+riskWhy);
+
+   if(state==STATE_UNKNOWN)
+   {
+      bool independent = (dir>0 && r.liquidityOK && r.displacementOK && r.structureOK) || (dir<0 && r.liquidityOK && r.displacementOK && r.structureOK);
+      if(!independent) SoftAdd(r.blockReasons,"State Unknown without independent complete setup");
+   }
+
+   r.zoneResult=StringFormat("zoneOK=%s nearOB=%s obValid=%s obQ=%d refined=%s nearFVG=%s fvgQ=%d",
+                             BoolYN(r.zoneOK),BoolYN(nearOB),BoolYN(z.valid),z.qualityScore,BoolYN(refined),BoolYN(nearFVG),fvg.qualityScore);
+   r.liquidityResult=StringFormat("liqOK=%s %s",BoolYN(r.liquidityOK),m15.liquidityAudit);
+   r.structureResult=StringFormat("structOK=%s M15{%s} H1Bull{%s} H1Bear{%s}",BoolYN(r.structureOK),m15.eventAudit,h1.lastBullEvent.audit,h1.lastBearEvent.audit);
+   r.displacementResult=StringFormat("dispOK=%s M15Up=%s M15Down=%s",BoolYN(r.displacementOK),BoolYN(m15.displacementUp),BoolYN(m15.displacementDown));
+   r.retestResult=StringFormat("retestOK=%s obAudit={%s} fvgAudit={%s}",BoolYN(r.retestOK),z.audit,fvg.audit);
+   r.rrTargetResult=StringFormat("rrOK=%s entry=%.5f sl=%.5f tp=%.5f rr=%.2f target=%.5f obstacle=%.5f",BoolYN(r.rrOK),r.entry,r.sl,r.tp,r.rr,r.targetLevel,r.obstacleLevel);
+   r.lateEntryResult=StringFormat("lateOK=%s distEMA_ATR=%.2f nearEQ=%s",BoolYN(r.lateEntryOK),distFromEMA,BoolYN(m15.nearEquilibrium));
+   r.hardBlock = (r.blockReasons!="");
+   r.storyComplete = (!r.hardBlock && r.zoneOK && r.liquidityOK && r.structureOK && r.displacementOK && r.retestOK && r.rrOK && r.locationOK && r.lateEntryOK);
+   r.verdict = r.storyComplete ? (dir>0?"BUY_READY":"SELL_READY") : "WAIT";
+   r.audit = StringFormat("%s verdict=%s hardBlock=%s blocks=%s | %s | %s | %s | %s | %s | %s | %s",
+                          dir>0?"BUY_MODEL":"SELL_MODEL",r.verdict,BoolYN(r.hardBlock),r.blockReasons,
+                          r.zoneResult,r.liquidityResult,r.structureResult,r.displacementResult,r.retestResult,r.rrTargetResult,r.lateEntryResult);
 }
 
 void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
@@ -1643,6 +1973,8 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
    d.setupKey="";
    d.learningBias=0;
    d.sl=0; d.tp=0; d.lot=NormalizeLot(FixedLotBySymbol()); d.entry=CurrentMid();
+   d.bid=CurrentBid(); d.ask=CurrentAsk(); d.spread=d.ask-d.bid; d.decisionTF=TFToString(InpETF);
+   d.buyEntryAudit=""; d.sellEntryAudit="";
 
    // Hard integrity checks first.
    if(!h4.dataOK || !h1.dataOK || !m15.dataOK)
@@ -1759,74 +2091,51 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
    int buyThreshold = (d.state==STATE_REVERSAL_CONFIRMED_BULL ? InpReversalMinScore : InpEntryMinScore);
    int sellThreshold = (d.state==STATE_REVERSAL_CONFIRMED_BEAR ? InpReversalMinScore : InpEntryMinScore);
 
-   string buyWhy="", sellWhy="";
-   bool buyStory = EntryStoryComplete(1,h4,h1,m15,d,buyWhy);
-   bool sellStory = EntryStoryComplete(-1,h4,h1,m15,d,sellWhy);
-   if(!buyStory) { d.blockBuy=true; SoftAdd(d.waitReason,"BuySkip="+buyWhy); }
-   if(!sellStory) { d.blockSell=true; SoftAdd(d.waitReason,"SellSkip="+sellWhy); }
+   EntryModelResult buyModel,sellModel;
+   EvaluateEntryModel(1,h4,h1,m15,d.state,buyModel);
+   EvaluateEntryModel(-1,h4,h1,m15,d.state,sellModel);
+   d.buyEntryAudit=buyModel.audit;
+   d.sellEntryAudit=sellModel.audit;
+   d.bid=CurrentBid();
+   d.ask=CurrentAsk();
+   d.spread=d.ask-d.bid;
+   d.decisionTF=TFToString(InpETF);
 
-   d.obAudit = "M15 " + m15.bullOB.audit + " || " + m15.bearOB.audit;
-   d.audit = StringFormat("H4[%s] H1[%s] M15[%s] | %s | OB_AUDIT=%s",
-                          h4.notes,h1.notes,m15.notes,d.entryModel,d.obAudit);
+   if(!buyModel.storyComplete) { d.blockBuy=true; SoftAdd(d.waitReason,"BuySkip="+buyModel.blockReasons); }
+   if(!sellModel.storyComplete) { d.blockSell=true; SoftAdd(d.waitReason,"SellSkip="+sellModel.blockReasons); }
 
-   bool buyReady = (!d.blockBuy && d.buyScore >= buyThreshold && d.buyScore > d.sellScore+7);
-   bool sellReady = (!d.blockSell && d.sellScore >= sellThreshold && d.sellScore > d.buyScore+7);
+   d.obAudit = "H4_OB{" + h4.bullOB.audit + " || " + h4.bearOB.audit + "} H1_OB{" + h1.bullOB.audit + " || " + h1.bearOB.audit + "} M15_OB{" + m15.bullOB.audit + " || " + m15.bearOB.audit + "} FVG{" + m15.bullFVG.audit + " || " + m15.bearFVG.audit + "}";
+   d.reversalAudit = StringFormat("State=%s M15Bull{%s} M15Bear{%s} H1Bull{%s} H1Bear{%s}",StateToString(d.state),m15.lastBullEvent.audit,m15.lastBearEvent.audit,h1.lastBullEvent.audit,h1.lastBearEvent.audit);
+   d.audit = StringFormat("Bid=%.5f Ask=%.5f Spread=%.5f TF=%s H4[%s] H1[%s] M15[%s] Liquidity{%s} Events{%s} BUY{%s} SELL{%s} OB_FVG_AUDIT=%s",
+                          d.bid,d.ask,d.spread,d.decisionTF,h4.notes,h1.notes,m15.notes,m15.liquidityAudit,m15.eventAudit,buyModel.audit,sellModel.audit,d.obAudit);
 
-   if(buyReady) d.decision = DECISION_BUY;
-   else if(sellReady) d.decision = DECISION_SELL;
+   bool buyReady = (!d.blockBuy && buyModel.storyComplete && d.buyScore >= buyThreshold && d.buyScore > d.sellScore+7);
+   bool sellReady = (!d.blockSell && sellModel.storyComplete && d.sellScore >= sellThreshold && d.sellScore > d.buyScore+7);
+
+   if(buyReady)
+   {
+      d.decision = DECISION_BUY;
+      d.entryModel=buyModel.audit;
+      d.entry=buyModel.entry; d.sl=buyModel.sl; d.tp=buyModel.tp;
+      SoftAdd(d.reason,StringFormat("BUY entry model passed RR %.2f target %.5f",buyModel.rr,buyModel.targetLevel));
+   }
+   else if(sellReady)
+   {
+      d.decision = DECISION_SELL;
+      d.entryModel=sellModel.audit;
+      d.entry=sellModel.entry; d.sl=sellModel.sl; d.tp=sellModel.tp;
+      SoftAdd(d.reason,StringFormat("SELL entry model passed RR %.2f target %.5f",sellModel.rr,sellModel.targetLevel));
+   }
    else d.decision = DECISION_WAIT;
-
-   if(d.decision==DECISION_BUY) EntryStoryComplete(1,h4,h1,m15,d,buyWhy);
-   if(d.decision==DECISION_SELL) EntryStoryComplete(-1,h4,h1,m15,d,sellWhy);
-   if(d.decision==DECISION_BUY || d.decision==DECISION_SELL)
-      d.audit = StringFormat("H4[%s] H1[%s] M15[%s] | %s | OB_AUDIT=%s",
-                             h4.notes,h1.notes,m15.notes,d.entryModel,d.obAudit);
 
    if(d.decision==DECISION_WAIT)
    {
-      if(d.reason=="") d.reason="Scores not strong/clean enough";
+      if(d.reason=="") d.reason="Scores/story not strong/clean enough";
       if(d.waitReason!="") SoftAdd(d.reason,d.waitReason);
       return;
    }
 
-   // Compute SL/TP only after decision.
-   double entry = (d.decision==DECISION_BUY ? CurrentAsk() : CurrentBid());
-   d.entry=entry;
-   d.sl = 0;
-   d.tp = 0;
-
-   double atr = MathMax(m15.atr, PointValue()*50);
-   if(d.decision==DECISION_BUY)
-   {
-      double baseSL = 0;
-      if(m15.swings.validLow) baseSL = m15.swings.lastLow;
-      if(m15.bullOB.valid) baseSL = (baseSL==0 ? m15.bullOB.invalidationLevel : MathMin(baseSL,m15.bullOB.invalidationLevel));
-      if(baseSL<=0 || baseSL>=entry) baseSL = entry - atr*1.4;
-      d.sl = NormalizePrice(baseSL - atr*InpSL_ATR_Buffer);
-
-      double target = 0;
-      if(m15.swings.validHigh && m15.swings.lastHigh>entry) target=m15.swings.lastHigh;
-      if(h1.swings.validHigh && h1.swings.lastHigh>entry) target=MathMax(target,h1.swings.lastHigh);
-      double rrTP = entry + (entry-d.sl)*InpDefaultRR;
-      d.tp = NormalizePrice(MathMax(target,rrTP));
-      SoftAdd(d.reason,"SL under structure/OB with ATR buffer; TP to liquidity/RR");
-   }
-   if(d.decision==DECISION_SELL)
-   {
-      double baseSL = 0;
-      if(m15.swings.validHigh) baseSL = m15.swings.lastHigh;
-      if(m15.bearOB.valid) baseSL = (baseSL==0 ? m15.bearOB.invalidationLevel : MathMax(baseSL,m15.bearOB.invalidationLevel));
-      if(baseSL<=0 || baseSL<=entry) baseSL = entry + atr*1.4;
-      d.sl = NormalizePrice(baseSL + atr*InpSL_ATR_Buffer);
-
-      double target = 0;
-      if(m15.swings.validLow && m15.swings.lastLow<entry) target=m15.swings.lastLow;
-      if(h1.swings.validLow && h1.swings.lastLow<entry) target=(target==0 ? h1.swings.lastLow : MathMin(target,h1.swings.lastLow));
-      double rrTP = entry - (d.sl-entry)*InpDefaultRR;
-      if(target==0) target=rrTP;
-      d.tp = NormalizePrice(MathMin(target,rrTP));
-      SoftAdd(d.reason,"SL above structure/OB with ATR buffer; TP to liquidity/RR");
-   }
+   SoftAdd(d.reason,"SL/TP/RR prevalidated before final decision");
 }
 
 //====================================================================
@@ -2019,6 +2328,8 @@ void CloseOppositeIfConfirmed(BrainDecision &d)
       if(PositionGetInteger(POSITION_TYPE)==closeType)
       {
          VPrint("Closing opposite position "+IntegerToString((long)ticket)+" due confirmed reversal: "+StateToString(d.state));
+         SetCloseReasonOverride((long)PositionGetInteger(POSITION_IDENTIFIER),"REVERSAL_EXIT");
+         AppendManagementAction((long)PositionGetInteger(POSITION_IDENTIFIER),"REVERSAL_EXIT opposite position close due "+StateToString(d.state));
          trade.PositionClose(ticket);
       }
    }
@@ -2149,6 +2460,7 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
    double newSL = sl;
    double newTP = tp;
    bool modify=false;
+   string modifyReason="";
 
    string reversalReason="";
    int reversalScore = OppositeReversalScore(type,h1,m15,reversalReason);
@@ -2159,6 +2471,7 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
       string action = "REVERSAL_EXIT Ticket="+IntegerToString((long)ticket)+StringFormat(" Score=%d Reason=%s",reversalScore,reversalReason);
       VPrint(action);
       AppendManagementAction((long)PositionGetInteger(POSITION_IDENTIFIER),action);
+      SetCloseReasonOverride((long)PositionGetInteger(POSITION_IDENTIFIER),"REVERSAL_EXIT");
       if(trade.PositionClose(ticket))
          VPrint("POSITION CLOSED BY REVERSAL "+IntegerToString((long)ticket));
       else
@@ -2172,12 +2485,12 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
       if(type==POSITION_TYPE_BUY)
       {
          double be = NormalizePrice(open + atr*InpBreakEvenPlusATR);
-         if(sl < be) { newSL=be; modify=true; }
+         if(sl < be) { newSL=be; modify=true; SoftAdd(modifyReason,"BREAKEVEN"); }
       }
       else
       {
          double be = NormalizePrice(open - atr*InpBreakEvenPlusATR);
-         if(sl==0 || sl > be) { newSL=be; modify=true; }
+         if(sl==0 || sl > be) { newSL=be; modify=true; SoftAdd(modifyReason,"BREAKEVEN"); }
       }
    }
 
@@ -2187,12 +2500,12 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
       if(type==POSITION_TYPE_BUY)
       {
          double lock = NormalizePrice(open + risk*InpProfitLockR);
-         if(newSL < lock) { newSL=lock; modify=true; }
+         if(newSL < lock) { newSL=lock; modify=true; SoftAdd(modifyReason,"PROFIT_LOCK"); }
       }
       else
       {
          double lock = NormalizePrice(open - risk*InpProfitLockR);
-         if(newSL==0 || newSL > lock) { newSL=lock; modify=true; }
+         if(newSL==0 || newSL > lock) { newSL=lock; modify=true; SoftAdd(modifyReason,"PROFIT_LOCK"); }
       }
    }
 
@@ -2202,12 +2515,12 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
       if(type==POSITION_TYPE_BUY)
       {
          double tr = NormalizePrice(price - atr*InpTrailATR);
-         if(tr > newSL && tr < price) { newSL=tr; modify=true; }
+         if(tr > newSL && tr < price) { newSL=tr; modify=true; SoftAdd(modifyReason,"ATR_TRAILING"); }
       }
       else
       {
          double tr = NormalizePrice(price + atr*InpTrailATR);
-         if((newSL==0 || tr < newSL) && tr > price) { newSL=tr; modify=true; }
+         if((newSL==0 || tr < newSL) && tr > price) { newSL=tr; modify=true; SoftAdd(modifyReason,"ATR_TRAILING"); }
       }
    }
 
@@ -2231,12 +2544,12 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
             if(type==POSITION_TYPE_BUY)
             {
                double ext = NormalizePrice(tp + atr*InpRunnerExtendATR);
-               if(ext>newTP) { newTP=ext; modify=true; }
+               if(ext>newTP) { newTP=ext; modify=true; SoftAdd(modifyReason,"TP_EXTENSION"); }
             }
             else
             {
                double ext = NormalizePrice(tp - atr*InpRunnerExtendATR);
-               if(newTP==0 || ext<newTP) { newTP=ext; modify=true; }
+               if(newTP==0 || ext<newTP) { newTP=ext; modify=true; SoftAdd(modifyReason,"TP_EXTENSION"); }
             }
          }
       }
@@ -2246,7 +2559,7 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
    if(type==POSITION_TYPE_BUY && (m15.chochDown || m15.mssDown) && m15.displacementDown)
    {
       double protective = NormalizePrice(price - atr*0.35);
-      if(protective>newSL && protective<price) { newSL=protective; modify=true; }
+      if(protective>newSL && protective<price) { newSL=protective; modify=true; SoftAdd(modifyReason,"REVERSAL_PROTECTION"); }
       string action = "BUY position "+IntegerToString((long)ticket)+StringFormat(" reversal protection: score=%d reason=%s protective SL tighten",reversalScore,reversalReason);
       VPrint(action);
       AppendManagementAction((long)PositionGetInteger(POSITION_IDENTIFIER),action);
@@ -2254,7 +2567,7 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
    if(type==POSITION_TYPE_SELL && (m15.chochUp || m15.mssUp) && m15.displacementUp)
    {
       double protective = NormalizePrice(price + atr*0.35);
-      if((newSL==0 || protective<newSL) && protective>price) { newSL=protective; modify=true; }
+      if((newSL==0 || protective<newSL) && protective>price) { newSL=protective; modify=true; SoftAdd(modifyReason,"REVERSAL_PROTECTION"); }
       string action = "SELL position "+IntegerToString((long)ticket)+StringFormat(" reversal protection: score=%d reason=%s protective SL tighten",reversalScore,reversalReason);
       VPrint(action);
       AppendManagementAction((long)PositionGetInteger(POSITION_IDENTIFIER),action);
@@ -2271,7 +2584,7 @@ void ManagePositionTicket(ulong ticket, TFBrain &h1, TFBrain &m15)
          if(trade.PositionModify(ticket,newSL,newTP))
          {
             VPrint("POSITION MODIFIED "+IntegerToString((long)ticket)+StringFormat(" | SL %.5f -> %.5f | TP %.5f -> %.5f | R=%.2f",sl,newSL,tp,newTP,rNow));
-            AppendManagementAction((long)PositionGetInteger(POSITION_IDENTIFIER),StringFormat("MODIFY SL %.5f->%.5f TP %.5f->%.5f R=%.2f",sl,newSL,tp,newTP,rNow));
+            AppendManagementAction((long)PositionGetInteger(POSITION_IDENTIFIER),StringFormat("%s MODIFY SL %.5f->%.5f TP %.5f->%.5f R=%.2f",modifyReason,sl,newSL,tp,newTP,rNow));
          }
          else
             VPrint("POSITION MODIFY FAILED "+IntegerToString((long)ticket)+" | "+trade.ResultRetcodeDescription());
@@ -2299,7 +2612,7 @@ void EnsureCSVHeader()
    if(h==INVALID_HANDLE) return;
    if(FileSize(h)==0)
    {
-      FileWrite(h,"time","symbol","class","session","setupKey","learningBias","state","decision","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","obAudit","reversalAudit","fullAudit");
+      FileWrite(h,"time","symbol","class","timeframe","bid","ask","spread","session","setupKey","learningBias","state","decision","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","buyEntryAudit","sellEntryAudit","obFvgAudit","reversalAudit","fullAudit");
    }
    FileClose(h);
 
@@ -2318,8 +2631,8 @@ void LogCSV(BrainDecision &d)
    int h = FileOpen(InpCSVFileName, FILE_READ|FILE_WRITE|FILE_CSV|FILE_COMMON);
    if(h==INVALID_HANDLE) return;
    FileSeek(h,0,SEEK_END);
-   FileWrite(h,TimeToString(TimeCurrent(),TIME_DATE|TIME_SECONDS),_Symbol,SymbolClassName(SymbolClass()),d.sessionName,d.setupKey,d.learningBias,StateToString(d.state),DecisionToString(d.decision),
-             d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.obAudit,d.reversalAudit,d.audit);
+   FileWrite(h,TimeToString(TimeCurrent(),TIME_DATE|TIME_SECONDS),_Symbol,SymbolClassName(SymbolClass()),d.decisionTF,DoubleToString(d.bid,_Digits),DoubleToString(d.ask,_Digits),DoubleToString(d.spread,_Digits),d.sessionName,d.setupKey,d.learningBias,StateToString(d.state),DecisionToString(d.decision),
+             d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.buyEntryAudit,d.sellEntryAudit,d.obAudit,d.reversalAudit,d.audit);
    FileClose(h);
 }
 
@@ -2347,6 +2660,8 @@ void LogCloseAudit(ulong deal, long posid, double closePrice, double profit)
    string entryReason=EntryReasonForPosition(posid);
    string actions=ManagementActionsForPosition(posid);
    string closeReason=DealCloseReasonText(deal);
+   string overrideReason=CloseReasonOverrideForPosition(posid);
+   if(overrideReason!="") closeReason=overrideReason;
    string diagnosis = StringFormat("Closed %s profit=%.2f; setupKey=%s; actions=%s",closeReason,profit,key,actions);
    FileWrite(h,TimeToString(TimeCurrent(),TIME_DATE|TIME_SECONDS),_Symbol,IntegerToString(posid),IntegerToString((long)deal),DoubleToString(closePrice,_Digits),DoubleToString(profit,2),closeReason,key,entryReason,actions,diagnosis);
    FileClose(h);
@@ -2362,6 +2677,27 @@ void ChartStatus(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
    txt += "Reason: " + d.reason + "\n";
    txt += "Fixed lot: " + DoubleToString(d.lot,2) + " | No MaxTradesPerDay | RiskPercent OFF";
    Comment(txt);
+}
+
+void FailedXAUUSDDebugHarness(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
+{
+   string sym=UpperSymbol();
+   if(StringFind(sym,"XAU")<0 && StringFind(sym,"GOLD")<0) return;
+   string expected = "Expected for failed 4082.6 class: WAIT unless BUY_MODEL storyComplete with valid refined bullish OB/FVG + sweep + displacement + BOS/MSS/CHOCH + RR; if BUY open and Bear Reversal Confirmed, protect/exit.";
+   string report = "FAILED_XAUUSD_REGRESSION_DEBUG | State="+StateToString(d.state)+
+                   " | Decision="+DecisionToString(d.decision)+
+                   " | B/S="+IntegerToString(d.buyScore)+"/"+IntegerToString(d.sellScore)+
+                   " | Expected="+expected+
+                   " | H4="+h4.eventAudit+
+                   " | H1="+h1.eventAudit+
+                   " | M15="+m15.eventAudit+
+                   " | Liquidity="+m15.liquidityAudit+
+                   " | OB/FVG="+d.obAudit+
+                   " | BuyVerdict="+d.buyEntryAudit+
+                   " | SellVerdict="+d.sellEntryAudit+
+                   " | Reversal="+d.reversalAudit+
+                   " | Reason="+d.reason;
+   VPrint(report);
 }
 
 //====================================================================
@@ -2408,6 +2744,7 @@ void OnTick()
    BuildDecision(h4,h1,m15,d);
    ChartStatus(h4,h1,m15,d);
    LogCSV(d);
+   if(InpRunFailedXAUUSDDebugHarness) FailedXAUUSDDebugHarness(h4,h1,m15,d);
 
    string line = StringFormat("Decision=%s | State=%s | Session=%s | Key=%s | B=%d S=%d | %s",DecisionToString(d.decision),StateToString(d.state),d.sessionName,d.setupKey,d.buyScore,d.sellScore,d.reason);
    if(InpPrintEveryNewBar || d.decision!=DECISION_WAIT) VPrint(line);
