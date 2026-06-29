@@ -344,6 +344,37 @@ struct MarketMap
    string audit;
 };
 
+
+struct RejectionZone
+{
+   bool valid;
+   int direction;
+   double low;
+   double high;
+   double invalidationLevel;
+   int strength;
+   int age;
+   int touches;
+   ENUM_TIMEFRAMES tf;
+   datetime sourceTime;
+   bool invalidated;
+   string zoneState;
+   string audit;
+};
+
+struct TradeQualityResult
+{
+   int qualityScore;
+   string grade;
+   string decision;
+   string rejectionZoneContext;
+   bool rejectionZoneEntryUsed;
+   bool rejectionZoneAgainstTrade;
+   string qualityReasons;
+   string redFlags;
+   string confirmations;
+};
+
 struct SetupCandidate
 {
    bool valid;
@@ -369,6 +400,9 @@ struct SetupCandidate
    string lateEntryStatus;
    int locationQuality;
    int targetQuality;
+   bool rejectionZoneEntryUsed;
+   bool rejectionZoneAgainstTrade;
+   string rejectionZoneContext;
    string audit;
 };
 
@@ -436,6 +470,8 @@ struct TFBrain
    bool priceNearBearOB;
    bool priceInBullOBRefined;
    bool priceInBearOBRefined;
+   RejectionZone bullRejectionZone;
+   RejectionZone bearRejectionZone;
 
    bool wyckoffSpring;
    bool wyckoffUpthrust;
@@ -504,6 +540,15 @@ struct BrainDecision
    string selectedSetupType;
    string candidateRanking;
    string candidateAudit;
+   string qualityGrade;
+   int qualityScore;
+   string qualityDecision;
+   string rejectionZoneContext;
+   string rejectionZoneEntryUsed;
+   string rejectionZoneAgainstTrade;
+   string qualityReasons;
+   string redFlags;
+   string confirmations;
 };
 
 
@@ -962,7 +1007,7 @@ ENUM_SYMBOL_CLASS SymbolClass()
    if(StringFind(s,"XAU")>=0 || StringFind(s,"GOLD")>=0) return SYMBOL_CLASS_GOLD;
    if(StringFind(s,"XAG")>=0 || StringFind(s,"SILVER")>=0) return SYMBOL_CLASS_SILVER;
    if(StringFind(s,"OIL")>=0 || StringFind(s,"WTI")>=0 || StringFind(s,"BRENT")>=0 || StringFind(s,"USO")>=0 || StringFind(s,"XTI")>=0 || StringFind(s,"UKO")>=0 || StringFind(s,"CL")>=0) return SYMBOL_CLASS_OIL;
-   if(StringFind(s,"NAS")>=0 || StringFind(s,"US30")>=0 || StringFind(s,"DJ")>=0 || StringFind(s,"SPX")>=0 || StringFind(s,"US500")>=0 || StringFind(s,"GER")>=0 || StringFind(s,"DAX")>=0) return SYMBOL_CLASS_INDEX;
+   if(StringFind(s,"NAS")>=0 || StringFind(s,"US100")>=0 || StringFind(s,"NASDAQ")>=0 || StringFind(s,"USTEC")>=0 || StringFind(s,"NDX")>=0 || StringFind(s,"NDQ")>=0 || StringFind(s,"TECH100")>=0 || StringFind(s,"US30")>=0 || StringFind(s,"DJ")>=0 || StringFind(s,"SPX")>=0 || StringFind(s,"US500")>=0 || StringFind(s,"GER")>=0 || StringFind(s,"DAX")>=0) return SYMBOL_CLASS_INDEX;
 
    // Basic FX detection: six-letter pair may have suffix, so inspect common currencies.
    string ccy[8] = {"USD","EUR","GBP","JPY","AUD","NZD","CAD","CHF"};
@@ -1251,6 +1296,106 @@ bool PriceInRefinedZone(double price, Zone &z, double atr)
    double hi = (z.refinedHigh>0 ? z.refinedHigh : z.high);
    double tol = MathMax(atr*0.08, PointValue()*10);
    return (price >= lo-tol && price <= hi+tol);
+}
+
+void InitRejectionZone(RejectionZone &z)
+{
+   z.valid=false; z.direction=0; z.low=0; z.high=0; z.invalidationLevel=0; z.strength=0; z.age=999; z.touches=0;
+   z.tf=InpETF; z.sourceTime=0; z.invalidated=false; z.zoneState="EMPTY"; z.audit="";
+}
+
+void FinalizeRejectionAudit(RejectionZone &z)
+{
+   z.audit=StringFormat("RZ tf=%s dir=%d valid=%s state=%s low=%.5f high=%.5f inv=%.5f strength=%d age=%d touches=%d invalidated=%s",
+                        TFToString(z.tf),z.direction,BoolYN(z.valid),z.zoneState,z.low,z.high,z.invalidationLevel,z.strength,z.age,z.touches,BoolYN(z.invalidated));
+}
+
+bool PriceNearRejectionZone(double price, RejectionZone &z, double atr, double tolATR)
+{
+   if(!z.valid || z.invalidated) return false;
+   double tol=MathMax(atr*tolATR,PointValue()*12);
+   return (price>=z.low-tol && price<=z.high+tol);
+}
+
+void DetectRejectionZones(ENUM_TIMEFRAMES tf, TFBrain &b)
+{
+   InitRejectionZone(b.bullRejectionZone);
+   InitRejectionZone(b.bearRejectionZone);
+   MqlRates r[]; ArraySetAsSeries(r,true);
+   int lookback=(tf==InpETF ? InpActiveZoneLookback : InpMarketMapLookback);
+   lookback=MathMax(20,MathMin(lookback,140));
+   if(!CopyRatesSafe(tf,lookback+5,r)) return;
+   double atr=MathMax(b.atr,PointValue()*50);
+   double price=CurrentMid();
+
+   RejectionZone bestBull,bestBear;
+   InitRejectionZone(bestBull); InitRejectionZone(bestBear);
+   for(int i=1; i<=lookback && i<ArraySize(r)-2; i++)
+   {
+      double body=MathMax(CandleBody(r[i]),PointValue());
+      double upper=r[i].high-MathMax(r[i].open,r[i].close);
+      double lower=MathMin(r[i].open,r[i].close)-r[i].low;
+      bool bullReclaim=(r[i].close>r[i].open || r[i].close>r[i+1].high);
+      bool bearReclaim=(r[i].close<r[i].open || r[i].close<r[i+1].low);
+      bool bullSweep=(b.swings.validLow && r[i].low<b.swings.lastLow && r[i].close>b.swings.lastLow-atr*0.05);
+      bool bearSweep=(b.swings.validHigh && r[i].high>b.swings.lastHigh && r[i].close<b.swings.lastHigh+atr*0.05);
+      bool bull=(lower>=body*1.45 && bullReclaim) || bullSweep;
+      bool bear=(upper>=body*1.45 && bearReclaim) || bearSweep;
+      if(!bull && !bear) continue;
+
+      int touches=0;
+      bool invalid=false;
+      if(bull)
+      {
+         double zl=r[i].low;
+         double zh=MathMin(r[i].open,r[i].close)+body*0.35;
+         for(int j=i-1; j>=1; j--)
+         {
+            if(r[j].low<=zh && r[j].high>=zl) touches++;
+            if(r[j].close<zl-atr*0.12) invalid=true;
+         }
+         int strength=(int)MathMin(100.0, 30.0 + lower/body*12.0 + (bullSweep?18:0) + (r[i].close>r[i].open?8:0) + EventAgeScore(i));
+         if(touches>3) strength-=18;
+         if(i>InpMarketMapLookback) strength-=20;
+         if(!invalid && strength>bestBull.strength)
+         {
+            bestBull.valid=true; bestBull.direction=1; bestBull.low=zl; bestBull.high=zh; bestBull.invalidationLevel=zl-atr*0.12;
+            bestBull.strength=strength; bestBull.age=i; bestBull.touches=touches; bestBull.tf=tf; bestBull.sourceTime=r[i].time;
+            bestBull.invalidated=false; bestBull.zoneState=(touches==0?"FRESH":(touches<=2?"REACTED":"WORN"));
+         }
+      }
+      if(bear)
+      {
+         double zh=r[i].high;
+         double zl=MathMax(r[i].open,r[i].close)-body*0.35;
+         for(int j=i-1; j>=1; j--)
+         {
+            if(r[j].low<=zh && r[j].high>=zl) touches++;
+            if(r[j].close>zh+atr*0.12) invalid=true;
+         }
+         int strength=(int)MathMin(100.0, 30.0 + upper/body*12.0 + (bearSweep?18:0) + (r[i].close<r[i].open?8:0) + EventAgeScore(i));
+         if(touches>3) strength-=18;
+         if(i>InpMarketMapLookback) strength-=20;
+         if(!invalid && strength>bestBear.strength)
+         {
+            bestBear.valid=true; bestBear.direction=-1; bestBear.low=zl; bestBear.high=zh; bestBear.invalidationLevel=zh+atr*0.12;
+            bestBear.strength=strength; bestBear.age=i; bestBear.touches=touches; bestBear.tf=tf; bestBear.sourceTime=r[i].time;
+            bestBear.invalidated=false; bestBear.zoneState=(touches==0?"FRESH":(touches<=2?"REACTED":"WORN"));
+         }
+      }
+   }
+   if(bestBull.valid && bestBull.touches<=4 && bestBull.age<=lookback)
+   {
+      bestBull.valid=(price>=bestBull.low-atr*8.0 || tf!=InpETF); // historical HTF zones are context, not direct signals.
+      FinalizeRejectionAudit(bestBull); b.bullRejectionZone=bestBull;
+   }
+   else { FinalizeRejectionAudit(b.bullRejectionZone); }
+   if(bestBear.valid && bestBear.touches<=4 && bestBear.age<=lookback)
+   {
+      bestBear.valid=(price<=bestBear.high+atr*8.0 || tf!=InpETF);
+      FinalizeRejectionAudit(bestBear); b.bearRejectionZone=bestBear;
+   }
+   else { FinalizeRejectionAudit(b.bearRejectionZone); }
 }
 
 string BoolYN(bool v) { return v ? "YES" : "NO"; }
@@ -1670,6 +1815,7 @@ void ResetTFBrain(TFBrain &b)
    InitZone(b.bullFVG); InitZone(b.bearFVG); InitZone(b.bullOB); InitZone(b.bearOB);
    b.priceNearBullFVG=false; b.priceNearBearFVG=false; b.priceNearBullOB=false; b.priceNearBearOB=false;
    b.priceInBullOBRefined=false; b.priceInBearOBRefined=false;
+   InitRejectionZone(b.bullRejectionZone); InitRejectionZone(b.bearRejectionZone);
    b.wyckoffSpring=false; b.wyckoffUpthrust=false; b.accumulationHint=false; b.distributionHint=false;
    b.rsiBullishExhaustion=false; b.rsiBearishExhaustion=false; b.rsiBullDiv=false; b.rsiBearDiv=false;
    b.majorHigh=0; b.majorLow=0; b.internalHigh=0; b.internalLow=0;
@@ -1782,6 +1928,7 @@ bool BuildTFBrain(ENUM_TIMEFRAMES tf, string name, TFBrain &b)
 
    DetectFVG(tf,b);
    DetectOrderBlocks(tf,b);
+   DetectRejectionZones(tf,b);
    double priceMid = CurrentMid();
    b.priceNearBullFVG = PriceNearZone(priceMid,b.bullFVG,b.atr,InpFVGRetestATR);
    b.priceNearBearFVG = PriceNearZone(priceMid,b.bearFVG,b.atr,InpFVGRetestATR);
@@ -2073,7 +2220,8 @@ void InitSetupCandidate(SetupCandidate &c, ENUM_SETUP_TYPE t, int dir)
    c.valid=false; c.mandatoryPass=false; c.hardBlock=false; c.setupType=t; c.direction=dir; c.score=0;
    c.hardBlockReason=""; c.softMissingReasons=""; c.entry=0; c.sl=0; c.tp=0; c.rr=0; c.invalidationLevel=0; c.targetLevel=0;
    c.targetSource=""; c.linkedEvents=""; c.eventAges=""; c.retestType=""; c.triggerType=""; c.entryLocationType="";
-   c.lateEntryStatus=""; c.locationQuality=0; c.targetQuality=0; c.audit="";
+   c.lateEntryStatus=""; c.locationQuality=0; c.targetQuality=0;
+   c.rejectionZoneEntryUsed=false; c.rejectionZoneAgainstTrade=false; c.rejectionZoneContext=""; c.audit="";
 }
 
 int EventAgeScore(int age)
@@ -2193,7 +2341,7 @@ bool ZoneTradableForSetup(Zone &z, ENUM_SETUP_TYPE setupType, bool needsFresh, s
    return (z.valid || (!needsFresh && !z.invalidated && !z.noisyWick));
 }
 
-bool DetectRetestForCandidate(int dir, ENUM_SETUP_TYPE setupType, MarketMap &map, TFBrain &h1, TFBrain &m15, SetupCandidate &c)
+bool DetectRetestForCandidate(int dir, ENUM_SETUP_TYPE setupType, MarketMap &map, TFBrain &h4, TFBrain &h1, TFBrain &m15, SetupCandidate &c)
 {
    double price=CurrentMid();
    double atr=MathMax(m15.atr,PointValue()*50);
@@ -2216,6 +2364,20 @@ bool DetectRetestForCandidate(int dir, ENUM_SETUP_TYPE setupType, MarketMap &map
    {
       if(dir>0 && price<=map.rangeLow+atr*0.70) { c.retestType="RANGE_EDGE_RETEST"; c.entryLocationType="RANGE_LOW"; c.locationQuality=26; c.invalidationLevel=map.rangeLow-atr*0.45; return true; }
       if(dir<0 && price>=map.rangeHigh-atr*0.70) { c.retestType="RANGE_EDGE_RETEST"; c.entryLocationType="RANGE_HIGH"; c.locationQuality=26; c.invalidationLevel=map.rangeHigh+atr*0.45; return true; }
+   }
+   RejectionZone rz1=(dir>0 ? h1.bullRejectionZone : h1.bearRejectionZone);
+   RejectionZone rz4=(dir>0 ? h4.bullRejectionZone : h4.bearRejectionZone);
+   if(PriceNearRejectionZone(price,rz1,atr,InpOBRetestATR*1.6) || PriceNearRejectionZone(price,rz4,atr,InpOBRetestATR*1.9))
+   {
+      RejectionZone rz;
+      if(PriceNearRejectionZone(price,rz1,atr,InpOBRetestATR*1.6)) rz=rz1; else rz=rz4;
+      c.retestType=(dir>0?"BULLISH_REJECTION_ZONE_RETEST":"BEARISH_REJECTION_ZONE_RETEST");
+      c.entryLocationType=(dir>0?"HTF_BULLISH_REJECTION_ZONE":"HTF_BEARISH_REJECTION_ZONE");
+      c.locationQuality=26 + MathMin(10,rz.strength/12);
+      c.invalidationLevel=rz.invalidationLevel;
+      c.rejectionZoneEntryUsed=true;
+      c.rejectionZoneContext=rz.audit;
+      return true;
    }
    Zone htf=(dir>0 ? h1.bullOB : h1.bearOB);
    if(PriceNearZone(price,htf,atr,InpOBRetestATR*1.4) && ZoneTradableForSetup(htf,setupType,false,why))
@@ -2281,8 +2443,8 @@ bool HardConflictForCandidate(int dir, ENUM_SETUP_TYPE setupType, TFBrain &h4, T
 
 void FinalizeCandidateAudit(SetupCandidate &c)
 {
-   c.audit=StringFormat("%s %s score=%d pass=%s hard=%s hardReason=%s soft=%s entryLoc=%s retest=%s trigger=%s events=%s ages=%s entry=%.5f sl=%.5f tp=%.5f rr=%.2f target=%s %.5f late=%s locQ=%d tgtQ=%d",
-                        (c.direction>0?"BUY":"SELL"),SetupTypeToString(c.setupType),c.score,BoolYN(c.mandatoryPass),BoolYN(c.hardBlock),c.hardBlockReason,c.softMissingReasons,c.entryLocationType,c.retestType,c.triggerType,c.linkedEvents,c.eventAges,c.entry,c.sl,c.tp,c.rr,c.targetSource,c.targetLevel,c.lateEntryStatus,c.locationQuality,c.targetQuality);
+   c.audit=StringFormat("%s %s score=%d pass=%s hard=%s hardReason=%s soft=%s entryLoc=%s retest=%s trigger=%s events=%s ages=%s entry=%.5f sl=%.5f tp=%.5f rr=%.2f target=%s %.5f late=%s locQ=%d tgtQ=%d rzEntry=%s rzAgainst=%s rzCtx=%s",
+                        (c.direction>0?"BUY":"SELL"),SetupTypeToString(c.setupType),c.score,BoolYN(c.mandatoryPass),BoolYN(c.hardBlock),c.hardBlockReason,c.softMissingReasons,c.entryLocationType,c.retestType,c.triggerType,c.linkedEvents,c.eventAges,c.entry,c.sl,c.tp,c.rr,c.targetSource,c.targetLevel,c.lateEntryStatus,c.locationQuality,c.targetQuality,BoolYN(c.rejectionZoneEntryUsed),BoolYN(c.rejectionZoneAgainstTrade),c.rejectionZoneContext);
 }
 
 void ScoreCommonCandidate(SetupCandidate &c, int baseScore, TFBrain &h4, TFBrain &h1, TFBrain &m15, string triggerType, int triggerQuality)
@@ -2318,7 +2480,7 @@ void EvaluateTrendContinuationCandidate(int dir, TFBrain &h4, TFBrain &h1, TFBra
    string conflict=""; if(HardConflictForCandidate(dir,c.setupType,h4,h1,m15,state,conflict)) { c.hardBlock=true; c.hardBlockReason=conflict; FinalizeCandidateAudit(c); return; }
    string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
    if(!aligned) { c.hardBlock=true; c.hardBlockReason="TrendContinuation requires HTF/H1 alignment"; FinalizeCandidateAudit(c); return; }
-   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h4,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
    if(!trigger) { c.hardBlock=true; c.hardBlockReason="No fresh continuation/rejection trigger"; FinalizeCandidateAudit(c); return; }
    double dist=(m15.atr>0?MathAbs(m15.close1-m15.emaFast)/m15.atr:0); c.lateEntryStatus=StringFormat("distEMA_ATR=%.2f",dist);
    if(dist>2.80 || m15.nearEquilibrium) { c.hardBlock=true; c.hardBlockReason="Late/no-man's-land trend entry"; FinalizeCandidateAudit(c); return; }
@@ -2336,7 +2498,7 @@ void EvaluatePullbackContinuationCandidate(int dir, TFBrain &h4, TFBrain &h1, TF
    string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
    if(!htfOk) { c.hardBlock=true; c.hardBlockReason="PullbackContinuation requires HTF trend still valid"; FinalizeCandidateAudit(c); return; }
    if(!value) { c.hardBlock=true; c.hardBlockReason="Pullback not in logical value area"; FinalizeCandidateAudit(c); return; }
-   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h4,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
    if(!trigger) { c.hardBlock=true; c.hardBlockReason="No fresh pullback reaction trigger"; FinalizeCandidateAudit(c); return; }
    double dist=(m15.atr>0?MathAbs(m15.close1-m15.emaFast)/m15.atr:0); c.lateEntryStatus=StringFormat("distEMA_ATR=%.2f",dist);
    if(dist>3.20) { c.hardBlock=true; c.hardBlockReason="Pullback entry late after move"; FinalizeCandidateAudit(c); return; }
@@ -2351,7 +2513,7 @@ void EvaluateBreakoutRetestCandidate(int dir, EventMemoryRecord &bos, EventMemor
    string conflict=""; if(HardConflictForCandidate(dir,c.setupType,h4,h1,m15,state,conflict)) { c.hardBlock=true; c.hardBlockReason=conflict; FinalizeCandidateAudit(c); return; }
    if(!bos.valid) { c.hardBlock=true; c.hardBlockReason="No recent BOS/breakout event in memory"; FinalizeCandidateAudit(c); return; }
    string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
-   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h4,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
    if(c.retestType!="BREAKOUT_RETEST" && c.retestType!="STRUCTURE_RETEST") SoftAdd(c.softMissingReasons,"Retest is not pure breakout level");
    if(!trigger) { c.hardBlock=true; c.hardBlockReason="No fresh breakout-retest trigger"; FinalizeCandidateAudit(c); return; }
    if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
@@ -2367,7 +2529,7 @@ void EvaluateReversalAfterSweepCandidate(int dir, EventMemoryRecord &sweep, Even
    if(!sweep.valid) { c.hardBlock=true; c.hardBlockReason="Reversal requires liquidity sweep"; FinalizeCandidateAudit(c); return; }
    if(!disp.valid) { c.hardBlock=true; c.hardBlockReason="Reversal requires displacement away from sweep"; FinalizeCandidateAudit(c); return; }
    if(!hasStructure) { c.hardBlock=true; c.hardBlockReason="Reversal requires BOS/CHOCH/MSS"; FinalizeCandidateAudit(c); return; }
-   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h4,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
    if(!trigger) { c.hardBlock=true; c.hardBlockReason="Reversal requires fresh rejection/confirmation trigger"; FinalizeCandidateAudit(c); return; }
    if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
    c.mandatoryPass=true; c.valid=true; c.linkedEvents=sweep.audit+"; "+disp.audit+"; "+(mss.valid?mss.audit:(choch.valid?choch.audit:bos.audit));
@@ -2381,7 +2543,7 @@ void EvaluateRangeEdgeSweepCandidate(int dir, EventMemoryRecord &sweep, TFBrain 
    if(!map.rangeDetected) { c.hardBlock=true; c.hardBlockReason="No range detected"; FinalizeCandidateAudit(c); return; }
    if(!sweep.valid) { c.hardBlock=true; c.hardBlockReason="Range edge setup requires sweep/failed breakout"; FinalizeCandidateAudit(c); return; }
    string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
-   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c) || c.retestType!="RANGE_EDGE_RETEST") { c.hardBlock=true; if(c.hardBlockReason=="") c.hardBlockReason="Not at range edge"; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h4,h1,m15,c) || c.retestType!="RANGE_EDGE_RETEST") { c.hardBlock=true; if(c.hardBlockReason=="") c.hardBlockReason="Not at range edge"; FinalizeCandidateAudit(c); return; }
    if(!trigger) { c.hardBlock=true; c.hardBlockReason="No range-edge rejection trigger"; FinalizeCandidateAudit(c); return; }
    if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
    c.mandatoryPass=true; c.valid=true; c.linkedEvents=sweep.audit; c.eventAges=StringFormat("SWEEP=%d/%s",sweep.age,EventAgeBucket(sweep.age));
@@ -2447,6 +2609,129 @@ bool SelectBestCandidate(SetupCandidate &candidates[], int count, SetupCandidate
    return true;
 }
 
+void InitTradeQualityResult(TradeQualityResult &q)
+{
+   q.qualityScore=0; q.grade="D"; q.decision="WAIT"; q.rejectionZoneContext="";
+   q.rejectionZoneEntryUsed=false; q.rejectionZoneAgainstTrade=false;
+   q.qualityReasons=""; q.redFlags=""; q.confirmations="";
+}
+
+string QualityGradeFromScore(int score)
+{
+   if(score>=96) return "A+";
+   if(score>=86) return "A";
+   if(score>=74) return "B";
+   if(score>=62) return "C";
+   return "D";
+}
+
+bool StrongTextContains(string haystack, string needle)
+{
+   return (StringFind(haystack,needle)>=0);
+}
+
+void ApplyRejectionZoneContext(SetupCandidate &c, TFBrain &h4, TFBrain &h1, TFBrain &m15, string &confirmations, string &redFlags)
+{
+   double price=CurrentMid();
+   double atr=MathMax(m15.atr,PointValue()*50);
+   RejectionZone supportive1=(c.direction>0 ? h1.bullRejectionZone : h1.bearRejectionZone);
+   RejectionZone supportive4=(c.direction>0 ? h4.bullRejectionZone : h4.bearRejectionZone);
+   RejectionZone opposite1=(c.direction>0 ? h1.bearRejectionZone : h1.bullRejectionZone);
+   RejectionZone opposite4=(c.direction>0 ? h4.bearRejectionZone : h4.bullRejectionZone);
+
+   if(c.rejectionZoneEntryUsed)
+   {
+      SoftAdd(confirmations,"rejection-zone-entry");
+   }
+   else if(PriceNearRejectionZone(price,supportive1,atr,InpOBRetestATR*1.8) || PriceNearRejectionZone(price,supportive4,atr,InpOBRetestATR*2.2))
+   {
+      RejectionZone rz; if(PriceNearRejectionZone(price,supportive1,atr,InpOBRetestATR*1.8)) rz=supportive1; else rz=supportive4;
+      c.rejectionZoneEntryUsed=true;
+      c.rejectionZoneContext=rz.audit;
+      c.score += MathMin(12,MathMax(4,rz.strength/10));
+      SoftAdd(confirmations,"supportive-rejection-zone");
+   }
+
+   bool oppositeNear=false;
+   RejectionZone danger;
+   if(PriceNearRejectionZone(price,opposite1,atr,InpOBRetestATR*2.0)) { oppositeNear=true; danger=opposite1; }
+   else if(PriceNearRejectionZone(price,opposite4,atr,InpOBRetestATR*2.5)) { oppositeNear=true; danger=opposite4; }
+   if(oppositeNear)
+   {
+      c.rejectionZoneAgainstTrade=true;
+      SoftAdd(redFlags,"nearby-opposite-rejection-zone");
+      if(c.rejectionZoneContext=="") c.rejectionZoneContext=danger.audit;
+      else c.rejectionZoneContext=c.rejectionZoneContext+" AGAINST{"+danger.audit+"}";
+   }
+}
+
+bool JudgeTradeQuality(SetupCandidate &c, TFBrain &h4, TFBrain &h1, TFBrain &m15, TradeQualityResult &q)
+{
+   InitTradeQualityResult(q);
+   string red="";
+   string conf="";
+   ApplyRejectionZoneContext(c,h4,h1,m15,conf,red);
+
+   if(c.targetSource=="MIN_RR_FALLBACK") SoftAdd(red,"MIN_RR_FALLBACK-target");
+   if(c.targetQuality<=12) SoftAdd(red,"weak-or-fallback-target-quality");
+   if(c.direction>0 && (m15.inPremium || h1.inPremium)) SoftAdd(red,"BUY-from-premium/not-ideal-location");
+   if(c.direction<0 && (m15.inDiscount || h1.inDiscount)) SoftAdd(red,"SELL-from-discount/not-ideal-location");
+   if(StringFind(c.triggerType,"CONTINUATION_CANDLE")>=0 && StringFind(c.triggerType,"RECLAIM")<0) SoftAdd(red,"plain-continuation-trigger-not-rejection-reclaim");
+   bool hasFreshEvent=(StringFind(c.linkedEvents,"BOS")>=0 || StringFind(c.linkedEvents,"SWEEP")>=0 || StringFind(c.linkedEvents,"MSS")>=0 || StringFind(c.linkedEvents,"CHOCH")>=0 || StringFind(c.linkedEvents,"DISPLACEMENT")>=0 || StringFind(c.triggerType,"RECLAIM")>=0);
+   if(!hasFreshEvent) SoftAdd(red,"no-fresh-sweep-BOS-reclaim-displacement");
+   if(c.direction>0 && (h4.finalBias<0 || h1.finalBias<0)) SoftAdd(red,"HTF-pressure-against-BUY");
+   if(c.direction<0 && (h4.finalBias>0 || h1.finalBias>0)) SoftAdd(red,"HTF-pressure-against-SELL");
+   if(c.setupType==SETUP_BREAKOUT_RETEST && c.retestType!="BREAKOUT_RETEST" && c.retestType!="STRUCTURE_RETEST") SoftAdd(red,"breakout-retest-not-on-clean-structure-level");
+
+   if(c.targetSource!="MIN_RR_FALLBACK") SoftAdd(conf,"clear-liquidity-or-structure-target");
+   if(c.rr>=InpDefaultRR) SoftAdd(conf,"clean-RR");
+   if(StringFind(c.triggerType,"REJECTION")>=0) SoftAdd(conf,"M15-rejection-wick");
+   if(StringFind(c.triggerType,"RECLAIM")>=0) SoftAdd(conf,"reclaim-close");
+   if(hasFreshEvent) SoftAdd(conf,"fresh-structure-event");
+   if(c.direction>0 && !m15.chochDown && !m15.mssDown) SoftAdd(conf,"no-opposite-M15-CHOCH-MSS");
+   if(c.direction<0 && !m15.chochUp && !m15.mssUp) SoftAdd(conf,"no-opposite-M15-CHOCH-MSS");
+   if(c.rejectionZoneEntryUsed) SoftAdd(conf,"rejection-zone-support");
+
+   int reds=0, cons=0;
+   if(red!="") { reds=1; for(int i=0;i<StringLen(red);i++) if(StringSubstr(red,i,1)=="|") reds++; }
+   if(conf!="") { cons=1; for(int j=0;j<StringLen(conf);j++) if(StringSubstr(conf,j,1)=="|") cons++; }
+
+   q.qualityScore = c.score + cons*5 - reds*8;
+   q.grade = QualityGradeFromScore(q.qualityScore);
+   q.redFlags=red;
+   q.confirmations=conf;
+   q.rejectionZoneEntryUsed=c.rejectionZoneEntryUsed;
+   q.rejectionZoneAgainstTrade=c.rejectionZoneAgainstTrade;
+   q.rejectionZoneContext=c.rejectionZoneContext;
+
+   bool strongEnough=(c.score>=InpEntryMinScore+12 || q.qualityScore>=82 || cons>=4);
+   bool breakoutWeak=(c.setupType==SETUP_BREAKOUT_RETEST && reds>=3 && cons<3);
+   bool manyRedFlags=(reds>=4 && !strongEnough);
+   bool mediumRisk=(reds>=2 && q.qualityScore<74);
+
+   if(breakoutWeak || manyRedFlags)
+   {
+      q.decision="BLOCK";
+      q.qualityReasons=StringFormat("blocked by quality judge: reds=%d confirmations=%d score=%d grade=%s",reds,cons,q.qualityScore,q.grade);
+      return false;
+   }
+   if(mediumRisk)
+   {
+      q.decision="WAIT";
+      q.qualityReasons=StringFormat("quality wait: combined red flags with insufficient confirmation reds=%d confirmations=%d score=%d grade=%s",reds,cons,q.qualityScore,q.grade);
+      return false;
+   }
+   if(reds>=2)
+   {
+      q.decision="DOWNGRADE";
+      q.qualityReasons=StringFormat("allowed with downgrade: reds=%d confirmations=%d score=%d grade=%s",reds,cons,q.qualityScore,q.grade);
+      return true;
+   }
+   q.decision="PASS";
+   q.qualityReasons=StringFormat("quality pass: reds=%d confirmations=%d score=%d grade=%s",reds,cons,q.qualityScore,q.grade);
+   return true;
+}
+
 void BuildDecisionFromCandidate(SetupCandidate &best, BrainDecision &d)
 {
    d.decision=(best.direction>0 ? DECISION_BUY : DECISION_SELL);
@@ -2474,6 +2759,7 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
    d.sl=0; d.tp=0; d.lot=NormalizeLot(FixedLotBySymbol()); d.entry=CurrentMid();
    d.bid=CurrentBid(); d.ask=CurrentAsk(); d.spread=d.ask-d.bid; d.decisionTF=TFToString(InpETF);
    d.buyEntryAudit=""; d.sellEntryAudit=""; d.selectedSetupType="NoTrade"; d.candidateRanking=""; d.candidateAudit="";
+   d.qualityGrade=""; d.qualityScore=0; d.qualityDecision=""; d.rejectionZoneContext=""; d.rejectionZoneEntryUsed="false"; d.rejectionZoneAgainstTrade="false"; d.qualityReasons=""; d.redFlags=""; d.confirmations="";
 
    // Hard integrity checks first.
    if(!h4.dataOK || !h1.dataOK || !m15.dataOK)
@@ -2621,12 +2907,33 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
 
    if(selected)
    {
-      // Blend scenario score into side score for transparent logs while the final gate remains candidate based.
-      if(best.direction>0) d.buyScore += best.score;
-      else d.sellScore += best.score;
-      BuildDecisionFromCandidate(best,d);
+      TradeQualityResult quality;
+      bool qualityOK = JudgeTradeQuality(best,h4,h1,m15,quality);
+      d.qualityGrade=quality.grade;
+      d.qualityScore=quality.qualityScore;
+      d.qualityDecision=quality.decision;
+      d.rejectionZoneContext=quality.rejectionZoneContext;
+      d.rejectionZoneEntryUsed=BoolYN(quality.rejectionZoneEntryUsed);
+      d.rejectionZoneAgainstTrade=BoolYN(quality.rejectionZoneAgainstTrade);
+      d.qualityReasons=quality.qualityReasons;
+      d.redFlags=quality.redFlags;
+      d.confirmations=quality.confirmations;
+
+      if(!qualityOK)
+      {
+         selected=false;
+         selectWhy=quality.qualityReasons+" redFlags={"+quality.redFlags+"} confirmations={"+quality.confirmations+"}";
+      }
+      else
+      {
+         // Blend scenario score into side score for transparent logs while the final gate remains candidate based.
+         if(best.direction>0) d.buyScore += best.score;
+         else d.sellScore += best.score;
+         BuildDecisionFromCandidate(best,d);
+         SoftAdd(d.reason,"QualityJudge="+quality.decision+" grade="+quality.grade+" qScore="+IntegerToString(quality.qualityScore));
+      }
    }
-   else
+   if(!selected)
    {
       d.decision=DECISION_WAIT;
       d.selectedSetupType="NoTrade";
@@ -2634,8 +2941,8 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
       if(selectWhy!="") SoftAdd(d.reason,"Entry Brain v2 WAIT: "+selectWhy);
    }
 
-   d.audit = StringFormat("Bid=%.5f Ask=%.5f Spread=%.5f TF=%s selectedSetupType=%s H4[%s] H1[%s] M15[%s] %s Reversal{%s} CandidateRanking{%s} CandidateAudit{%s} OB_FVG_AUDIT=%s",
-                          d.bid,d.ask,d.spread,d.decisionTF,d.selectedSetupType,h4.notes,h1.notes,m15.notes,generationAudit,d.reversalAudit,d.candidateRanking,d.candidateAudit,d.obAudit);
+   d.audit = StringFormat("Bid=%.5f Ask=%.5f Spread=%.5f TF=%s selectedSetupType=%s quality=%s/%d/%s redFlags={%s} confirmations={%s} rejectionZoneContext={%s} H4[%s] H1[%s] M15[%s] %s Reversal{%s} CandidateRanking{%s} CandidateAudit{%s} OB_FVG_AUDIT=%s",
+                          d.bid,d.ask,d.spread,d.decisionTF,d.selectedSetupType,d.qualityGrade,d.qualityScore,d.qualityDecision,d.redFlags,d.confirmations,d.rejectionZoneContext,h4.notes,h1.notes,m15.notes,generationAudit,d.reversalAudit,d.candidateRanking,d.candidateAudit,d.obAudit);
 
    if(d.decision==DECISION_WAIT)
    {
@@ -3120,7 +3427,7 @@ void EnsureCSVHeader()
    if(h==INVALID_HANDLE) return;
    if(FileSize(h)==0)
    {
-      FileWrite(h,"time","symbol","class","timeframe","bid","ask","spread","session","setupKey","learningBias","state","decision","selectedSetupType","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","buyEntryAudit","sellEntryAudit","candidateRanking","candidateAudit","obFvgAudit","reversalAudit","fullAudit");
+      FileWrite(h,"time","symbol","class","timeframe","bid","ask","spread","session","setupKey","learningBias","state","decision","selectedSetupType","qualityGrade","qualityScore","qualityDecision","rejectionZoneContext","rejectionZoneEntryUsed","rejectionZoneAgainstTrade","qualityReasons","redFlags","confirmations","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","buyEntryAudit","sellEntryAudit","candidateRanking","candidateAudit","obFvgAudit","reversalAudit","fullAudit");
    }
    FileClose(h);
 
@@ -3140,7 +3447,7 @@ void LogCSV(BrainDecision &d)
    if(h==INVALID_HANDLE) return;
    FileSeek(h,0,SEEK_END);
    FileWrite(h,TimeToString(TimeCurrent(),TIME_DATE|TIME_SECONDS),_Symbol,SymbolClassName(SymbolClass()),d.decisionTF,DoubleToString(d.bid,_Digits),DoubleToString(d.ask,_Digits),DoubleToString(d.spread,_Digits),d.sessionName,d.setupKey,d.learningBias,StateToString(d.state),DecisionToString(d.decision),
-             d.selectedSetupType,d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.buyEntryAudit,d.sellEntryAudit,d.candidateRanking,d.candidateAudit,d.obAudit,d.reversalAudit,d.audit);
+             d.selectedSetupType,d.qualityGrade,d.qualityScore,d.qualityDecision,d.rejectionZoneContext,d.rejectionZoneEntryUsed,d.rejectionZoneAgainstTrade,d.qualityReasons,d.redFlags,d.confirmations,d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.buyEntryAudit,d.sellEntryAudit,d.candidateRanking,d.candidateAudit,d.obAudit,d.reversalAudit,d.audit);
    FileClose(h);
 }
 
