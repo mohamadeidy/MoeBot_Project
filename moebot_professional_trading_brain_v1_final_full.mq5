@@ -3181,13 +3181,54 @@ void CloseOppositeIfConfirmed(BrainDecision &d)
    }
 }
 
-bool ExecuteDecision(BrainDecision &d, TFBrain &m15)
+
+bool RouteOppositeSetupToSmartReverse(BrainDecision &d, TFBrain &h4, TFBrain &h1, TFBrain &m15, bool &handled)
+{
+   handled=false;
+   if(d.decision!=DECISION_BUY && d.decision!=DECISION_SELL) return false;
+
+   long oppositeType = (d.decision==DECISION_BUY ? POSITION_TYPE_SELL : POSITION_TYPE_BUY);
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket==0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue;
+      if((long)PositionGetInteger(POSITION_MAGIC)!=InpMagic) continue;
+      if(PositionGetInteger(POSITION_TYPE)!=oppositeType) continue;
+
+      handled=true;
+      long type = PositionGetInteger(POSITION_TYPE);
+      double open=PositionGetDouble(POSITION_PRICE_OPEN);
+      double sl=PositionGetDouble(POSITION_SL);
+      double tp=PositionGetDouble(POSITION_TP);
+      double price = (type==POSITION_TYPE_BUY ? CurrentBid() : CurrentAsk());
+      double risk = MathAbs(open-sl);
+      if(risk<=PointValue()*5)
+      {
+         VPrint("Opposite setup routed to SmartReverse, but current position risk is invalid; keeping current position");
+         return false;
+      }
+      double profitDist = (type==POSITION_TYPE_BUY ? price-open : open-price);
+      double rNow = profitDist / risk;
+      bool protectedNow = PositionProtected(ticket);
+      VPrint("Opposite setup detected with existing same-symbol position; routing to Smart Profit Exit & Reverse only");
+      return TrySmartProfitReverse(ticket,type,open,sl,tp,price,rNow,protectedNow,h4,h1,m15);
+   }
+   return false;
+}
+
+bool ExecuteDecision(BrainDecision &d, TFBrain &h4, TFBrain &h1, TFBrain &m15)
 {
    if(d.decision!=DECISION_BUY && d.decision!=DECISION_SELL) return false;
 
    string why;
    if(!TradingAllowedNow(why)) { VPrint("Blocked safety: "+why); return false; }
    if(!SpreadOK(m15,why)) { VPrint("Blocked safety: "+why); return false; }
+
+   bool oppositeHandled=false;
+   bool smartReverseResult=RouteOppositeSetupToSmartReverse(d,h4,h1,m15,oppositeHandled);
+   if(oppositeHandled) return smartReverseResult;
 
    d.lot = NormalizeLot(FixedLotBySymbol());
    d.entry = (d.decision==DECISION_BUY ? CurrentAsk() : CurrentBid());
@@ -3351,6 +3392,14 @@ bool SmartReverseQualityStrongEnough(BrainDecision &reverseD)
    return false;
 }
 
+
+bool PositionCloseConfirmed(ulong ticket, long posid)
+{
+   if(!PositionSelectByTicket(ticket)) return true;
+   if((long)PositionGetInteger(POSITION_IDENTIFIER)!=posid) return true;
+   return false;
+}
+
 bool TrySmartProfitReverse(ulong ticket, long type, double open, double sl, double tp, double price, double rNow, bool protectedNow, TFBrain &h4, TFBrain &h1, TFBrain &m15)
 {
    if(!InpUseSmartProfitReverse) return false;
@@ -3440,10 +3489,19 @@ bool TrySmartProfitReverse(ulong ticket, long type, double open, double sl, doub
       VPrint("SmartReverse close failed: "+g_smartReverseReason);
       return false;
    }
+   if(!PositionCloseConfirmed(ticket,posid))
+   {
+      g_smartReverseClosedCurrent="NO";
+      g_smartReverseOpenedOpposite="NO";
+      g_smartReverseDecision="CLOSE_NOT_CONFIRMED";
+      g_smartReverseReason="Current position close order returned success, but position is still open";
+      VPrint("SmartReverse close not confirmed: "+g_smartReverseReason);
+      return false;
+   }
    g_smartReverseClosedCurrent="YES";
    VPrint("SmartReverse closed current profitable position ticket="+IntegerToString((long)ticket));
 
-   bool opened=ExecuteDecision(reverseD,m15);
+   bool opened=ExecuteDecision(reverseD,h4,h1,m15);
    if(opened)
    {
       g_smartReverseOpenedOpposite="YES";
@@ -3810,7 +3868,7 @@ void OnTick()
    if(InpPrintEveryNewBar || d.decision!=DECISION_WAIT) VPrint(line);
 
    if(d.decision==DECISION_BUY || d.decision==DECISION_SELL)
-      ExecuteDecision(d,m15);
+      ExecuteDecision(d,h4,h1,m15);
 }
 
 //====================================================================
