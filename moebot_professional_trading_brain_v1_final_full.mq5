@@ -3181,13 +3181,54 @@ void CloseOppositeIfConfirmed(BrainDecision &d)
    }
 }
 
-bool ExecuteDecision(BrainDecision &d, TFBrain &m15)
+
+bool RouteOppositeSetupToSmartReverse(BrainDecision &d, TFBrain &h4, TFBrain &h1, TFBrain &m15, bool &handled)
+{
+   handled=false;
+   if(d.decision!=DECISION_BUY && d.decision!=DECISION_SELL) return false;
+
+   long oppositeType = (d.decision==DECISION_BUY ? POSITION_TYPE_SELL : POSITION_TYPE_BUY);
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket==0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue;
+      if((long)PositionGetInteger(POSITION_MAGIC)!=InpMagic) continue;
+      if(PositionGetInteger(POSITION_TYPE)!=oppositeType) continue;
+
+      handled=true;
+      long type = PositionGetInteger(POSITION_TYPE);
+      double open=PositionGetDouble(POSITION_PRICE_OPEN);
+      double sl=PositionGetDouble(POSITION_SL);
+      double tp=PositionGetDouble(POSITION_TP);
+      double price = (type==POSITION_TYPE_BUY ? CurrentBid() : CurrentAsk());
+      double risk = MathAbs(open-sl);
+      if(risk<=PointValue()*5)
+      {
+         VPrint("Opposite setup routed to SmartReverse, but current position risk is invalid; keeping current position");
+         return false;
+      }
+      double profitDist = (type==POSITION_TYPE_BUY ? price-open : open-price);
+      double rNow = profitDist / risk;
+      bool protectedNow = PositionProtected(ticket);
+      VPrint("Opposite setup detected with existing same-symbol position; routing to Smart Profit Exit & Reverse only");
+      return TrySmartProfitReverse(ticket,type,open,sl,tp,price,rNow,protectedNow,h4,h1,m15);
+   }
+   return false;
+}
+
+bool ExecuteDecision(BrainDecision &d, TFBrain &h4, TFBrain &h1, TFBrain &m15)
 {
    if(d.decision!=DECISION_BUY && d.decision!=DECISION_SELL) return false;
 
    string why;
    if(!TradingAllowedNow(why)) { VPrint("Blocked safety: "+why); return false; }
    if(!SpreadOK(m15,why)) { VPrint("Blocked safety: "+why); return false; }
+
+   bool oppositeHandled=false;
+   bool smartReverseResult=RouteOppositeSetupToSmartReverse(d,h4,h1,m15,oppositeHandled);
+   if(oppositeHandled) return smartReverseResult;
 
    d.lot = NormalizeLot(FixedLotBySymbol());
    d.entry = (d.decision==DECISION_BUY ? CurrentAsk() : CurrentBid());
@@ -3344,10 +3385,99 @@ bool M15SmartReverseConfirmation(int reverseDir, TFBrain &m15, string &confirmat
    return (confirmation!="");
 }
 
-bool SmartReverseQualityStrongEnough(BrainDecision &reverseD)
+int TokenCount(string text)
 {
-   if(reverseD.qualityDecision=="PASS") return true;
-   if(reverseD.qualityDecision=="DOWNGRADE" && reverseD.qualityScore>=82 && StringLen(reverseD.confirmations)>0) return true;
+   if(text=="") return 0;
+   int count=1;
+   for(int i=0;i<StringLen(text);i++)
+      if(StringSubstr(text,i,1)=="|") count++;
+   return count;
+}
+
+bool HasText(string haystack, string needle)
+{
+   return (StringFind(haystack,needle)>=0);
+}
+
+bool SmartReverseQualityStrongEnough(BrainDecision &reverseD, int reverseDir, TFBrain &h4, TFBrain &h1, string &why)
+{
+   why="OK";
+   int reds=TokenCount(reverseD.redFlags);
+   int confirmations=TokenCount(reverseD.confirmations);
+
+   bool htfAgainst = ((reverseDir>0 && h4.finalBias<0 && h1.finalBias<0) ||
+                      (reverseDir<0 && h4.finalBias>0 && h1.finalBias>0) ||
+                      HasText(reverseD.redFlags,"HTF-pressure-against"));
+   if(htfAgainst && reverseD.qualityScore<90)
+   {
+      why="HTF pressure strongly against Smart Reverse and quality score is not exceptional";
+      return false;
+   }
+
+   if(HasText(reverseD.redFlags,"breakout-retest-not-on-clean-structure-level"))
+   {
+      why="Unclean BreakoutRetest is not strong enough for Smart Reverse";
+      return false;
+   }
+   if(HasText(reverseD.redFlags,"MIN_RR_FALLBACK-target") || HasText(reverseD.redFlags,"weak-or-fallback-target-quality"))
+   {
+      why="Weak or fallback target quality is not strong enough for Smart Reverse";
+      return false;
+   }
+
+   bool meaningfulEvidence = (HasText(reverseD.confirmations,"M15-rejection-wick") ||
+                              HasText(reverseD.confirmations,"reclaim-close") ||
+                              HasText(reverseD.confirmations,"fresh-structure-event") ||
+                              HasText(reverseD.confirmations,"rejection-zone-support") ||
+                              HasText(reverseD.rejectionZoneContext,"supportive"));
+   if(!meaningfulEvidence)
+   {
+      why="No meaningful rejection, reclaim, structure, or rejection-zone evidence for Smart Reverse";
+      return false;
+   }
+
+   if(reverseD.qualityDecision=="PASS" && reverseD.qualityScore>=82 && confirmations>=2) return true;
+
+   if(reverseD.qualityDecision=="DOWNGRADE")
+   {
+      bool majorRedFlags = (reds>=3 || HasText(reverseD.redFlags,"nearby-opposite-rejection-zone") ||
+                            HasText(reverseD.redFlags,"no-fresh-sweep-BOS-reclaim-displacement") ||
+                            HasText(reverseD.redFlags,"plain-continuation-trigger-not-rejection-reclaim"));
+      if(majorRedFlags)
+      {
+         why="Smart Reverse rejected DOWNGRADE with major red flags: "+reverseD.redFlags;
+         return false;
+      }
+      if(reverseD.qualityScore>=88 && confirmations>=3) return true;
+   }
+
+   why=StringFormat("Smart Reverse evidence not clearly strong enough: decision=%s score=%d confirmations=%d redFlags=%d",reverseD.qualityDecision,reverseD.qualityScore,confirmations,reds);
+   return false;
+}
+
+bool PreflightSmartReverseOrder(BrainDecision &reverseD, TFBrain &m15, string &why)
+{
+   why="OK";
+   if(!TradingAllowedNow(why)) return false;
+   if(!SpreadOK(m15,why)) return false;
+
+   reverseD.lot = NormalizeLot(FixedLotBySymbol());
+   reverseD.entry = (reverseD.decision==DECISION_BUY ? CurrentAsk() : CurrentBid());
+   reverseD.sl = NormalizePrice(reverseD.sl);
+   reverseD.tp = NormalizePrice(reverseD.tp);
+
+   if(InpBlockIfOrderWouldHaveNoSLTP && !StopsOK(reverseD.decision,reverseD.entry,reverseD.sl,reverseD.tp,why)) return false;
+   if(!MarginOK(reverseD.decision,reverseD.lot,why)) return false;
+   if(!SameDirectionCanAdd(reverseD.decision,m15,reverseD,why)) return false;
+
+   return true;
+}
+
+
+bool PositionCloseConfirmed(ulong ticket, long posid)
+{
+   if(!PositionSelectByTicket(ticket)) return true;
+   if((long)PositionGetInteger(POSITION_IDENTIFIER)!=posid) return true;
    return false;
 }
 
@@ -3417,11 +3547,22 @@ bool TrySmartProfitReverse(ulong ticket, long type, double open, double sl, doub
       VPrint("SmartReverse failed: "+g_smartReverseReason);
       return false;
    }
-   if(!SmartReverseQualityStrongEnough(reverseD))
+   string qualityWhy="";
+   if(!SmartReverseQualityStrongEnough(reverseD,reverseDir,h4,h1,qualityWhy))
    {
       g_smartReverseDecision="HOLD";
-      g_smartReverseReason="Opposite candidate failed smart reverse quality requirement: "+reverseD.qualityDecision+" grade="+reverseD.qualityGrade+" score="+IntegerToString(reverseD.qualityScore);
+      g_smartReverseReason="Opposite candidate failed smart reverse quality requirement: "+qualityWhy+" | "+reverseD.qualityDecision+" grade="+reverseD.qualityGrade+" score="+IntegerToString(reverseD.qualityScore)+" redFlags={"+reverseD.redFlags+"} confirmations={"+reverseD.confirmations+"}";
       VPrint("SmartReverse failed: "+g_smartReverseReason);
+      return false;
+   }
+
+   string preflightWhy="";
+   if(!PreflightSmartReverseOrder(reverseD,m15,preflightWhy))
+   {
+      g_smartReverseDecision="PREFLIGHT_FAILED";
+      g_smartReverseReason="Reverse order preflight failed before closing current position: "+preflightWhy;
+      VPrint("SmartReverse preflight failed: "+g_smartReverseReason);
+      AppendManagementAction(posid,"SMART_PROFIT_REVERSE_PREFLIGHT_REJECTED "+g_smartReverseReason);
       return false;
    }
 
@@ -3440,10 +3581,19 @@ bool TrySmartProfitReverse(ulong ticket, long type, double open, double sl, doub
       VPrint("SmartReverse close failed: "+g_smartReverseReason);
       return false;
    }
+   if(!PositionCloseConfirmed(ticket,posid))
+   {
+      g_smartReverseClosedCurrent="NO";
+      g_smartReverseOpenedOpposite="NO";
+      g_smartReverseDecision="CLOSE_NOT_CONFIRMED";
+      g_smartReverseReason="Current position close order returned success, but position is still open";
+      VPrint("SmartReverse close not confirmed: "+g_smartReverseReason);
+      return false;
+   }
    g_smartReverseClosedCurrent="YES";
    VPrint("SmartReverse closed current profitable position ticket="+IntegerToString((long)ticket));
 
-   bool opened=ExecuteDecision(reverseD,m15);
+   bool opened=ExecuteDecision(reverseD,h4,h1,m15);
    if(opened)
    {
       g_smartReverseOpenedOpposite="YES";
@@ -3810,7 +3960,7 @@ void OnTick()
    if(InpPrintEveryNewBar || d.decision!=DECISION_WAIT) VPrint(line);
 
    if(d.decision==DECISION_BUY || d.decision==DECISION_SELL)
-      ExecuteDecision(d,m15);
+      ExecuteDecision(d,h4,h1,m15);
 }
 
 //====================================================================
