@@ -63,6 +63,17 @@ enum ENUM_MARKET_SESSION
    SESSION_LOW_LIQUIDITY = 4
 };
 
+
+enum ENUM_SETUP_TYPE
+{
+   SETUP_NO_TRADE = 0,
+   SETUP_TREND_CONTINUATION = 1,
+   SETUP_PULLBACK_CONTINUATION = 2,
+   SETUP_BREAKOUT_RETEST = 3,
+   SETUP_REVERSAL_AFTER_SWEEP = 4,
+   SETUP_RANGE_EDGE_SWEEP = 5
+};
+
 //====================================================================
 // INPUTS - Growth Mode defaults agreed with user
 //====================================================================
@@ -126,6 +137,14 @@ input double InpOBRetestATR = 0.35;
 input double InpFVGRetestATR = 0.35;
 input double InpDisplacementATR = 0.62;
 input double InpSweepCloseBackATR = 0.08;
+
+
+// Entry Brain v2 windows: map context is not a direct entry signal.
+input int    InpMarketMapLookback = 100;
+input int    InpActiveZoneLookback = 40;
+input int    InpEventMemoryBars = 12;
+input int    InpEntryTriggerBars = 3;
+input int    InpCandidateSideSeparation = 7;
 
 // SL / TP / trade management
 input double InpSL_ATR_Buffer = 0.30;
@@ -288,6 +307,72 @@ struct EntryModelResult
    string audit;
 };
 
+struct EventMemoryRecord
+{
+   bool valid;
+   string eventType;
+   int direction;
+   double level;
+   datetime eventTime;
+   int candleIndex;
+   int age;
+   ENUM_TIMEFRAMES sourceTF;
+   double invalidationLevel;
+   bool retested;
+   bool invalidated;
+   int qualityScore;
+   string audit;
+};
+
+struct MarketMap
+{
+   bool valid;
+   double majorHigh;
+   double majorLow;
+   double internalHigh;
+   double internalLow;
+   double rangeHigh;
+   double rangeLow;
+   double rangeMid;
+   bool rangeDetected;
+   bool inPremium;
+   bool inDiscount;
+   double buySideLiquidity;
+   double sellSideLiquidity;
+   double supportLevel;
+   double resistanceLevel;
+   string audit;
+};
+
+struct SetupCandidate
+{
+   bool valid;
+   bool mandatoryPass;
+   bool hardBlock;
+   ENUM_SETUP_TYPE setupType;
+   int direction;
+   int score;
+   string hardBlockReason;
+   string softMissingReasons;
+   double entry;
+   double sl;
+   double tp;
+   double rr;
+   double invalidationLevel;
+   double targetLevel;
+   string targetSource;
+   string linkedEvents;
+   string eventAges;
+   string retestType;
+   string triggerType;
+   string entryLocationType;
+   string lateEntryStatus;
+   int locationQuality;
+   int targetQuality;
+   string audit;
+};
+
+
 struct TFBrain
 {
    ENUM_TIMEFRAMES tf;
@@ -416,6 +501,9 @@ struct BrainDecision
    string decisionTF;
    string buyEntryAudit;
    string sellEntryAudit;
+   string selectedSetupType;
+   string candidateRanking;
+   string candidateAudit;
 };
 
 
@@ -1957,6 +2045,417 @@ void EvaluateEntryModel(int dir, TFBrain &h4, TFBrain &h1, TFBrain &m15, ENUM_BR
                           r.zoneResult,r.liquidityResult,r.structureResult,r.displacementResult,r.retestResult,r.rrTargetResult,r.lateEntryResult);
 }
 
+string SetupTypeToString(ENUM_SETUP_TYPE t)
+{
+   if(t==SETUP_TREND_CONTINUATION) return "TrendContinuation";
+   if(t==SETUP_PULLBACK_CONTINUATION) return "PullbackContinuation";
+   if(t==SETUP_BREAKOUT_RETEST) return "BreakoutRetest";
+   if(t==SETUP_REVERSAL_AFTER_SWEEP) return "ReversalAfterSweep";
+   if(t==SETUP_RANGE_EDGE_SWEEP) return "RangeEdgeSweep";
+   return "NoTrade";
+}
+
+void InitEventMemoryRecord(EventMemoryRecord &e)
+{
+   e.valid=false; e.eventType=""; e.direction=0; e.level=0; e.eventTime=0; e.candleIndex=0; e.age=999;
+   e.sourceTF=InpETF; e.invalidationLevel=0; e.retested=false; e.invalidated=false; e.qualityScore=0; e.audit="";
+}
+
+void InitMarketMap(MarketMap &m)
+{
+   m.valid=false; m.majorHigh=0; m.majorLow=0; m.internalHigh=0; m.internalLow=0; m.rangeHigh=0; m.rangeLow=0; m.rangeMid=0;
+   m.rangeDetected=false; m.inPremium=false; m.inDiscount=false; m.buySideLiquidity=0; m.sellSideLiquidity=0;
+   m.supportLevel=0; m.resistanceLevel=0; m.audit="";
+}
+
+void InitSetupCandidate(SetupCandidate &c, ENUM_SETUP_TYPE t, int dir)
+{
+   c.valid=false; c.mandatoryPass=false; c.hardBlock=false; c.setupType=t; c.direction=dir; c.score=0;
+   c.hardBlockReason=""; c.softMissingReasons=""; c.entry=0; c.sl=0; c.tp=0; c.rr=0; c.invalidationLevel=0; c.targetLevel=0;
+   c.targetSource=""; c.linkedEvents=""; c.eventAges=""; c.retestType=""; c.triggerType=""; c.entryLocationType="";
+   c.lateEntryStatus=""; c.locationQuality=0; c.targetQuality=0; c.audit="";
+}
+
+int EventAgeScore(int age)
+{
+   if(age<=3) return 24;
+   if(age<=6) return 18;
+   if(age<=9) return 11;
+   if(age<=12) return 6;
+   return 0;
+}
+
+string EventAgeBucket(int age)
+{
+   if(age<=3) return "FRESH";
+   if(age<=6) return "VALID";
+   if(age<=9) return "VALID_DECAYED";
+   if(age<=12) return "WEAK_NEEDS_TRIGGER";
+   return "EXPIRED";
+}
+
+void BuildMarketMap(TFBrain &h4, TFBrain &h1, TFBrain &m15, MarketMap &map)
+{
+   InitMarketMap(map);
+   map.valid=true;
+   map.majorHigh = (h4.majorHigh>0 ? h4.majorHigh : h1.majorHigh);
+   map.majorLow  = (h4.majorLow>0 ? h4.majorLow : h1.majorLow);
+   map.internalHigh = (h1.internalHigh>0 ? h1.internalHigh : m15.internalHigh);
+   map.internalLow  = (h1.internalLow>0 ? h1.internalLow : m15.internalLow);
+   map.rangeHigh = (m15.rangeHigh>0 ? m15.rangeHigh : h1.rangeHigh);
+   map.rangeLow = (m15.rangeLow>0 ? m15.rangeLow : h1.rangeLow);
+   map.rangeMid = (map.rangeHigh>0 && map.rangeLow>0 ? (map.rangeHigh+map.rangeLow)/2.0 : m15.rangeMid);
+   map.rangeDetected = (m15.rangeLike || h1.rangeLike || (map.rangeHigh>0 && map.rangeLow>0 && MathAbs(map.rangeHigh-map.rangeLow)<=MathMax(m15.atr*7.0,PointValue()*50)));
+   map.inPremium = (m15.inPremium || h1.inPremium);
+   map.inDiscount = (m15.inDiscount || h1.inDiscount);
+   map.buySideLiquidity = MathMax(MathMax(m15.buySideLiquidity,h1.buySideLiquidity),h4.buySideLiquidity);
+   map.sellSideLiquidity = m15.sellSideLiquidity;
+   if(map.sellSideLiquidity<=0 || (h1.sellSideLiquidity>0 && h1.sellSideLiquidity<map.sellSideLiquidity)) map.sellSideLiquidity=h1.sellSideLiquidity;
+   if(map.sellSideLiquidity<=0 || (h4.sellSideLiquidity>0 && h4.sellSideLiquidity<map.sellSideLiquidity)) map.sellSideLiquidity=h4.sellSideLiquidity;
+   map.supportLevel = (m15.swings.validLow ? m15.swings.lastLow : map.internalLow);
+   map.resistanceLevel = (m15.swings.validHigh ? m15.swings.lastHigh : map.internalHigh);
+   map.audit = StringFormat("MarketMap lookback=%d majorH=%.5f majorL=%.5f intH=%.5f intL=%.5f range=%s[%.5f/%.5f] liqB=%.5f liqS=%.5f PD=%s/%s",
+                            InpMarketMapLookback,map.majorHigh,map.majorLow,map.internalHigh,map.internalLow,BoolYN(map.rangeDetected),map.rangeHigh,map.rangeLow,map.buySideLiquidity,map.sellSideLiquidity,BoolYN(map.inPremium),BoolYN(map.inDiscount));
+}
+
+void SetMemoryEvent(EventMemoryRecord &e, string typ, int dir, double level, double invalidation, int age, ENUM_TIMEFRAMES tf, bool retested, bool invalidated, int baseScore)
+{
+   e.valid = !invalidated && age<=InpEventMemoryBars;
+   e.eventType=typ; e.direction=dir; e.level=level; e.invalidationLevel=invalidation; e.age=age; e.candleIndex=age; e.sourceTF=tf;
+   e.eventTime=iTime(_Symbol,tf,age); e.retested=retested; e.invalidated=invalidated; e.qualityScore=MathMax(0,baseScore+EventAgeScore(age));
+   e.audit=StringFormat("%s dir=%d level=%.5f age=%d/%s tf=%s retested=%s invalidated=%s q=%d",typ,dir,level,age,EventAgeBucket(age),TFToString(tf),BoolYN(retested),BoolYN(invalidated),e.qualityScore);
+}
+
+void BuildEventMemory(TFBrain &m15, EventMemoryRecord &sweepHigh, EventMemoryRecord &sweepLow, EventMemoryRecord &bosUp, EventMemoryRecord &bosDown, EventMemoryRecord &chochUp, EventMemoryRecord &chochDown, EventMemoryRecord &mssUp, EventMemoryRecord &mssDown, EventMemoryRecord &dispUp, EventMemoryRecord &dispDown)
+{
+   InitEventMemoryRecord(sweepHigh); InitEventMemoryRecord(sweepLow); InitEventMemoryRecord(bosUp); InitEventMemoryRecord(bosDown); InitEventMemoryRecord(chochUp); InitEventMemoryRecord(chochDown); InitEventMemoryRecord(mssUp); InitEventMemoryRecord(mssDown); InitEventMemoryRecord(dispUp); InitEventMemoryRecord(dispDown);
+   MqlRates r[]; ArraySetAsSeries(r,true);
+   int need=MathMax(InpEventMemoryBars+5,20);
+   if(!CopyRatesSafe(InpETF,need,r)) return;
+   double atr=MathMax(m15.atr,PointValue()*50);
+   for(int i=1; i<=InpEventMemoryBars && i<ArraySize(r)-2; i++)
+   {
+      bool upDisp=(r[i].close>r[i].open && CandleBody(r[i])>=atr*InpDisplacementATR);
+      bool dnDisp=(r[i].close<r[i].open && CandleBody(r[i])>=atr*InpDisplacementATR);
+      bool sh=(m15.swings.validHigh && r[i].high>m15.swings.lastHigh && r[i].close < m15.swings.lastHigh-atr*InpSweepCloseBackATR);
+      bool sl=(m15.swings.validLow && r[i].low<m15.swings.lastLow && r[i].close > m15.swings.lastLow+atr*InpSweepCloseBackATR);
+      bool bu=(m15.swings.validHigh && r[i].close>m15.swings.lastHigh);
+      bool bd=(m15.swings.validLow && r[i].close<m15.swings.lastLow);
+      if(upDisp && !dispUp.valid) SetMemoryEvent(dispUp,"DISPLACEMENT_UP",1,r[i].close,r[i].low,i,InpETF,false,(m15.chochDown||m15.mssDown),24);
+      if(dnDisp && !dispDown.valid) SetMemoryEvent(dispDown,"DISPLACEMENT_DOWN",-1,r[i].close,r[i].high,i,InpETF,false,(m15.chochUp||m15.mssUp),24);
+      if(sl && !sweepLow.valid) SetMemoryEvent(sweepLow,"SWEEP_LOW",1,m15.swings.lastLow,r[i].low,i,InpETF,(CurrentMid()>=m15.swings.lastLow),false,26);
+      if(sh && !sweepHigh.valid) SetMemoryEvent(sweepHigh,"SWEEP_HIGH",-1,m15.swings.lastHigh,r[i].high,i,InpETF,(CurrentMid()<=m15.swings.lastHigh),false,26);
+      if(bu && !bosUp.valid) SetMemoryEvent(bosUp,"BOS_UP",1,m15.swings.lastHigh,r[i].low,i,InpETF,(MathAbs(CurrentMid()-m15.swings.lastHigh)<=atr*InpOBRetestATR),(m15.chochDown||m15.mssDown),28);
+      if(bd && !bosDown.valid) SetMemoryEvent(bosDown,"BOS_DOWN",-1,m15.swings.lastLow,r[i].high,i,InpETF,(MathAbs(CurrentMid()-m15.swings.lastLow)<=atr*InpOBRetestATR),(m15.chochUp||m15.mssUp),28);
+      if(bu && m15.structureBias<0 && !chochUp.valid) SetMemoryEvent(chochUp,"CHOCH_UP",1,m15.swings.lastHigh,r[i].low,i,InpETF,false,(m15.chochDown||m15.mssDown),30);
+      if(bd && m15.structureBias>0 && !chochDown.valid) SetMemoryEvent(chochDown,"CHOCH_DOWN",-1,m15.swings.lastLow,r[i].high,i,InpETF,false,(m15.chochUp||m15.mssUp),30);
+      if(sl && upDisp && bu && !mssUp.valid) SetMemoryEvent(mssUp,"MSS_UP",1,m15.swings.lastHigh,r[i].low,i,InpETF,false,(m15.chochDown||m15.mssDown),34);
+      if(sh && dnDisp && bd && !mssDown.valid) SetMemoryEvent(mssDown,"MSS_DOWN",-1,m15.swings.lastLow,r[i].high,i,InpETF,false,(m15.chochUp||m15.mssUp),34);
+   }
+}
+
+bool HasFreshTrigger(int dir, TFBrain &m15, string &triggerType, int &quality)
+{
+   triggerType=""; quality=0;
+   MqlRates r[]; ArraySetAsSeries(r,true);
+   if(!CopyRatesSafe(InpETF,MathMax(InpEntryTriggerBars+3,6),r)) return false;
+   double atr=MathMax(m15.atr,PointValue()*50);
+   for(int i=1; i<=InpEntryTriggerBars && i<ArraySize(r); i++)
+   {
+      double body=CandleBody(r[i]);
+      double upper=r[i].high-MathMax(r[i].open,r[i].close);
+      double lower=MathMin(r[i].open,r[i].close)-r[i].low;
+      if(dir>0)
+      {
+         if(r[i].close>r[i].open && body>=atr*0.25) { triggerType="BULL_CONTINUATION_CANDLE"; quality=24+(InpEntryTriggerBars-i)*4; return true; }
+         if(lower>body*1.4 && r[i].close>r[i].open) { triggerType="BULL_REJECTION_WICK"; quality=26+(InpEntryTriggerBars-i)*4; return true; }
+         if(m15.swings.validHigh && r[i].close>m15.swings.lastHigh) { triggerType="BULL_RECLAIM_CLOSE"; quality=28+(InpEntryTriggerBars-i)*4; return true; }
+      }
+      else
+      {
+         if(r[i].close<r[i].open && body>=atr*0.25) { triggerType="BEAR_CONTINUATION_CANDLE"; quality=24+(InpEntryTriggerBars-i)*4; return true; }
+         if(upper>body*1.4 && r[i].close<r[i].open) { triggerType="BEAR_REJECTION_WICK"; quality=26+(InpEntryTriggerBars-i)*4; return true; }
+         if(m15.swings.validLow && r[i].close<m15.swings.lastLow) { triggerType="BEAR_RECLAIM_CLOSE"; quality=28+(InpEntryTriggerBars-i)*4; return true; }
+      }
+   }
+   return false;
+}
+
+bool ZoneTradableForSetup(Zone &z, ENUM_SETUP_TYPE setupType, bool needsFresh, string &why)
+{
+   why="";
+   if(!z.valid && z.blockReason!="") { why="Zone invalid: "+z.blockReason; return false; }
+   if(z.invalidated) { why="Zone invalidated"; return false; }
+   if(z.noisyWick) { why="Zone noisy wick"; return false; }
+   if(z.tooWide && setupType==SETUP_REVERSAL_AFTER_SWEEP) { why="Reversal zone too wide"; return false; }
+   if(z.mitigated && needsFresh) { why="Fresh zone required but zone fully mitigated"; return false; }
+   if(z.tapCount>2 && setupType!=SETUP_TREND_CONTINUATION) { why="Zone over-tapped"; return false; }
+   return (z.valid || (!needsFresh && !z.invalidated && !z.noisyWick));
+}
+
+bool DetectRetestForCandidate(int dir, ENUM_SETUP_TYPE setupType, MarketMap &map, TFBrain &h1, TFBrain &m15, SetupCandidate &c)
+{
+   double price=CurrentMid();
+   double atr=MathMax(m15.atr,PointValue()*50);
+   Zone ob=(dir>0 ? m15.bullOB : m15.bearOB);
+   Zone fvg=(dir>0 ? m15.bullFVG : m15.bearFVG);
+   string why="";
+   bool nearOB=(dir>0 ? m15.priceNearBullOB : m15.priceNearBearOB);
+   bool refined=(dir>0 ? m15.priceInBullOBRefined : m15.priceInBearOBRefined);
+   if(nearOB && ZoneTradableForSetup(ob,setupType,(setupType==SETUP_REVERSAL_AFTER_SWEEP),why) && (refined || setupType!=SETUP_REVERSAL_AFTER_SWEEP))
+   { c.retestType=(refined?"OB_REFINED":"OB_REACTION"); c.entryLocationType="OB"; c.locationQuality=refined?30:22; c.invalidationLevel=ob.invalidationLevel; return true; }
+   if(PriceNearZone(price,fvg,atr,InpFVGRetestATR) && ZoneTradableForSetup(fvg,setupType,false,why))
+   { c.retestType="FVG_RETEST"; c.entryLocationType="FVG"; c.locationQuality=24; c.invalidationLevel=fvg.invalidationLevel; return true; }
+   double level=(dir>0 ? map.supportLevel : map.resistanceLevel);
+   if(level>0 && MathAbs(price-level)<=atr*InpOBRetestATR)
+   { c.retestType="STRUCTURE_RETEST"; c.entryLocationType="SUPPORT_RESISTANCE_RETEST"; c.locationQuality=22; c.invalidationLevel=(dir>0 ? level-atr*0.55 : level+atr*0.55); return true; }
+   double broken=(dir>0 ? m15.swings.lastHigh : m15.swings.lastLow);
+   if(((dir>0 && broken>0 && price>=broken-atr*InpOBRetestATR && price<=broken+atr*InpOBRetestATR) || (dir<0 && broken>0 && price<=broken+atr*InpOBRetestATR && price>=broken-atr*InpOBRetestATR)))
+   { c.retestType="BREAKOUT_RETEST"; c.entryLocationType=(dir>0?"STRUCTURE_HIGH_TURNED_SUPPORT":"STRUCTURE_LOW_TURNED_RESISTANCE"); c.locationQuality=24; c.invalidationLevel=(dir>0 ? broken-atr*0.60 : broken+atr*0.60); return true; }
+   if(map.rangeDetected && map.rangeHigh>0 && map.rangeLow>0)
+   {
+      if(dir>0 && price<=map.rangeLow+atr*0.70) { c.retestType="RANGE_EDGE_RETEST"; c.entryLocationType="RANGE_LOW"; c.locationQuality=26; c.invalidationLevel=map.rangeLow-atr*0.45; return true; }
+      if(dir<0 && price>=map.rangeHigh-atr*0.70) { c.retestType="RANGE_EDGE_RETEST"; c.entryLocationType="RANGE_HIGH"; c.locationQuality=26; c.invalidationLevel=map.rangeHigh+atr*0.45; return true; }
+   }
+   Zone htf=(dir>0 ? h1.bullOB : h1.bearOB);
+   if(PriceNearZone(price,htf,atr,InpOBRetestATR*1.4) && ZoneTradableForSetup(htf,setupType,false,why))
+   { c.retestType=(dir>0?"HTF_DEMAND_RETEST":"HTF_SUPPLY_RETEST"); c.entryLocationType="H1_ZONE_WITH_M15_TRIGGER"; c.locationQuality=23; c.invalidationLevel=htf.invalidationLevel; return true; }
+   c.hardBlockReason="No logical entry location/retest";
+   return false;
+}
+
+bool BuildCandidateRiskModel(int dir, MarketMap &map, TFBrain &h1, TFBrain &m15, SetupCandidate &c)
+{
+   double atr=MathMax(m15.atr,PointValue()*50);
+   c.entry=(dir>0 ? CurrentAsk() : CurrentBid());
+   double inv=c.invalidationLevel;
+   if(inv<=0) inv=(dir>0 ? m15.swings.lastLow : m15.swings.lastHigh);
+   if(dir>0)
+   {
+      if(inv<=0 || inv>=c.entry) { c.hardBlockReason="No logical BUY invalidation"; return false; }
+      c.sl=NormalizePrice(inv-atr*InpSL_ATR_Buffer);
+      c.targetLevel=0; c.targetSource="";
+      if(map.buySideLiquidity>c.entry) { c.targetLevel=map.buySideLiquidity; c.targetSource="MAP_BUY_SIDE_LIQUIDITY"; }
+      if(h1.swings.validHigh && h1.swings.lastHigh>c.entry && (c.targetLevel==0 || h1.swings.lastHigh<c.targetLevel)) { c.targetLevel=h1.swings.lastHigh; c.targetSource="H1_EXTERNAL_SWING"; }
+      if(map.rangeDetected && map.rangeHigh>c.entry && (c.targetLevel==0 || map.rangeHigh<c.targetLevel)) { c.targetLevel=map.rangeHigh; c.targetSource="RANGE_HIGH"; }
+      double minTarget=c.entry+(c.entry-c.sl)*MathMax(InpMinRRSoft,InpDefaultRR*0.70);
+      if(c.targetLevel<=c.entry) { c.targetLevel=minTarget; c.targetSource="MIN_RR_FALLBACK"; }
+      c.tp=NormalizePrice(c.targetLevel);
+   }
+   else
+   {
+      if(inv<=0 || inv<=c.entry) { c.hardBlockReason="No logical SELL invalidation"; return false; }
+      c.sl=NormalizePrice(inv+atr*InpSL_ATR_Buffer);
+      c.targetLevel=0; c.targetSource="";
+      if(map.sellSideLiquidity>0 && map.sellSideLiquidity<c.entry) { c.targetLevel=map.sellSideLiquidity; c.targetSource="MAP_SELL_SIDE_LIQUIDITY"; }
+      if(h1.swings.validLow && h1.swings.lastLow<c.entry && (c.targetLevel==0 || h1.swings.lastLow>c.targetLevel)) { c.targetLevel=h1.swings.lastLow; c.targetSource="H1_EXTERNAL_SWING"; }
+      if(map.rangeDetected && map.rangeLow<c.entry && (c.targetLevel==0 || map.rangeLow>c.targetLevel)) { c.targetLevel=map.rangeLow; c.targetSource="RANGE_LOW"; }
+      double minTarget=c.entry-(c.sl-c.entry)*MathMax(InpMinRRSoft,InpDefaultRR*0.70);
+      if(c.targetLevel<=0 || c.targetLevel>=c.entry) { c.targetLevel=minTarget; c.targetSource="MIN_RR_FALLBACK"; }
+      c.tp=NormalizePrice(c.targetLevel);
+   }
+   double risk=MathAbs(c.entry-c.sl), reward=MathAbs(c.tp-c.entry);
+   if(risk<=PointValue()*5) { c.hardBlockReason="Risk distance invalid/tiny"; return false; }
+   c.rr=reward/risk;
+   if(c.rr<InpMinRRSoft) { c.hardBlockReason=StringFormat("RR %.2f below minimum %.2f",c.rr,InpMinRRSoft); return false; }
+   string why=""; if(!StopsOK((dir>0?DECISION_BUY:DECISION_SELL),c.entry,c.sl,c.tp,why)) { c.hardBlockReason=why; return false; }
+   c.targetQuality=(c.targetSource=="MIN_RR_FALLBACK" ? 12 : 24);
+   return true;
+}
+
+bool OppositeConfirmedReversal(int dir, ENUM_BRAIN_STATE state, TFBrain &m15)
+{
+   if(dir>0) return (state==STATE_REVERSAL_CONFIRMED_BEAR || m15.chochDown || m15.mssDown);
+   return (state==STATE_REVERSAL_CONFIRMED_BULL || m15.chochUp || m15.mssUp);
+}
+
+bool HardConflictForCandidate(int dir, ENUM_SETUP_TYPE setupType, TFBrain &h4, TFBrain &h1, TFBrain &m15, ENUM_BRAIN_STATE state, string &why)
+{
+   why="";
+   if(OppositeConfirmedReversal(dir,state,m15)) { why="Active confirmed opposite reversal/CHOCH-MSS"; return true; }
+   if(setupType==SETUP_REVERSAL_AFTER_SWEEP) return false;
+   if(dir>0 && h4.finalBias<0 && h1.finalBias<0) { why="Severe bearish HTF conflict without reversal playbook"; return true; }
+   if(dir<0 && h4.finalBias>0 && h1.finalBias>0) { why="Severe bullish HTF conflict without reversal playbook"; return true; }
+   return false;
+}
+
+void FinalizeCandidateAudit(SetupCandidate &c)
+{
+   c.audit=StringFormat("%s %s score=%d pass=%s hard=%s hardReason=%s soft=%s entryLoc=%s retest=%s trigger=%s events=%s ages=%s entry=%.5f sl=%.5f tp=%.5f rr=%.2f target=%s %.5f late=%s locQ=%d tgtQ=%d",
+                        (c.direction>0?"BUY":"SELL"),SetupTypeToString(c.setupType),c.score,BoolYN(c.mandatoryPass),BoolYN(c.hardBlock),c.hardBlockReason,c.softMissingReasons,c.entryLocationType,c.retestType,c.triggerType,c.linkedEvents,c.eventAges,c.entry,c.sl,c.tp,c.rr,c.targetSource,c.targetLevel,c.lateEntryStatus,c.locationQuality,c.targetQuality);
+}
+
+void ScoreCommonCandidate(SetupCandidate &c, int baseScore, TFBrain &h4, TFBrain &h1, TFBrain &m15, string triggerType, int triggerQuality)
+{
+   c.score=baseScore + c.locationQuality + c.targetQuality + triggerQuality;
+   c.triggerType=triggerType;
+   if(c.direction>0)
+   {
+      if(h4.finalBias>0) c.score+=10; else SoftAdd(c.softMissingReasons,"H4 not bullish");
+      if(h1.finalBias>0) c.score+=10; else SoftAdd(c.softMissingReasons,"H1 not bullish");
+      if(m15.inDiscount) c.score+=5; else SoftAdd(c.softMissingReasons,"Not ideal discount");
+   }
+   else
+   {
+      if(h4.finalBias<0) c.score+=10; else SoftAdd(c.softMissingReasons,"H4 not bearish");
+      if(h1.finalBias<0) c.score+=10; else SoftAdd(c.softMissingReasons,"H1 not bearish");
+      if(m15.inPremium) c.score+=5; else SoftAdd(c.softMissingReasons,"Not ideal premium");
+   }
+   if(c.rr>=InpDefaultRR) c.score+=8; else SoftAdd(c.softMissingReasons,"RR below default target but above minimum");
+}
+
+void AddCandidate(SetupCandidate &arr[], int &count, SetupCandidate &c)
+{
+   if(count>=10) return;
+   arr[count]=c;
+   count++;
+}
+
+void EvaluateTrendContinuationCandidate(int dir, TFBrain &h4, TFBrain &h1, TFBrain &m15, MarketMap &map, ENUM_BRAIN_STATE state, SetupCandidate &c)
+{
+   InitSetupCandidate(c,SETUP_TREND_CONTINUATION,dir);
+   bool aligned=(dir>0 ? (h4.finalBias>0 && h1.finalBias>0) : (h4.finalBias<0 && h1.finalBias<0));
+   string conflict=""; if(HardConflictForCandidate(dir,c.setupType,h4,h1,m15,state,conflict)) { c.hardBlock=true; c.hardBlockReason=conflict; FinalizeCandidateAudit(c); return; }
+   string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
+   if(!aligned) { c.hardBlock=true; c.hardBlockReason="TrendContinuation requires HTF/H1 alignment"; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(!trigger) { c.hardBlock=true; c.hardBlockReason="No fresh continuation/rejection trigger"; FinalizeCandidateAudit(c); return; }
+   double dist=(m15.atr>0?MathAbs(m15.close1-m15.emaFast)/m15.atr:0); c.lateEntryStatus=StringFormat("distEMA_ATR=%.2f",dist);
+   if(dist>2.80 || m15.nearEquilibrium) { c.hardBlock=true; c.hardBlockReason="Late/no-man's-land trend entry"; FinalizeCandidateAudit(c); return; }
+   if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   c.mandatoryPass=true; c.valid=true; c.linkedEvents="HTF_ALIGNMENT"; c.eventAges="trend_context";
+   ScoreCommonCandidate(c,18,h4,h1,m15,trig,tq); FinalizeCandidateAudit(c);
+}
+
+void EvaluatePullbackContinuationCandidate(int dir, TFBrain &h4, TFBrain &h1, TFBrain &m15, MarketMap &map, ENUM_BRAIN_STATE state, SetupCandidate &c)
+{
+   InitSetupCandidate(c,SETUP_PULLBACK_CONTINUATION,dir);
+   bool htfOk=(dir>0 ? h4.finalBias>0 : h4.finalBias<0);
+   bool value=(dir>0 ? (m15.inDiscount || h1.inDiscount || m15.finalBias<0) : (m15.inPremium || h1.inPremium || m15.finalBias>0));
+   string conflict=""; if(HardConflictForCandidate(dir,c.setupType,h4,h1,m15,state,conflict)) { c.hardBlock=true; c.hardBlockReason=conflict; FinalizeCandidateAudit(c); return; }
+   string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
+   if(!htfOk) { c.hardBlock=true; c.hardBlockReason="PullbackContinuation requires HTF trend still valid"; FinalizeCandidateAudit(c); return; }
+   if(!value) { c.hardBlock=true; c.hardBlockReason="Pullback not in logical value area"; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(!trigger) { c.hardBlock=true; c.hardBlockReason="No fresh pullback reaction trigger"; FinalizeCandidateAudit(c); return; }
+   double dist=(m15.atr>0?MathAbs(m15.close1-m15.emaFast)/m15.atr:0); c.lateEntryStatus=StringFormat("distEMA_ATR=%.2f",dist);
+   if(dist>3.20) { c.hardBlock=true; c.hardBlockReason="Pullback entry late after move"; FinalizeCandidateAudit(c); return; }
+   if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   c.mandatoryPass=true; c.valid=true; c.linkedEvents="HTF_TREND_PULLBACK_VALUE"; c.eventAges="pullback_context";
+   ScoreCommonCandidate(c,20,h4,h1,m15,trig,tq); FinalizeCandidateAudit(c);
+}
+
+void EvaluateBreakoutRetestCandidate(int dir, EventMemoryRecord &bos, EventMemoryRecord &disp, TFBrain &h4, TFBrain &h1, TFBrain &m15, MarketMap &map, ENUM_BRAIN_STATE state, SetupCandidate &c)
+{
+   InitSetupCandidate(c,SETUP_BREAKOUT_RETEST,dir);
+   string conflict=""; if(HardConflictForCandidate(dir,c.setupType,h4,h1,m15,state,conflict)) { c.hardBlock=true; c.hardBlockReason=conflict; FinalizeCandidateAudit(c); return; }
+   if(!bos.valid) { c.hardBlock=true; c.hardBlockReason="No recent BOS/breakout event in memory"; FinalizeCandidateAudit(c); return; }
+   string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(c.retestType!="BREAKOUT_RETEST" && c.retestType!="STRUCTURE_RETEST") SoftAdd(c.softMissingReasons,"Retest is not pure breakout level");
+   if(!trigger) { c.hardBlock=true; c.hardBlockReason="No fresh breakout-retest trigger"; FinalizeCandidateAudit(c); return; }
+   if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   c.mandatoryPass=true; c.valid=true; c.linkedEvents=bos.audit+"; "+disp.audit; c.eventAges=StringFormat("BOS=%d/%s DISP=%d/%s",bos.age,EventAgeBucket(bos.age),disp.age,EventAgeBucket(disp.age));
+   ScoreCommonCandidate(c,22+EventAgeScore(bos.age)/2,h4,h1,m15,trig,tq); FinalizeCandidateAudit(c);
+}
+
+void EvaluateReversalAfterSweepCandidate(int dir, EventMemoryRecord &sweep, EventMemoryRecord &bos, EventMemoryRecord &choch, EventMemoryRecord &mss, EventMemoryRecord &disp, TFBrain &h4, TFBrain &h1, TFBrain &m15, MarketMap &map, ENUM_BRAIN_STATE state, SetupCandidate &c)
+{
+   InitSetupCandidate(c,SETUP_REVERSAL_AFTER_SWEEP,dir);
+   bool hasStructure=(bos.valid || choch.valid || mss.valid);
+   string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
+   if(!sweep.valid) { c.hardBlock=true; c.hardBlockReason="Reversal requires liquidity sweep"; FinalizeCandidateAudit(c); return; }
+   if(!disp.valid) { c.hardBlock=true; c.hardBlockReason="Reversal requires displacement away from sweep"; FinalizeCandidateAudit(c); return; }
+   if(!hasStructure) { c.hardBlock=true; c.hardBlockReason="Reversal requires BOS/CHOCH/MSS"; FinalizeCandidateAudit(c); return; }
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   if(!trigger) { c.hardBlock=true; c.hardBlockReason="Reversal requires fresh rejection/confirmation trigger"; FinalizeCandidateAudit(c); return; }
+   if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   c.mandatoryPass=true; c.valid=true; c.linkedEvents=sweep.audit+"; "+disp.audit+"; "+(mss.valid?mss.audit:(choch.valid?choch.audit:bos.audit));
+   c.eventAges=StringFormat("SWEEP=%d/%s DISP=%d/%s STRUCT=%d",sweep.age,EventAgeBucket(sweep.age),disp.age,EventAgeBucket(disp.age),(mss.valid?mss.age:(choch.valid?choch.age:bos.age)));
+   ScoreCommonCandidate(c,26+EventAgeScore(sweep.age)/2,h4,h1,m15,trig,tq); FinalizeCandidateAudit(c);
+}
+
+void EvaluateRangeEdgeSweepCandidate(int dir, EventMemoryRecord &sweep, TFBrain &h4, TFBrain &h1, TFBrain &m15, MarketMap &map, ENUM_BRAIN_STATE state, SetupCandidate &c)
+{
+   InitSetupCandidate(c,SETUP_RANGE_EDGE_SWEEP,dir);
+   if(!map.rangeDetected) { c.hardBlock=true; c.hardBlockReason="No range detected"; FinalizeCandidateAudit(c); return; }
+   if(!sweep.valid) { c.hardBlock=true; c.hardBlockReason="Range edge setup requires sweep/failed breakout"; FinalizeCandidateAudit(c); return; }
+   string trig=""; int tq=0; bool trigger=HasFreshTrigger(dir,m15,trig,tq);
+   if(!DetectRetestForCandidate(dir,c.setupType,map,h1,m15,c) || c.retestType!="RANGE_EDGE_RETEST") { c.hardBlock=true; if(c.hardBlockReason=="") c.hardBlockReason="Not at range edge"; FinalizeCandidateAudit(c); return; }
+   if(!trigger) { c.hardBlock=true; c.hardBlockReason="No range-edge rejection trigger"; FinalizeCandidateAudit(c); return; }
+   if(!BuildCandidateRiskModel(dir,map,h1,m15,c)) { c.hardBlock=true; FinalizeCandidateAudit(c); return; }
+   c.mandatoryPass=true; c.valid=true; c.linkedEvents=sweep.audit; c.eventAges=StringFormat("SWEEP=%d/%s",sweep.age,EventAgeBucket(sweep.age));
+   ScoreCommonCandidate(c,22+EventAgeScore(sweep.age)/2,h4,h1,m15,trig,tq); FinalizeCandidateAudit(c);
+}
+
+void GenerateSetupCandidates(TFBrain &h4, TFBrain &h1, TFBrain &m15, ENUM_BRAIN_STATE state, SetupCandidate &candidates[], int &count, MarketMap &map, string &audit)
+{
+   count=0; audit="";
+   BuildMarketMap(h4,h1,m15,map);
+   EventMemoryRecord sweepHigh,sweepLow,bosUp,bosDown,chochUp,chochDown,mssUp,mssDown,dispUp,dispDown;
+   BuildEventMemory(m15,sweepHigh,sweepLow,bosUp,bosDown,chochUp,chochDown,mssUp,mssDown,dispUp,dispDown);
+   SetupCandidate c;
+   EvaluateTrendContinuationCandidate(1,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluatePullbackContinuationCandidate(1,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluateBreakoutRetestCandidate(1,bosUp,dispUp,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluateReversalAfterSweepCandidate(1,sweepLow,bosUp,chochUp,mssUp,dispUp,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluateRangeEdgeSweepCandidate(1,sweepLow,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluateTrendContinuationCandidate(-1,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluatePullbackContinuationCandidate(-1,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluateBreakoutRetestCandidate(-1,bosDown,dispDown,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluateReversalAfterSweepCandidate(-1,sweepHigh,bosDown,chochDown,mssDown,dispDown,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   EvaluateRangeEdgeSweepCandidate(-1,sweepHigh,h4,h1,m15,map,state,c); AddCandidate(candidates,count,c);
+   audit=map.audit+" || EventMemory{"+sweepLow.audit+" | "+sweepHigh.audit+" | "+bosUp.audit+" | "+bosDown.audit+" | "+mssUp.audit+" | "+mssDown.audit+"}";
+}
+
+string RankSetupCandidates(SetupCandidate &candidates[], int count)
+{
+   string out="";
+   for(int i=0;i<count;i++)
+   {
+      string row=StringFormat("#%d %s %s score=%d valid=%s pass=%s hard=%s hardReason=%s soft=%s",i,(candidates[i].direction>0?"BUY":"SELL"),SetupTypeToString(candidates[i].setupType),candidates[i].score,BoolYN(candidates[i].valid),BoolYN(candidates[i].mandatoryPass),BoolYN(candidates[i].hardBlock),candidates[i].hardBlockReason,candidates[i].softMissingReasons);
+      SoftAdd(out,row);
+   }
+   return out;
+}
+
+bool SelectBestCandidate(SetupCandidate &candidates[], int count, SetupCandidate &best, SetupCandidate &opposite, string &why)
+{
+   InitSetupCandidate(best,SETUP_NO_TRADE,0); InitSetupCandidate(opposite,SETUP_NO_TRADE,0); why="";
+   int bestIdx=-1, oppIdx=-1;
+   for(int i=0;i<count;i++)
+   {
+      if(!candidates[i].valid || !candidates[i].mandatoryPass || candidates[i].hardBlock) continue;
+      if(bestIdx<0 || candidates[i].score>candidates[bestIdx].score) bestIdx=i;
+   }
+   if(bestIdx<0) { why="No valid playbook candidate"; return false; }
+   for(int j=0;j<count;j++)
+   {
+      if(j==bestIdx) continue;
+      if(!candidates[j].valid || !candidates[j].mandatoryPass || candidates[j].hardBlock) continue;
+      if(candidates[j].direction==-candidates[bestIdx].direction)
+      {
+         if(oppIdx<0 || candidates[j].score>candidates[oppIdx].score) oppIdx=j;
+      }
+   }
+   best=candidates[bestIdx];
+   if(oppIdx>=0) opposite=candidates[oppIdx];
+   int threshold=(best.setupType==SETUP_REVERSAL_AFTER_SWEEP ? InpReversalMinScore : InpEntryMinScore);
+   if(best.score<threshold) { why=StringFormat("Best candidate score %d below threshold %d",best.score,threshold); return false; }
+   if(oppIdx>=0 && best.score<=candidates[oppIdx].score+InpCandidateSideSeparation)
+   { why=StringFormat("Best candidate does not clearly beat opposite side: best=%d opposite=%d",best.score,candidates[oppIdx].score); return false; }
+   return true;
+}
+
+void BuildDecisionFromCandidate(SetupCandidate &best, BrainDecision &d)
+{
+   d.decision=(best.direction>0 ? DECISION_BUY : DECISION_SELL);
+   d.entry=best.entry; d.sl=best.sl; d.tp=best.tp;
+   d.entryModel=best.audit;
+   d.selectedSetupType=SetupTypeToString(best.setupType);
+   SoftAdd(d.reason,StringFormat("Selected %s %s score=%d RR=%.2f retest=%s trigger=%s target=%s",best.direction>0?"BUY":"SELL",d.selectedSetupType,best.score,best.rr,best.retestType,best.triggerType,best.targetSource));
+}
+
 void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
 {
    d.decision=DECISION_WAIT;
@@ -1974,7 +2473,7 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
    d.learningBias=0;
    d.sl=0; d.tp=0; d.lot=NormalizeLot(FixedLotBySymbol()); d.entry=CurrentMid();
    d.bid=CurrentBid(); d.ask=CurrentAsk(); d.spread=d.ask-d.bid; d.decisionTF=TFToString(InpETF);
-   d.buyEntryAudit=""; d.sellEntryAudit="";
+   d.buyEntryAudit=""; d.sellEntryAudit=""; d.selectedSetupType="NoTrade"; d.candidateRanking=""; d.candidateAudit="";
 
    // Hard integrity checks first.
    if(!h4.dataOK || !h1.dataOK || !m15.dataOK)
@@ -2087,55 +2586,64 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
       SoftAdd(d.reason,"Learning bias "+IntegerToString(d.learningBias)+" for "+d.setupKey);
    }
 
-   // If score not strong, WAIT. No daily limit exists.
-   int buyThreshold = (d.state==STATE_REVERSAL_CONFIRMED_BULL ? InpReversalMinScore : InpEntryMinScore);
-   int sellThreshold = (d.state==STATE_REVERSAL_CONFIRMED_BEAR ? InpReversalMinScore : InpEntryMinScore);
+   // Entry Brain v2: generate scenario-specific playbook candidates instead of forcing one rigid checklist.
+   SetupCandidate candidates[10];
+   int candidateCount=0;
+   MarketMap marketMap;
+   string generationAudit="";
+   GenerateSetupCandidates(h4,h1,m15,d.state,candidates,candidateCount,marketMap,generationAudit);
+   d.candidateRanking = RankSetupCandidates(candidates,candidateCount);
+   d.candidateAudit = generationAudit;
+   d.obAudit = "H4_OB{" + h4.bullOB.audit + " || " + h4.bearOB.audit + "} H1_OB{" + h1.bullOB.audit + " || " + h1.bearOB.audit + "} M15_OB{" + m15.bullOB.audit + " || " + m15.bearOB.audit + "} FVG{" + m15.bullFVG.audit + " || " + m15.bearFVG.audit + "}";
+   d.reversalAudit = StringFormat("State=%s M15Bull{%s} M15Bear{%s} H1Bull{%s} H1Bear{%s}",StateToString(d.state),m15.lastBullEvent.audit,m15.lastBearEvent.audit,h1.lastBullEvent.audit,h1.lastBearEvent.audit);
 
-   EntryModelResult buyModel,sellModel;
-   EvaluateEntryModel(1,h4,h1,m15,d.state,buyModel);
-   EvaluateEntryModel(-1,h4,h1,m15,d.state,sellModel);
-   d.buyEntryAudit=buyModel.audit;
-   d.sellEntryAudit=sellModel.audit;
+   SetupCandidate best, opposite;
+   string selectWhy="";
+   bool selected = SelectBestCandidate(candidates,candidateCount,best,opposite,selectWhy);
+
+   if(selected && best.direction>0 && d.blockBuy) { selected=false; selectWhy="BUY candidate blocked by direction/reversal permission"; }
+   if(selected && best.direction<0 && d.blockSell) { selected=false; selectWhy="SELL candidate blocked by direction/reversal permission"; }
+   if(selected && best.direction>0 && !InpAllowBuy) { selected=false; selectWhy="BUY disabled by input"; }
+   if(selected && best.direction<0 && !InpAllowSell) { selected=false; selectWhy="SELL disabled by input"; }
+
    d.bid=CurrentBid();
    d.ask=CurrentAsk();
    d.spread=d.ask-d.bid;
    d.decisionTF=TFToString(InpETF);
 
-   if(!buyModel.storyComplete) { d.blockBuy=true; SoftAdd(d.waitReason,"BuySkip="+buyModel.blockReasons); }
-   if(!sellModel.storyComplete) { d.blockSell=true; SoftAdd(d.waitReason,"SellSkip="+sellModel.blockReasons); }
-
-   d.obAudit = "H4_OB{" + h4.bullOB.audit + " || " + h4.bearOB.audit + "} H1_OB{" + h1.bullOB.audit + " || " + h1.bearOB.audit + "} M15_OB{" + m15.bullOB.audit + " || " + m15.bearOB.audit + "} FVG{" + m15.bullFVG.audit + " || " + m15.bearFVG.audit + "}";
-   d.reversalAudit = StringFormat("State=%s M15Bull{%s} M15Bear{%s} H1Bull{%s} H1Bear{%s}",StateToString(d.state),m15.lastBullEvent.audit,m15.lastBearEvent.audit,h1.lastBullEvent.audit,h1.lastBearEvent.audit);
-   d.audit = StringFormat("Bid=%.5f Ask=%.5f Spread=%.5f TF=%s H4[%s] H1[%s] M15[%s] Liquidity{%s} Events{%s} BUY{%s} SELL{%s} OB_FVG_AUDIT=%s",
-                          d.bid,d.ask,d.spread,d.decisionTF,h4.notes,h1.notes,m15.notes,m15.liquidityAudit,m15.eventAudit,buyModel.audit,sellModel.audit,d.obAudit);
-
-   bool buyReady = (!d.blockBuy && buyModel.storyComplete && d.buyScore >= buyThreshold && d.buyScore > d.sellScore+7);
-   bool sellReady = (!d.blockSell && sellModel.storyComplete && d.sellScore >= sellThreshold && d.sellScore > d.buyScore+7);
-
-   if(buyReady)
+   // Keep legacy BUY/SELL entry audit columns useful by storing the best candidate per side.
+   d.buyEntryAudit=""; d.sellEntryAudit="";
+   for(int ci=0; ci<candidateCount; ci++)
    {
-      d.decision = DECISION_BUY;
-      d.entryModel=buyModel.audit;
-      d.entry=buyModel.entry; d.sl=buyModel.sl; d.tp=buyModel.tp;
-      SoftAdd(d.reason,StringFormat("BUY entry model passed RR %.2f target %.5f",buyModel.rr,buyModel.targetLevel));
+      if(candidates[ci].direction>0 && (d.buyEntryAudit=="" || candidates[ci].score>0)) d.buyEntryAudit=candidates[ci].audit;
+      if(candidates[ci].direction<0 && (d.sellEntryAudit=="" || candidates[ci].score>0)) d.sellEntryAudit=candidates[ci].audit;
    }
-   else if(sellReady)
+
+   if(selected)
    {
-      d.decision = DECISION_SELL;
-      d.entryModel=sellModel.audit;
-      d.entry=sellModel.entry; d.sl=sellModel.sl; d.tp=sellModel.tp;
-      SoftAdd(d.reason,StringFormat("SELL entry model passed RR %.2f target %.5f",sellModel.rr,sellModel.targetLevel));
+      // Blend scenario score into side score for transparent logs while the final gate remains candidate based.
+      if(best.direction>0) d.buyScore += best.score;
+      else d.sellScore += best.score;
+      BuildDecisionFromCandidate(best,d);
    }
-   else d.decision = DECISION_WAIT;
+   else
+   {
+      d.decision=DECISION_WAIT;
+      d.selectedSetupType="NoTrade";
+      d.waitReason=selectWhy;
+      if(selectWhy!="") SoftAdd(d.reason,"Entry Brain v2 WAIT: "+selectWhy);
+   }
+
+   d.audit = StringFormat("Bid=%.5f Ask=%.5f Spread=%.5f TF=%s selectedSetupType=%s H4[%s] H1[%s] M15[%s] %s Reversal{%s} CandidateRanking{%s} CandidateAudit{%s} OB_FVG_AUDIT=%s",
+                          d.bid,d.ask,d.spread,d.decisionTF,d.selectedSetupType,h4.notes,h1.notes,m15.notes,generationAudit,d.reversalAudit,d.candidateRanking,d.candidateAudit,d.obAudit);
 
    if(d.decision==DECISION_WAIT)
    {
-      if(d.reason=="") d.reason="Scores/story not strong/clean enough";
-      if(d.waitReason!="") SoftAdd(d.reason,d.waitReason);
+      if(d.reason=="") d.reason="No valid Entry Brain v2 playbook candidate";
       return;
    }
 
-   SoftAdd(d.reason,"SL/TP/RR prevalidated before final decision");
+   SoftAdd(d.reason,"Entry Brain v2 scenario selected with SL/TP/RR prevalidated");
 }
 
 //====================================================================
@@ -2612,7 +3120,7 @@ void EnsureCSVHeader()
    if(h==INVALID_HANDLE) return;
    if(FileSize(h)==0)
    {
-      FileWrite(h,"time","symbol","class","timeframe","bid","ask","spread","session","setupKey","learningBias","state","decision","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","buyEntryAudit","sellEntryAudit","obFvgAudit","reversalAudit","fullAudit");
+      FileWrite(h,"time","symbol","class","timeframe","bid","ask","spread","session","setupKey","learningBias","state","decision","selectedSetupType","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","buyEntryAudit","sellEntryAudit","candidateRanking","candidateAudit","obFvgAudit","reversalAudit","fullAudit");
    }
    FileClose(h);
 
@@ -2632,7 +3140,7 @@ void LogCSV(BrainDecision &d)
    if(h==INVALID_HANDLE) return;
    FileSeek(h,0,SEEK_END);
    FileWrite(h,TimeToString(TimeCurrent(),TIME_DATE|TIME_SECONDS),_Symbol,SymbolClassName(SymbolClass()),d.decisionTF,DoubleToString(d.bid,_Digits),DoubleToString(d.ask,_Digits),DoubleToString(d.spread,_Digits),d.sessionName,d.setupKey,d.learningBias,StateToString(d.state),DecisionToString(d.decision),
-             d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.buyEntryAudit,d.sellEntryAudit,d.obAudit,d.reversalAudit,d.audit);
+             d.selectedSetupType,d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.buyEntryAudit,d.sellEntryAudit,d.candidateRanking,d.candidateAudit,d.obAudit,d.reversalAudit,d.audit);
    FileClose(h);
 }
 
