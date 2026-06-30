@@ -1,10 +1,10 @@
 //+------------------------------------------------------------------+
 //| MoeBot_v4_TrendPullback_Phase1_Diagnostic.mq5                    |
-//| Phase 2 strategy analysis and signal diagnostics only.            |
+//| Phase 2.1 strategy analysis and signal scoring diagnostics only.  |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "4.20"
-#property description "MoeBot v4 Trend Pullback Phase 2 diagnostics."
+#property version   "4.21"
+#property description "MoeBot v4 Trend Pullback Phase 2.1 diagnostics."
 #property description "No order execution, martingale, grid, or position management is included."
 
 //--- Bot operating modes.
@@ -34,7 +34,7 @@ enum H4Bias
    Unknown = 3
 };
 
-//--- EA state machine states. Phase 2 uses these as analysis states only.
+//--- EA state machine states. Phase 2.1 uses these as analysis states only.
 enum EAState
 {
    IDLE = 0,
@@ -77,7 +77,7 @@ input int     GrowthThreshold          = 60;
 input int     MaxAddOns                = 1;
 input bool    UseManualNewsBlackout    = false;
 
-//--- Strategy constants for Phase 2 diagnostics.
+//--- Strategy constants for Phase 2.1 diagnostics.
 #define H1_ZONE_LOOKBACK_BARS 20
 #define H1_ZONE_MAX_AGE_BARS 40
 
@@ -143,7 +143,12 @@ struct M15TriggerInfo
    string direction;
    double priorHigh;
    double priorLow;
+   double triggerOpen;
+   double triggerHigh;
+   double triggerLow;
    double triggerClose;
+   double triggerBodyRatio;
+   double bosBreakDistanceATR;
    double atrM15;
    bool   insideZone;
    bool   nearMiss;
@@ -151,7 +156,7 @@ struct M15TriggerInfo
    string reason;
 };
 
-//--- Final Phase 2 signal candidate diagnostic details.
+//--- Final Phase 2.1 signal candidate diagnostic details.
 struct SignalCandidate
 {
    bool   hardGatesPassed;
@@ -160,6 +165,29 @@ struct SignalCandidate
    int    score;
    int    warningCount;
    int    threshold;
+
+   int    scoreBase;
+   int    scoreBosStrength;
+   int    scoreH4TrendQuality;
+   int    scoreH4EmaDistance;
+   int    scoreH1ZoneSource;
+   int    scoreH1ZoneFreshness;
+   int    scoreM15CandleBody;
+   int    scoreTriggerLocation;
+   int    scoreTotal;
+
+   double bosBreakDistanceATR;
+   double triggerBodyRatio;
+
+   bool   warningZoneTouch2Or3;
+   bool   warningNearMissTrigger;
+   bool   warningLowLiquidity;
+   bool   warningNewsBlackout;
+
+   bool   decisionGrowthEligible;
+   bool   decisionConservativeEligible;
+   string decisionLabel;
+
    string decision;
    string reason;
 };
@@ -173,17 +201,17 @@ M15TriggerInfo   g_m15Info;
 SignalCandidate  g_signal;
 EAState          g_state          = IDLE;
 datetime         g_lastM15BarTime = 0;
-H4Bias          g_previousDirectionalBias = Unknown;
+H4Bias           g_previousDirectionalBias = Unknown;
 
 //--- Indicator handles used only for analysis diagnostics.
-int g_h4EmaHandle = INVALID_HANDLE;
-int g_h1EmaHandle = INVALID_HANDLE;
-int g_h4AtrHandle = INVALID_HANDLE;
-int g_h1AtrHandle = INVALID_HANDLE;
+int g_h4EmaHandle  = INVALID_HANDLE;
+int g_h1EmaHandle  = INVALID_HANDLE;
+int g_h4AtrHandle  = INVALID_HANDLE;
+int g_h1AtrHandle  = INVALID_HANDLE;
 int g_m15AtrHandle = INVALID_HANDLE;
 
 //+------------------------------------------------------------------+
-//| Expert initialization function                                   |
+//| Expert initialization function                                    |
 //+------------------------------------------------------------------+
 int OnInit()
 {
@@ -203,19 +231,19 @@ int OnInit()
    g_status.debugText           = "Initialized";
 
    if(g_assetParams.assetClass == UNKNOWN)
-      Print("[MoeBot v4 Phase2] WARNING: Unknown asset class for ", _Symbol, "; using Forex defaults.");
+      Print("[MoeBot v4 Phase2.1] WARNING: Unknown asset class for ", _Symbol, "; using Forex defaults.");
 
    if(!CreateIndicatorHandles())
-      Print("[MoeBot v4 Phase2] WARNING: One or more indicator handles could not be created; analysis will fail gracefully until available.");
+      Print("[MoeBot v4 Phase2.1] WARNING: One or more indicator handles could not be created; analysis will fail gracefully until available.");
 
    if(EnableDebug)
-      Print("[MoeBot v4 Phase2] Initialized on current chart symbol only: ", _Symbol);
+      Print("[MoeBot v4 Phase2.1] Initialized on current chart symbol only: ", _Symbol);
 
    return(INIT_SUCCEEDED);
 }
 
 //+------------------------------------------------------------------+
-//| Expert deinitialization function                                 |
+//| Expert deinitialization function                                  |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
@@ -224,7 +252,7 @@ void OnDeinit(const int reason)
 }
 
 //+------------------------------------------------------------------+
-//| Expert tick function                                             |
+//| Expert tick function                                              |
 //+------------------------------------------------------------------+
 void OnTick()
 {
@@ -240,7 +268,7 @@ void OnTick()
 }
 
 //+------------------------------------------------------------------+
-//| Creates analysis indicator handles.                              |
+//| Creates analysis indicator handles.                               |
 //+------------------------------------------------------------------+
 bool CreateIndicatorHandles()
 {
@@ -261,7 +289,7 @@ bool CreateIndicatorHandles()
 }
 
 //+------------------------------------------------------------------+
-//| Releases analysis indicator handles.                             |
+//| Releases analysis indicator handles.                              |
 //+------------------------------------------------------------------+
 void ReleaseIndicatorHandles()
 {
@@ -297,7 +325,7 @@ void ReleaseIndicatorHandles()
 }
 
 //+------------------------------------------------------------------+
-//| Detects whether a new M15 candle has opened.                     |
+//| Detects whether a new M15 candle has opened.                      |
 //+------------------------------------------------------------------+
 bool IsNewM15Bar()
 {
@@ -313,7 +341,7 @@ bool IsNewM15Bar()
 }
 
 //+------------------------------------------------------------------+
-//| Refreshes the diagnostic snapshot and formatted output.           |
+//| Refreshes the diagnostic snapshot and formatted output.            |
 //+------------------------------------------------------------------+
 void UpdateDiagnosticStatus()
 {
@@ -333,16 +361,16 @@ void UpdateDiagnosticStatus()
 }
 
 //+------------------------------------------------------------------+
-//| Runs Phase 2 analysis only.                                      |
+//| Runs Phase 2.1 analysis only.                                     |
 //+------------------------------------------------------------------+
 void AnalyzeTrendPullback()
 {
    ResetAnalysisDiagnostics("Analysis pending");
 
-   g_h4Info = AnalyzeH4Bias();
-   g_h1Info = AnalyzeH1Zone(g_h4Info);
+   g_h4Info  = AnalyzeH4Bias();
+   g_h1Info  = AnalyzeH1Zone(g_h4Info);
    g_m15Info = AnalyzeM15Trigger(g_h4Info, g_h1Info);
-   g_signal = BuildSignalCandidate(g_h4Info, g_h1Info, g_m15Info);
+   g_signal  = BuildSignalCandidate(g_h4Info, g_h1Info, g_m15Info);
 
    UpdateAnalysisState(g_h4Info, g_h1Info, g_m15Info);
 
@@ -351,7 +379,7 @@ void AnalyzeTrendPullback()
 }
 
 //+------------------------------------------------------------------+
-//| Resets analysis diagnostics to safe defaults.                     |
+//| Resets analysis diagnostics to safe defaults.                      |
 //+------------------------------------------------------------------+
 void ResetAnalysisDiagnostics(const string reason)
 {
@@ -378,16 +406,21 @@ void ResetAnalysisDiagnostics(const string reason)
    g_h1Info.swingHigh   = 0.0;
    g_h1Info.swingLow    = 0.0;
 
-   g_m15Info.bos          = false;
-   g_m15Info.direction    = "NONE";
-   g_m15Info.priorHigh    = 0.0;
-   g_m15Info.priorLow     = 0.0;
-   g_m15Info.triggerClose = 0.0;
-   g_m15Info.atrM15       = 0.0;
-   g_m15Info.insideZone   = false;
-   g_m15Info.nearMiss     = false;
-   g_m15Info.tooLate      = false;
-   g_m15Info.reason       = reason;
+   g_m15Info.bos                 = false;
+   g_m15Info.direction           = "NONE";
+   g_m15Info.priorHigh           = 0.0;
+   g_m15Info.priorLow            = 0.0;
+   g_m15Info.triggerOpen         = 0.0;
+   g_m15Info.triggerHigh         = 0.0;
+   g_m15Info.triggerLow          = 0.0;
+   g_m15Info.triggerClose        = 0.0;
+   g_m15Info.triggerBodyRatio    = 0.0;
+   g_m15Info.bosBreakDistanceATR = 0.0;
+   g_m15Info.atrM15              = 0.0;
+   g_m15Info.insideZone          = false;
+   g_m15Info.nearMiss            = false;
+   g_m15Info.tooLate             = false;
+   g_m15Info.reason              = reason;
 
    g_signal.hardGatesPassed = false;
    g_signal.candidate       = false;
@@ -395,12 +428,30 @@ void ResetAnalysisDiagnostics(const string reason)
    g_signal.score           = 0;
    g_signal.warningCount    = 0;
    g_signal.threshold       = ActiveThreshold();
-   g_signal.decision        = "NO_CANDIDATE";
-   g_signal.reason          = reason;
+   g_signal.scoreBase       = 0;
+   g_signal.scoreBosStrength = 0;
+   g_signal.scoreH4TrendQuality = 0;
+   g_signal.scoreH4EmaDistance = 0;
+   g_signal.scoreH1ZoneSource = 0;
+   g_signal.scoreH1ZoneFreshness = 0;
+   g_signal.scoreM15CandleBody = 0;
+   g_signal.scoreTriggerLocation = 0;
+   g_signal.scoreTotal = 0;
+   g_signal.bosBreakDistanceATR = 0.0;
+   g_signal.triggerBodyRatio = 0.0;
+   g_signal.warningZoneTouch2Or3 = false;
+   g_signal.warningNearMissTrigger = false;
+   g_signal.warningLowLiquidity = false;
+   g_signal.warningNewsBlackout = false;
+   g_signal.decisionGrowthEligible = false;
+   g_signal.decisionConservativeEligible = false;
+   g_signal.decisionLabel = "NONE";
+   g_signal.decision = "NO_CANDIDATE";
+   g_signal.reason = reason;
 }
 
 //+------------------------------------------------------------------+
-//| Analyzes H4 directional bias from closed candles only.            |
+//| Analyzes H4 directional bias from closed candles only.             |
 //+------------------------------------------------------------------+
 H4BiasInfo AnalyzeH4Bias()
 {
@@ -483,7 +534,7 @@ H4BiasInfo AnalyzeH4Bias()
 }
 
 //+------------------------------------------------------------------+
-//| Counts H4 candle ranges crossing EMA50 over closed candles.       |
+//| Counts H4 candle ranges crossing EMA50 over closed candles.        |
 //+------------------------------------------------------------------+
 int CountH4EmaCrosses(const int lookback)
 {
@@ -506,7 +557,7 @@ int CountH4EmaCrosses(const int lookback)
 }
 
 //+------------------------------------------------------------------+
-//| Analyzes H1 pullback zone from closed candles only.               |
+//| Analyzes H1 pullback zone from closed candles only.                |
 //+------------------------------------------------------------------+
 H1ZoneInfo AnalyzeH1Zone(const H4BiasInfo &biasInfo)
 {
@@ -586,6 +637,7 @@ H1ZoneInfo AnalyzeH1Zone(const H4BiasInfo &biasInfo)
       zone.center = emaH1;
       zone.anchorTime = iTime(_Symbol, PERIOD_H1, 1);
       zone.ageBars = 1;
+      anchorShift = 1;
    }
 
    zone.lower = zone.center - (0.4 * atrH1);
@@ -624,7 +676,7 @@ H1ZoneInfo AnalyzeH1Zone(const H4BiasInfo &biasInfo)
 }
 
 //+------------------------------------------------------------------+
-//| Finds most recent qualifying H1 swing low.                        |
+//| Finds most recent qualifying H1 swing low.                         |
 //+------------------------------------------------------------------+
 bool FindMostRecentSwingLow(int &anchorShift, double &swingLow)
 {
@@ -651,7 +703,7 @@ bool FindMostRecentSwingLow(int &anchorShift, double &swingLow)
 }
 
 //+------------------------------------------------------------------+
-//| Finds most recent qualifying H1 swing high.                       |
+//| Finds most recent qualifying H1 swing high.                        |
 //+------------------------------------------------------------------+
 bool FindMostRecentSwingHigh(int &anchorShift, double &swingHigh)
 {
@@ -678,7 +730,7 @@ bool FindMostRecentSwingHigh(int &anchorShift, double &swingHigh)
 }
 
 //+------------------------------------------------------------------+
-//| Counts closed H1 candle overlaps after zone anchor.               |
+//| Counts closed H1 candle overlaps after zone anchor.                |
 //+------------------------------------------------------------------+
 int CountH1ZoneTouches(const H1ZoneInfo &zone, const int anchorShift)
 {
@@ -701,7 +753,7 @@ int CountH1ZoneTouches(const H1ZoneInfo &zone, const int anchorShift)
 }
 
 //+------------------------------------------------------------------+
-//| Checks H1 zone invalidation from closed H1 candles.               |
+//| Checks H1 zone invalidation from closed H1 candles.                |
 //+------------------------------------------------------------------+
 bool IsH1ZoneInvalidated(const H1ZoneInfo &zone, const H4Bias bias, const int anchorShift)
 {
@@ -724,21 +776,26 @@ bool IsH1ZoneInvalidated(const H1ZoneInfo &zone, const H4Bias bias, const int an
 }
 
 //+------------------------------------------------------------------+
-//| Analyzes M15 BOS trigger from closed candles only.                |
+//| Analyzes M15 BOS trigger from closed candles only.                 |
 //+------------------------------------------------------------------+
 M15TriggerInfo AnalyzeM15Trigger(const H4BiasInfo &biasInfo, const H1ZoneInfo &zone)
 {
    M15TriggerInfo trigger;
-   trigger.bos          = false;
-   trigger.direction    = "NONE";
-   trigger.priorHigh    = 0.0;
-   trigger.priorLow     = 0.0;
-   trigger.triggerClose = 0.0;
-   trigger.atrM15       = 0.0;
-   trigger.insideZone   = false;
-   trigger.nearMiss     = false;
-   trigger.tooLate      = false;
-   trigger.reason       = "M15 trigger analysis not available";
+   trigger.bos                 = false;
+   trigger.direction           = "NONE";
+   trigger.priorHigh           = 0.0;
+   trigger.priorLow            = 0.0;
+   trigger.triggerOpen         = 0.0;
+   trigger.triggerHigh         = 0.0;
+   trigger.triggerLow          = 0.0;
+   trigger.triggerClose        = 0.0;
+   trigger.triggerBodyRatio    = 0.0;
+   trigger.bosBreakDistanceATR = 0.0;
+   trigger.atrM15              = 0.0;
+   trigger.insideZone          = false;
+   trigger.nearMiss            = false;
+   trigger.tooLate             = false;
+   trigger.reason              = "M15 trigger analysis not available";
 
    if(!IsDirectionalBias(biasInfo.bias))
    {
@@ -766,12 +823,21 @@ M15TriggerInfo AnalyzeM15Trigger(const H4BiasInfo &biasInfo, const H1ZoneInfo &z
    }
 
    trigger.atrM15 = atrM15;
+   trigger.triggerOpen  = iOpen(_Symbol, PERIOD_M15, 1);
+   trigger.triggerHigh  = iHigh(_Symbol, PERIOD_M15, 1);
+   trigger.triggerLow   = iLow(_Symbol, PERIOD_M15, 1);
    trigger.triggerClose = iClose(_Symbol, PERIOD_M15, 1);
-   if(trigger.triggerClose <= 0.0)
+
+   if(trigger.triggerClose <= 0.0 || trigger.triggerOpen <= 0.0 ||
+      trigger.triggerHigh <= 0.0 || trigger.triggerLow <= 0.0)
    {
-      trigger.reason = "M15 trigger candle close is invalid";
+      trigger.reason = "M15 trigger candle data is invalid";
       return(trigger);
    }
+
+   double triggerRange = trigger.triggerHigh - trigger.triggerLow;
+   if(triggerRange > 0.0)
+      trigger.triggerBodyRatio = MathAbs(trigger.triggerClose - trigger.triggerOpen) / triggerRange;
 
    if(!GetM15PriorStructure(M15_BOS_Lookback, trigger.priorHigh, trigger.priorLow))
    {
@@ -786,16 +852,21 @@ M15TriggerInfo AnalyzeM15Trigger(const H4BiasInfo &biasInfo, const H1ZoneInfo &z
    {
       trigger.bos = true;
       trigger.direction = "BUY";
+      trigger.bosBreakDistanceATR = (trigger.triggerClose - trigger.priorHigh) / atrM15;
    }
    else if(biasInfo.bias == Bearish && sellBos)
    {
       trigger.bos = true;
       trigger.direction = "SELL";
+      trigger.bosBreakDistanceATR = (trigger.priorLow - trigger.triggerClose) / atrM15;
    }
    else
    {
       trigger.reason = "No BOS in the direction of H4 bias";
    }
+
+   if(trigger.bosBreakDistanceATR < 0.0)
+      trigger.bosBreakDistanceATR = 0.0;
 
    trigger.insideZone = (trigger.triggerClose >= zone.lower && trigger.triggerClose <= zone.upper);
    double nearMissBuffer = 0.2 * zone.atrH1;
@@ -817,7 +888,7 @@ M15TriggerInfo AnalyzeM15Trigger(const H4BiasInfo &biasInfo, const H1ZoneInfo &z
 }
 
 //+------------------------------------------------------------------+
-//| Gets M15 prior high/low excluding the trigger candle.             |
+//| Gets M15 prior high/low excluding the trigger candle.              |
 //+------------------------------------------------------------------+
 bool GetM15PriorStructure(const int lookback, double &priorHigh, double &priorLow)
 {
@@ -843,7 +914,7 @@ bool GetM15PriorStructure(const int lookback, double &priorHigh, double &priorLo
 }
 
 //+------------------------------------------------------------------+
-//| Builds final signal diagnostics without order execution.          |
+//| Builds final signal diagnostics without order execution.           |
 //+------------------------------------------------------------------+
 SignalCandidate BuildSignalCandidate(const H4BiasInfo &biasInfo,
                                      const H1ZoneInfo &zone,
@@ -856,17 +927,30 @@ SignalCandidate BuildSignalCandidate(const H4BiasInfo &biasInfo,
    signal.score           = 0;
    signal.warningCount    = 0;
    signal.threshold       = ActiveThreshold();
-   signal.decision        = "NO_CANDIDATE";
-   signal.reason          = "Hard gates not evaluated";
-
-   if(zone.touchCount == 2 || zone.touchCount == 3)
-      signal.warningCount++;
-
-   if(trigger.nearMiss)
-      signal.warningCount++;
-
-   if(UseManualNewsBlackout)
-      signal.warningCount++;
+   signal.scoreBase       = 0;
+   signal.scoreBosStrength = ScoreBosStrength(trigger.bos, trigger.bosBreakDistanceATR);
+   signal.scoreH4TrendQuality = ScoreH4TrendQuality(MathAbs(biasInfo.slopeRatio), biasInfo.crossCount);
+   signal.scoreH4EmaDistance = ScoreH4EmaDistance(biasInfo.distanceFromEmaATR);
+   signal.scoreH1ZoneSource = ScoreH1ZoneSource(zone.source);
+   signal.scoreH1ZoneFreshness = ScoreH1ZoneFreshness(zone.touchCount);
+   signal.scoreM15CandleBody = ScoreM15CandleBody(trigger.triggerBodyRatio);
+   signal.scoreTriggerLocation = ScoreTriggerLocation(trigger.insideZone, trigger.nearMiss);
+   signal.scoreTotal = 0;
+   signal.bosBreakDistanceATR = trigger.bosBreakDistanceATR;
+   signal.triggerBodyRatio = trigger.triggerBodyRatio;
+   signal.warningZoneTouch2Or3 = (zone.touchCount == 2 || zone.touchCount == 3);
+   signal.warningNearMissTrigger = trigger.nearMiss;
+   signal.warningLowLiquidity = false;
+   signal.warningNewsBlackout = UseManualNewsBlackout;
+   signal.warningCount = CalculateWarningCount(signal.warningZoneTouch2Or3,
+                                               signal.warningNearMissTrigger,
+                                               signal.warningLowLiquidity,
+                                               signal.warningNewsBlackout);
+   signal.decisionGrowthEligible = false;
+   signal.decisionConservativeEligible = false;
+   signal.decisionLabel = "NONE";
+   signal.decision = "NO_CANDIDATE";
+   signal.reason = "Hard gates not evaluated";
 
    bool directionMatches = ((biasInfo.bias == Bullish && trigger.direction == "BUY") ||
                             (biasInfo.bias == Bearish && trigger.direction == "SELL"));
@@ -882,36 +966,188 @@ SignalCandidate BuildSignalCandidate(const H4BiasInfo &biasInfo,
                              (trigger.insideZone || trigger.nearMiss) &&
                              !trigger.tooLate);
 
-   if(!signal.hardGatesPassed)
+   if(signal.hardGatesPassed)
    {
+      signal.scoreBase = 40;
+      signal.scoreTotal = signal.scoreBase +
+                          signal.scoreBosStrength +
+                          signal.scoreH4TrendQuality +
+                          signal.scoreH4EmaDistance +
+                          signal.scoreH1ZoneSource +
+                          signal.scoreH1ZoneFreshness +
+                          signal.scoreM15CandleBody +
+                          signal.scoreTriggerLocation;
+      signal.scoreTotal = ClampInt(signal.scoreTotal, 0, 100);
+      signal.score = signal.scoreTotal;
+   }
+   else
+   {
+      signal.scoreBase = 0;
+      signal.scoreTotal = 0;
+      signal.score = 0;
       signal.reason = BuildHardGateFailureReason(biasInfo, zone, trigger, directionMatches);
       return(signal);
    }
 
-   signal.score = 40;
-   if(trigger.bos && directionMatches)
-      signal.score += 20;
-   if(signal.score > 100)
-      signal.score = 100;
+   signal.decisionGrowthEligible = (signal.hardGatesPassed && signal.scoreTotal >= GrowthThreshold && signal.warningCount <= 1);
+   signal.decisionConservativeEligible = (signal.hardGatesPassed && signal.scoreTotal >= ConservativeThreshold && signal.warningCount == 0);
+
+   if(signal.decisionConservativeEligible)
+      signal.decisionLabel = "CONSERVATIVE";
+   else if(signal.decisionGrowthEligible)
+      signal.decisionLabel = "GROWTH";
+   else
+      signal.decisionLabel = "NONE";
 
    if(Mode == Growth)
    {
-      signal.candidate = (signal.score >= GrowthThreshold && signal.warningCount <= 1);
+      signal.candidate = signal.decisionGrowthEligible;
       signal.decision = signal.candidate ? "GROWTH_CANDIDATE" : "NO_CANDIDATE";
-      signal.reason = signal.candidate ? "Growth candidate: score and warning rules passed" : "Growth rejected: score or warning rule failed";
+      if(signal.candidate)
+         signal.reason = "Growth accepted: score >= 60 and warningCount <= 1";
+      else if(signal.scoreTotal < GrowthThreshold)
+         signal.reason = "Growth rejected: score below 60";
+      else if(signal.warningCount > 1)
+         signal.reason = "Growth rejected: warningCount above 1";
+      else
+         signal.reason = "Growth rejected: eligibility rule failed";
    }
    else
    {
-      signal.candidate = (signal.score >= ConservativeThreshold);
+      signal.candidate = signal.decisionConservativeEligible;
       signal.decision = signal.candidate ? "CONSERVATIVE_CANDIDATE" : "NO_CANDIDATE";
-      signal.reason = signal.candidate ? "Conservative candidate: score threshold passed" : "Conservative rejected: score below threshold";
+      if(signal.candidate)
+         signal.reason = "Conservative accepted: score >= 75 and warningCount == 0";
+      else if(signal.scoreTotal < ConservativeThreshold)
+         signal.reason = "Conservative rejected: score below 75";
+      else if(signal.warningCount > 0)
+         signal.reason = "Conservative rejected: warningCount must be 0";
+      else
+         signal.reason = "Conservative rejected: eligibility rule failed";
    }
 
    return(signal);
 }
 
 //+------------------------------------------------------------------+
-//| Explains first hard-gate failure found.                           |
+//| Scoring helper functions.                                         |
+//+------------------------------------------------------------------+
+int ClampInt(const int value, const int minValue, const int maxValue)
+{
+   if(value < minValue)
+      return(minValue);
+   if(value > maxValue)
+      return(maxValue);
+   return(value);
+}
+
+int ScoreBosStrength(const bool bos, const double breakDistanceATR)
+{
+   if(!bos)
+      return(0);
+   if(breakDistanceATR > 0.50)
+      return(15);
+   if(breakDistanceATR >= 0.25)
+      return(12);
+   if(breakDistanceATR >= 0.10)
+      return(9);
+   if(breakDistanceATR > 0.00)
+      return(5);
+   return(0);
+}
+
+int ScoreH4TrendQuality(const double absSlopeRatio, const int crossCount)
+{
+   int score = 0;
+   if(absSlopeRatio > 0.40)
+      score = 10;
+   else if(absSlopeRatio >= 0.25)
+      score = 7;
+   else if(absSlopeRatio >= 0.15)
+      score = 4;
+
+   if(crossCount == 1)
+      score -= 2;
+   else if(crossCount == 2)
+      score -= 4;
+
+   return(ClampInt(score, 0, 10));
+}
+
+int ScoreH4EmaDistance(const double distanceATR)
+{
+   if(distanceATR >= 0.25 && distanceATR < 0.50)
+      return(8);
+   if(distanceATR >= 0.50 && distanceATR < 1.00)
+      return(6);
+   if(distanceATR >= 1.00 && distanceATR <= 1.50)
+      return(3);
+   if(distanceATR > 1.50)
+      return(1);
+   return(0);
+}
+
+int ScoreH1ZoneSource(const string source)
+{
+   if(source == "SWING")
+      return(10);
+   if(source == "EMA20")
+      return(5);
+   return(0);
+}
+
+int ScoreH1ZoneFreshness(const int touchCount)
+{
+   if(touchCount == 1)
+      return(8);
+   if(touchCount == 2)
+      return(5);
+   if(touchCount == 3)
+      return(3);
+   return(0);
+}
+
+int ScoreM15CandleBody(const double bodyRatio)
+{
+   if(bodyRatio >= 0.70)
+      return(7);
+   if(bodyRatio >= 0.50)
+      return(5);
+   if(bodyRatio >= 0.30)
+      return(3);
+   if(bodyRatio > 0.00)
+      return(1);
+   return(0);
+}
+
+int ScoreTriggerLocation(const bool insideZone, const bool nearMiss)
+{
+   if(insideZone)
+      return(2);
+   if(nearMiss)
+      return(1);
+   return(0);
+}
+
+int CalculateWarningCount(const bool warningZoneTouch2Or3,
+                          const bool warningNearMissTrigger,
+                          const bool warningLowLiquidity,
+                          const bool warningNewsBlackout)
+{
+   int count = 0;
+   if(warningZoneTouch2Or3)
+      count++;
+   if(warningNearMissTrigger)
+      count++;
+   if(warningLowLiquidity)
+      count++;
+   if(warningNewsBlackout)
+      count++;
+   return(count);
+}
+
+//+------------------------------------------------------------------+
+//| Explains first hard-gate failure found.                            |
 //+------------------------------------------------------------------+
 string BuildHardGateFailureReason(const H4BiasInfo &biasInfo,
                                   const H1ZoneInfo &zone,
@@ -943,7 +1179,7 @@ string BuildHardGateFailureReason(const H4BiasInfo &biasInfo,
 }
 
 //+------------------------------------------------------------------+
-//| Updates analysis state without execution behavior.                |
+//| Updates analysis state without execution behavior.                 |
 //+------------------------------------------------------------------+
 void UpdateAnalysisState(const H4BiasInfo &biasInfo, const H1ZoneInfo &zone, const M15TriggerInfo &trigger)
 {
@@ -975,7 +1211,7 @@ void UpdateAnalysisState(const H4BiasInfo &biasInfo, const H1ZoneInfo &zone, con
 }
 
 //+------------------------------------------------------------------+
-//| Returns true when bias is directional.                            |
+//| Returns true when bias is directional.                             |
 //+------------------------------------------------------------------+
 bool IsDirectionalBias(const H4Bias bias)
 {
@@ -983,7 +1219,7 @@ bool IsDirectionalBias(const H4Bias bias)
 }
 
 //+------------------------------------------------------------------+
-//| Returns the active score threshold for diagnostics.               |
+//| Returns the active score threshold for diagnostics.                |
 //+------------------------------------------------------------------+
 int ActiveThreshold()
 {
@@ -994,7 +1230,7 @@ int ActiveThreshold()
 }
 
 //+------------------------------------------------------------------+
-//| Safely copies one indicator buffer value by closed-candle shift.  |
+//| Safely copies one indicator buffer value by closed-candle shift.   |
 //+------------------------------------------------------------------+
 bool CopyIndicatorValue(const int handle, const int shift, double &value)
 {
@@ -1016,7 +1252,7 @@ bool CopyIndicatorValue(const int handle, const int shift, double &value)
 }
 
 //+------------------------------------------------------------------+
-//| Detects the asset class from the current chart symbol.            |
+//| Detects the asset class from the current chart symbol.             |
 //+------------------------------------------------------------------+
 AssetClass DetectAssetClass(const string symbol)
 {
@@ -1046,7 +1282,7 @@ AssetClass DetectAssetClass(const string symbol)
 }
 
 //+------------------------------------------------------------------+
-//| Loads default parameters for the detected asset class.            |
+//| Loads default parameters for the detected asset class.             |
 //+------------------------------------------------------------------+
 AssetParams LoadAssetParams(const AssetClass assetClass)
 {
@@ -1097,7 +1333,7 @@ AssetParams LoadAssetParams(const AssetClass assetClass)
 }
 
 //+------------------------------------------------------------------+
-//| Checks index symbols while allowing broker prefixes/suffixes.     |
+//| Checks index symbols while allowing broker prefixes/suffixes.      |
 //+------------------------------------------------------------------+
 bool IsIndexSymbol(const string upperSymbol)
 {
@@ -1119,7 +1355,7 @@ bool IsIndexSymbol(const string upperSymbol)
 }
 
 //+------------------------------------------------------------------+
-//| Checks common forex symbols while allowing broker suffixes.       |
+//| Checks common forex symbols while allowing broker suffixes.        |
 //+------------------------------------------------------------------+
 bool IsCommonForexSymbol(const string upperSymbol)
 {
@@ -1143,7 +1379,7 @@ bool IsCommonForexSymbol(const string upperSymbol)
 }
 
 //+------------------------------------------------------------------+
-//| Performs hard broker/environment blocker checks without execution.|
+//| Performs hard broker/environment blocker checks without execution. |
 //+------------------------------------------------------------------+
 bool CheckBrokerBlockers(const double selectedLot, string &reason)
 {
@@ -1215,7 +1451,7 @@ bool CheckBrokerBlockers(const double selectedLot, string &reason)
 }
 
 //+------------------------------------------------------------------+
-//| Validates lot against broker min/max/step.                        |
+//| Validates lot against broker min/max/step.                         |
 //+------------------------------------------------------------------+
 bool IsLotValid(const double lot, string &reason)
 {
@@ -1253,7 +1489,7 @@ bool IsLotValid(const double lot, string &reason)
 }
 
 //+------------------------------------------------------------------+
-//| Performs a basic margin availability check without execution.     |
+//| Performs a basic margin availability check without execution.      |
 //+------------------------------------------------------------------+
 bool HasBasicMargin(const double lot, string &reason)
 {
@@ -1283,7 +1519,7 @@ bool HasBasicMargin(const double lot, string &reason)
 }
 
 //+------------------------------------------------------------------+
-//| Returns the current spread in points.                             |
+//| Returns the current spread in points.                              |
 //+------------------------------------------------------------------+
 int GetCurrentSpreadPoints()
 {
@@ -1299,7 +1535,7 @@ int GetCurrentSpreadPoints()
 }
 
 //+------------------------------------------------------------------+
-//| Returns volume digits implied by SYMBOL_VOLUME_STEP.              |
+//| Returns volume digits implied by SYMBOL_VOLUME_STEP.               |
 //+------------------------------------------------------------------+
 int GetVolumeDigits()
 {
@@ -1319,7 +1555,7 @@ int GetVolumeDigits()
 }
 
 //+------------------------------------------------------------------+
-//| Normalizes the configured fixed lot to broker volume step.        |
+//| Normalizes the configured fixed lot to broker volume step.         |
 //+------------------------------------------------------------------+
 double NormalizeLotToStep(const double lot)
 {
@@ -1332,7 +1568,7 @@ double NormalizeLotToStep(const double lot)
 }
 
 //+------------------------------------------------------------------+
-//| Builds the diagnostic block printed once per new M15 candle.      |
+//| Builds the diagnostic block printed once per new M15 candle.       |
 //+------------------------------------------------------------------+
 string BuildDiagnosticText()
 {
@@ -1345,9 +1581,15 @@ string BuildDiagnosticText()
    string insideZoneText = g_m15Info.insideZone ? "YES" : "NO";
    string nearMissText = g_m15Info.nearMiss ? "YES" : "NO";
    string tooLateText = g_m15Info.tooLate ? "YES" : "NO";
+   string warningZoneTouchText = g_signal.warningZoneTouch2Or3 ? "YES" : "NO";
+   string warningNearMissText = g_signal.warningNearMissTrigger ? "YES" : "NO";
+   string warningLowLiquidityText = g_signal.warningLowLiquidity ? "YES" : "NO";
+   string warningNewsBlackoutText = g_signal.warningNewsBlackout ? "YES" : "NO";
+   string growthEligibleText = g_signal.decisionGrowthEligible ? "YES" : "NO";
+   string conservativeEligibleText = g_signal.decisionConservativeEligible ? "YES" : "NO";
 
    return(StringFormat(
-      "[MoeBot v4 Phase2]\n"
+      "[MoeBot v4 Phase2.1]\n"
       "Symbol: %s\n"
       "AssetClass: %s\n"
       "Mode: %s\n"
@@ -1361,7 +1603,7 @@ string BuildDiagnosticText()
       "Config: H4_EMA=%d H1_EMA=%d ATR=%d H4_SlopeLookback=%d M15_BOSLookback=%d MaxAddOns=%d ManualNewsBlackout=%s\n"
       "BrokerBlocker: %s\n"
       "Reason: %s\n"
-      "NextPhaseStatus: Phase 2 only - strategy analysis diagnostics and no execution.\n\n"
+      "NextPhaseStatus: Phase 2.1 only - strategy analysis, scoring diagnostics, and no execution.\n\n"
       "H4:\n"
       "H4Bias: %s\n"
       "H4_EMA50_Now: %.5f\n"
@@ -1387,17 +1629,43 @@ string BuildDiagnosticText()
       "M15_Direction: %s\n"
       "M15_PriorHigh: %.5f\n"
       "M15_PriorLow: %.5f\n"
+      "M15_TriggerOpen: %.5f\n"
+      "M15_TriggerHigh: %.5f\n"
+      "M15_TriggerLow: %.5f\n"
       "M15_TriggerClose: %.5f\n"
+      "M15_TriggerBodyRatio: %.4f\n"
+      "M15_BosBreakDistanceATR: %.4f\n"
       "M15_ATR14: %.5f\n"
       "M15_InsideZone: %s\n"
       "M15_NearMiss: %s\n"
       "M15_TooLate: %s\n"
       "M15_Reason: %s\n\n"
+      "Scoring:\n"
+      "score_total: %d\n"
+      "score_base: %d\n"
+      "score_bos_strength: %d\n"
+      "score_h4_trend_quality: %d\n"
+      "score_h4_ema_distance: %d\n"
+      "score_h1_zone_source: %d\n"
+      "score_h1_zone_freshness: %d\n"
+      "score_m15_candle_body: %d\n"
+      "score_trigger_location: %d\n"
+      "bos_break_distance_atr: %.4f\n"
+      "trigger_body_ratio: %.4f\n\n"
+      "Warnings:\n"
+      "warning_zone_touch_2_or_3: %s\n"
+      "warning_near_miss_trigger: %s\n"
+      "warning_low_liquidity: %s\n"
+      "warning_news_blackout: %s\n"
+      "warningCount: %d\n\n"
       "Signal:\n"
       "HardGatesPassed: %s\n"
       "Score: %d\n"
       "WarningCount: %d\n"
       "Threshold: %d\n"
+      "decision_growth_eligible: %s\n"
+      "decision_conservative_eligible: %s\n"
+      "decision_label: %s\n"
       "Candidate: %s\n"
       "FinalDecision: %s\n"
       "FinalReason: %s",
@@ -1442,23 +1710,47 @@ string BuildDiagnosticText()
       g_m15Info.direction,
       g_m15Info.priorHigh,
       g_m15Info.priorLow,
+      g_m15Info.triggerOpen,
+      g_m15Info.triggerHigh,
+      g_m15Info.triggerLow,
       g_m15Info.triggerClose,
+      g_m15Info.triggerBodyRatio,
+      g_m15Info.bosBreakDistanceATR,
       g_m15Info.atrM15,
       insideZoneText,
       nearMissText,
       tooLateText,
       g_m15Info.reason,
+      g_signal.scoreTotal,
+      g_signal.scoreBase,
+      g_signal.scoreBosStrength,
+      g_signal.scoreH4TrendQuality,
+      g_signal.scoreH4EmaDistance,
+      g_signal.scoreH1ZoneSource,
+      g_signal.scoreH1ZoneFreshness,
+      g_signal.scoreM15CandleBody,
+      g_signal.scoreTriggerLocation,
+      g_signal.bosBreakDistanceATR,
+      g_signal.triggerBodyRatio,
+      warningZoneTouchText,
+      warningNearMissText,
+      warningLowLiquidityText,
+      warningNewsBlackoutText,
+      g_signal.warningCount,
       hardGateText,
       g_signal.score,
       g_signal.warningCount,
       g_signal.threshold,
+      growthEligibleText,
+      conservativeEligibleText,
+      g_signal.decisionLabel,
       candidateText,
       g_signal.decision,
       g_signal.reason));
 }
 
 //+------------------------------------------------------------------+
-//| Converts H4 bias to text.                                         |
+//| Converts H4 bias to text.                                          |
 //+------------------------------------------------------------------+
 string H4BiasToString(const H4Bias bias)
 {
@@ -1473,7 +1765,7 @@ string H4BiasToString(const H4Bias bias)
 }
 
 //+------------------------------------------------------------------+
-//| Converts state to text.                                           |
+//| Converts state to text.                                            |
 //+------------------------------------------------------------------+
 string StateToString(const EAState state)
 {
@@ -1494,7 +1786,7 @@ string StateToString(const EAState state)
 }
 
 //+------------------------------------------------------------------+
-//| Converts asset class to text.                                     |
+//| Converts asset class to text.                                      |
 //+------------------------------------------------------------------+
 string AssetClassToString(const AssetClass assetClass)
 {
@@ -1511,7 +1803,7 @@ string AssetClassToString(const AssetClass assetClass)
 }
 
 //+------------------------------------------------------------------+
-//| Converts bot mode to text.                                        |
+//| Converts bot mode to text.                                         |
 //+------------------------------------------------------------------+
 string ModeToString(const BotMode mode)
 {
@@ -1524,7 +1816,7 @@ string ModeToString(const BotMode mode)
 }
 
 //+------------------------------------------------------------------+
-//| Updates the current EA state.                                     |
+//| Updates the current EA state.                                      |
 //+------------------------------------------------------------------+
 void SetState(const EAState newState)
 {
