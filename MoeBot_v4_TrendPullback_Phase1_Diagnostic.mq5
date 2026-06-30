@@ -1,10 +1,10 @@
 //+------------------------------------------------------------------+
 //| MoeBot_v4_TrendPullback_Phase1_Diagnostic.mq5                    |
-//| Phase 2.1 strategy analysis and signal scoring diagnostics only.  |
+//| Phase 2.2 transition / standby diagnostics only.                  |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "4.21"
-#property description "MoeBot v4 Trend Pullback Phase 2.1 diagnostics."
+#property version   "4.22"
+#property description "MoeBot v4 Trend Pullback Phase 2.2 transition / standby diagnostics only."
 #property description "No order execution, martingale, grid, or position management is included."
 
 //--- Bot operating modes.
@@ -76,6 +76,13 @@ input int     ConservativeThreshold    = 75;
 input int     GrowthThreshold          = 60;
 input int     MaxAddOns                = 1;
 input bool    UseManualNewsBlackout    = false;
+
+input bool    EnableTransitionDiagnostics = true;
+input int     TransitionH1Lookback        = 10;
+input int     TransitionM15Lookback       = 5;
+input double  TransitionMinH1BreakATR     = 0.10;
+input double  TransitionFailureBufferATR  = 0.20;
+input int     TransitionExpiryH1Bars      = 8;
 
 //--- Strategy constants for Phase 2.1 diagnostics.
 #define H1_ZONE_LOOKBACK_BARS 20
@@ -192,6 +199,49 @@ struct SignalCandidate
    string reason;
 };
 
+
+//--- Phase 2.2 transition / simulated standby diagnostic details.
+struct TransitionDiagnostics
+{
+   bool     enabled;
+
+   bool     h4Directional;
+   string   h4Direction;
+
+   bool     h4Exhaustion;
+   bool     h4SlopeWeakening;
+   bool     h4FailedToExtend;
+   double   h4SlopeRatio;
+
+   bool     h1OppositeBOS;
+   string   transitionDirection;
+   double   h1BosLevel;
+   double   h1BosDistanceATR;
+   double   h1TriggerClose;
+   double   h1Atr;
+
+   bool     m15OppositeBOS;
+   double   m15OppositeBreakDistanceATR;
+
+   bool     transitionWarning;
+   bool     standbyRecommended;
+
+   bool     simulatedStandbyActive;
+   string   simulatedStandbyDirection;
+   datetime simulatedStandbyStartTime;
+   int      simulatedStandbyAgeH1Bars;
+
+   bool     wouldSuppressOldDirection;
+   bool     wouldAllowNewDirection;
+
+   bool     exitByH4Flip;
+   bool     exitByTransitionFailure;
+   bool     exitByExpiry;
+   string   exitReason;
+
+   string   reason;
+};
+
 //--- Global runtime state.
 AssetParams      g_assetParams;
 DiagnosticStatus g_status;
@@ -199,9 +249,15 @@ H4BiasInfo       g_h4Info;
 H1ZoneInfo       g_h1Info;
 M15TriggerInfo   g_m15Info;
 SignalCandidate  g_signal;
+TransitionDiagnostics g_transition;
 EAState          g_state          = IDLE;
 datetime         g_lastM15BarTime = 0;
 H4Bias           g_previousDirectionalBias = Unknown;
+bool             g_simulatedStandbyActive = false;
+string           g_simulatedStandbyDirection = "NONE";
+H4Bias           g_simulatedStandbyOriginalH4Bias = Unknown;
+datetime         g_simulatedStandbyStartTime = 0;
+double           g_simulatedStandbyBosLevel = 0.0;
 
 //--- Indicator handles used only for analysis diagnostics.
 int g_h4EmaHandle  = INVALID_HANDLE;
@@ -231,13 +287,13 @@ int OnInit()
    g_status.debugText           = "Initialized";
 
    if(g_assetParams.assetClass == UNKNOWN)
-      Print("[MoeBot v4 Phase2.1] WARNING: Unknown asset class for ", _Symbol, "; using Forex defaults.");
+      Print("[MoeBot v4 Phase2.2] WARNING: Unknown asset class for ", _Symbol, "; using Forex defaults.");
 
    if(!CreateIndicatorHandles())
-      Print("[MoeBot v4 Phase2.1] WARNING: One or more indicator handles could not be created; analysis will fail gracefully until available.");
+      Print("[MoeBot v4 Phase2.2] WARNING: One or more indicator handles could not be created; analysis will fail gracefully until available.");
 
    if(EnableDebug)
-      Print("[MoeBot v4 Phase2.1] Initialized on current chart symbol only: ", _Symbol);
+      Print("[MoeBot v4 Phase2.2] Initialized on current chart symbol only: ", _Symbol);
 
    return(INIT_SUCCEEDED);
 }
@@ -371,6 +427,7 @@ void AnalyzeTrendPullback()
    g_h1Info  = AnalyzeH1Zone(g_h4Info);
    g_m15Info = AnalyzeM15Trigger(g_h4Info, g_h1Info);
    g_signal  = BuildSignalCandidate(g_h4Info, g_h1Info, g_m15Info);
+   AnalyzeTransitionDiagnostics();
 
    UpdateAnalysisState(g_h4Info, g_h1Info, g_m15Info);
 
@@ -448,6 +505,8 @@ void ResetAnalysisDiagnostics(const string reason)
    g_signal.decisionLabel = "NONE";
    g_signal.decision = "NO_CANDIDATE";
    g_signal.reason = reason;
+
+   ResetTransitionDiagnostics(reason);
 }
 
 //+------------------------------------------------------------------+
@@ -542,6 +601,7 @@ int CountH4EmaCrosses(const int lookback)
    int barsToCheck = MathMax(1, lookback);
 
    for(int shift = 1; shift <= barsToCheck; shift++)
+
    {
       double ema = 0.0;
       if(!CopyIndicatorValue(g_h4EmaHandle, shift, ema))
@@ -911,6 +971,259 @@ bool GetM15PriorStructure(const int lookback, double &priorHigh, double &priorLo
    }
 
    return(priorHigh > -DBL_MAX && priorLow < DBL_MAX);
+}
+
+
+//+------------------------------------------------------------------+
+//| Resets Phase 2.2 transition diagnostics to safe defaults.          |
+//+------------------------------------------------------------------+
+void ResetTransitionDiagnostics(const string reason)
+{
+   g_transition.enabled = EnableTransitionDiagnostics;
+   g_transition.h4Directional = false;
+   g_transition.h4Direction = "Unknown";
+   g_transition.h4Exhaustion = false;
+   g_transition.h4SlopeWeakening = false;
+   g_transition.h4FailedToExtend = false;
+   g_transition.h4SlopeRatio = 0.0;
+   g_transition.h1OppositeBOS = false;
+   g_transition.transitionDirection = "NONE";
+   g_transition.h1BosLevel = 0.0;
+   g_transition.h1BosDistanceATR = 0.0;
+   g_transition.h1TriggerClose = 0.0;
+   g_transition.h1Atr = 0.0;
+   g_transition.m15OppositeBOS = false;
+   g_transition.m15OppositeBreakDistanceATR = 0.0;
+   g_transition.transitionWarning = false;
+   g_transition.standbyRecommended = false;
+   g_transition.simulatedStandbyActive = false;
+   g_transition.simulatedStandbyDirection = "NONE";
+   g_transition.simulatedStandbyStartTime = 0;
+   g_transition.simulatedStandbyAgeH1Bars = 0;
+   g_transition.wouldSuppressOldDirection = false;
+   g_transition.wouldAllowNewDirection = false;
+   g_transition.exitByH4Flip = false;
+   g_transition.exitByTransitionFailure = false;
+   g_transition.exitByExpiry = false;
+   g_transition.exitReason = "NONE";
+   g_transition.reason = reason;
+}
+
+//+------------------------------------------------------------------+
+//| Analyzes Phase 2.2 transition diagnostics only.                   |
+//+------------------------------------------------------------------+
+void AnalyzeTransitionDiagnostics()
+{
+   g_transition.enabled = EnableTransitionDiagnostics;
+   g_transition.h4Directional = IsDirectionalBias(g_h4Info.bias);
+   g_transition.h4Direction = H4BiasToString(g_h4Info.bias);
+   g_transition.h4SlopeRatio = g_h4Info.slopeRatio;
+   g_transition.h1Atr = g_h1Info.atrH1;
+
+   if(g_h4Info.bias == Bearish)
+      g_transition.transitionDirection = "BUY";
+   else if(g_h4Info.bias == Bullish)
+      g_transition.transitionDirection = "SELL";
+   else
+      g_transition.transitionDirection = "NONE";
+
+   g_transition.h4SlopeWeakening = IsH4SlopeWeakening(g_h4Info.bias, g_h4Info.slopeRatio);
+   g_transition.h4FailedToExtend = IsH4FailedToExtend(g_h4Info.bias);
+   g_transition.h4Exhaustion = (g_transition.h4SlopeWeakening || g_transition.h4FailedToExtend);
+
+   if(EnableTransitionDiagnostics && g_transition.h4Directional)
+   {
+      GetH1OppositeBOS(g_h4Info.bias,
+                       g_transition.h1OppositeBOS,
+                       g_transition.h1BosLevel,
+                       g_transition.h1BosDistanceATR,
+                       g_transition.h1TriggerClose,
+                       g_transition.h1Atr);
+      GetM15OppositeBOS(g_h4Info.bias,
+                        g_transition.m15OppositeBOS,
+                        g_transition.m15OppositeBreakDistanceATR);
+
+      g_transition.standbyRecommended = (g_transition.h1OppositeBOS &&
+                                         g_transition.h1BosDistanceATR >= TransitionMinH1BreakATR &&
+                                         g_transition.m15OppositeBOS &&
+                                         g_transition.h4Exhaustion);
+      g_transition.transitionWarning = g_transition.standbyRecommended;
+      g_transition.reason = g_transition.standbyRecommended ?
+                            "Transition warning: H1/M15 opposite BOS with H4 exhaustion" :
+                            "No standby recommendation from Phase 2.2 diagnostics";
+   }
+   else if(!EnableTransitionDiagnostics)
+      g_transition.reason = "Transition diagnostics disabled";
+   else
+      g_transition.reason = "No transition setup: H4 bias is not directional";
+
+   UpdateSimulatedStandbyState();
+   g_transition.wouldSuppressOldDirection = (g_transition.standbyRecommended || g_transition.simulatedStandbyActive);
+   g_transition.wouldAllowNewDirection = false;
+}
+
+bool GetH1OppositeBOS(const H4Bias bias, bool &oppositeBOS, double &bosLevel, double &distanceATR, double &triggerClose, double &atrH1)
+{
+   oppositeBOS = false; bosLevel = 0.0; distanceATR = 0.0; triggerClose = iClose(_Symbol, PERIOD_H1, 1);
+   if(!CopyIndicatorValue(g_h1AtrHandle, 1, atrH1) || atrH1 <= 0.0 || triggerClose <= 0.0)
+      return(false);
+   int lookback = MathMax(1, TransitionH1Lookback);
+   if(bias == Bearish)
+   {
+      double priorHigh = -DBL_MAX;
+      for(int shift = 2; shift <= lookback + 1; shift++)
+      {
+         double high = iHigh(_Symbol, PERIOD_H1, shift);
+         double low = iLow(_Symbol, PERIOD_H1, shift);
+         if(high <= 0.0 || low <= 0.0)
+            return(false);
+
+         priorHigh = MathMax(priorHigh, high);
+      }
+      if(priorHigh <= 0.0)
+         return(false);
+
+      bosLevel = priorHigh; distanceATR = MathMax(0.0, (triggerClose - priorHigh) / atrH1); oppositeBOS = (triggerClose > priorHigh);
+   }
+   else if(bias == Bullish)
+   {
+      double priorLow = DBL_MAX;
+      for(int shift = 2; shift <= lookback + 1; shift++)
+      {
+         double high = iHigh(_Symbol, PERIOD_H1, shift);
+         double low = iLow(_Symbol, PERIOD_H1, shift);
+         if(high <= 0.0 || low <= 0.0)
+            return(false);
+
+         priorLow = MathMin(priorLow, low);
+      }
+      if(priorLow <= 0.0)
+         return(false);
+
+      bosLevel = priorLow; distanceATR = MathMax(0.0, (priorLow - triggerClose) / atrH1); oppositeBOS = (triggerClose < priorLow);
+   }
+   return(oppositeBOS);
+}
+
+bool GetM15OppositeBOS(const H4Bias bias, bool &oppositeBOS, double &distanceATR)
+{
+   oppositeBOS = false; distanceATR = 0.0;
+   double atrM15 = 0.0, triggerClose = iClose(_Symbol, PERIOD_M15, 1);
+   if(!CopyIndicatorValue(g_m15AtrHandle, 1, atrM15) || atrM15 <= 0.0 || triggerClose <= 0.0)
+      return(false);
+   int lookback = MathMax(1, TransitionM15Lookback);
+   if(bias == Bearish)
+   {
+      double priorHigh = -DBL_MAX;
+      for(int shift = 2; shift <= lookback + 1; shift++)
+      {
+         double high = iHigh(_Symbol, PERIOD_M15, shift);
+         double low = iLow(_Symbol, PERIOD_M15, shift);
+         if(high <= 0.0 || low <= 0.0)
+            return(false);
+
+         priorHigh = MathMax(priorHigh, high);
+      }
+      if(priorHigh <= 0.0)
+         return(false);
+
+      distanceATR = MathMax(0.0, (triggerClose - priorHigh) / atrM15); oppositeBOS = (triggerClose > priorHigh);
+   }
+   else if(bias == Bullish)
+   {
+      double priorLow = DBL_MAX;
+      for(int shift = 2; shift <= lookback + 1; shift++)
+      {
+         double high = iHigh(_Symbol, PERIOD_M15, shift);
+
+         double low = iLow(_Symbol, PERIOD_M15, shift);
+         if(high <= 0.0 || low <= 0.0)
+            return(false);
+
+         priorLow = MathMin(priorLow, low);
+      }
+      if(priorLow <= 0.0)
+         return(false);
+
+      distanceATR = MathMax(0.0, (priorLow - triggerClose) / atrM15); oppositeBOS = (triggerClose < priorLow);
+   }
+   return(oppositeBOS);
+}
+
+bool IsH4SlopeWeakening(const H4Bias bias, const double slopeRatio)
+{
+   if(bias == Bullish) return(slopeRatio <= 0.25);
+   if(bias == Bearish) return(slopeRatio >= -0.25);
+   return(false);
+}
+
+bool IsH4FailedToExtend(const H4Bias bias)
+{
+   if(bias == Bullish)
+   {
+      double recentHigh = iHigh(_Symbol, PERIOD_H4, 1);
+      double previousHighMax = MathMax(iHigh(_Symbol, PERIOD_H4, 2), MathMax(iHigh(_Symbol, PERIOD_H4, 3), iHigh(_Symbol, PERIOD_H4, 4)));
+      return(recentHigh > 0.0 && previousHighMax > 0.0 && recentHigh <= previousHighMax);
+   }
+   if(bias == Bearish)
+   {
+      double recentLow = iLow(_Symbol, PERIOD_H4, 1);
+      double previousLowMin = MathMin(iLow(_Symbol, PERIOD_H4, 2), MathMin(iLow(_Symbol, PERIOD_H4, 3), iLow(_Symbol, PERIOD_H4, 4)));
+      return(recentLow > 0.0 && previousLowMin > 0.0 && recentLow >= previousLowMin);
+   }
+   return(false);
+}
+
+int GetH1BarsSince(const datetime startTime)
+{
+   if(startTime <= 0) return(0);
+   int shift = iBarShift(_Symbol, PERIOD_H1, startTime, true);
+   if(shift < 1) shift = iBarShift(_Symbol, PERIOD_H1, startTime, false);
+   return(MathMax(0, shift - 1));
+}
+
+void ClearSimulatedStandbyState()
+{
+   g_simulatedStandbyActive = false;
+   g_simulatedStandbyDirection = "NONE";
+   g_simulatedStandbyOriginalH4Bias = Unknown;
+   g_simulatedStandbyStartTime = 0;
+   g_simulatedStandbyBosLevel = 0.0;
+}
+
+void UpdateSimulatedStandbyState()
+{
+   if(g_transition.standbyRecommended && !g_simulatedStandbyActive)
+   {
+      g_simulatedStandbyActive = true;
+      g_simulatedStandbyDirection = g_transition.transitionDirection;
+      g_simulatedStandbyOriginalH4Bias = g_h4Info.bias;
+      g_simulatedStandbyStartTime = iTime(_Symbol, PERIOD_H1, 1);
+      g_simulatedStandbyBosLevel = g_transition.h1BosLevel;
+   }
+
+   if(g_simulatedStandbyActive)
+   {
+      g_transition.simulatedStandbyActive = true;
+      g_transition.simulatedStandbyDirection = g_simulatedStandbyDirection;
+      g_transition.simulatedStandbyStartTime = g_simulatedStandbyStartTime;
+      g_transition.simulatedStandbyAgeH1Bars = GetH1BarsSince(g_simulatedStandbyStartTime);
+
+      double h1Close = iClose(_Symbol, PERIOD_H1, 1);
+      double atrH1 = g_transition.h1Atr;
+      if(atrH1 <= 0.0) CopyIndicatorValue(g_h1AtrHandle, 1, atrH1);
+
+      if(g_simulatedStandbyOriginalH4Bias == Bearish && g_h4Info.bias == Bullish)
+      { g_transition.exitByH4Flip = true; g_transition.exitReason = "Simulated standby exit: H4 flipped to bullish"; ClearSimulatedStandbyState(); }
+      else if(g_simulatedStandbyOriginalH4Bias == Bullish && g_h4Info.bias == Bearish)
+      { g_transition.exitByH4Flip = true; g_transition.exitReason = "Simulated standby exit: H4 flipped to bearish"; ClearSimulatedStandbyState(); }
+      else if(atrH1 > 0.0 && h1Close > 0.0 && g_simulatedStandbyDirection == "BUY" && h1Close < g_simulatedStandbyBosLevel - (TransitionFailureBufferATR * atrH1))
+      { g_transition.exitByTransitionFailure = true; g_transition.exitReason = "Simulated standby exit: transition failed and price returned through H1 BOS level"; ClearSimulatedStandbyState(); }
+      else if(atrH1 > 0.0 && h1Close > 0.0 && g_simulatedStandbyDirection == "SELL" && h1Close > g_simulatedStandbyBosLevel + (TransitionFailureBufferATR * atrH1))
+      { g_transition.exitByTransitionFailure = true; g_transition.exitReason = "Simulated standby exit: transition failed and price returned through H1 BOS level"; ClearSimulatedStandbyState(); }
+      else if(g_transition.simulatedStandbyAgeH1Bars >= TransitionExpiryH1Bars)
+      { g_transition.exitByExpiry = true; g_transition.exitReason = "Simulated standby exit: expiry reached without H4 flip or transition failure"; ClearSimulatedStandbyState(); }
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -1334,6 +1647,7 @@ AssetParams LoadAssetParams(const AssetClass assetClass)
 
 //+------------------------------------------------------------------+
 //| Checks index symbols while allowing broker prefixes/suffixes.      |
+
 //+------------------------------------------------------------------+
 bool IsIndexSymbol(const string upperSymbol)
 {
@@ -1587,9 +1901,68 @@ string BuildDiagnosticText()
    string warningNewsBlackoutText = g_signal.warningNewsBlackout ? "YES" : "NO";
    string growthEligibleText = g_signal.decisionGrowthEligible ? "YES" : "NO";
    string conservativeEligibleText = g_signal.decisionConservativeEligible ? "YES" : "NO";
+   string transitionStartTimeText = g_transition.simulatedStandbyActive ? TimeToString(g_transition.simulatedStandbyStartTime, TIME_DATE|TIME_MINUTES) : "NONE";
+   string transitionText = StringFormat(
+      "Transition:\n"
+      "transition_enabled: %s\n"
+      "h4_directional: %s\n"
+      "h4_direction: %s\n"
+      "h4_exhaustion: %s\n"
+      "h4_slope_weakening: %s\n"
+      "h4_failed_to_extend: %s\n"
+      "h4_slope_ratio: %.4f\n\n"
+      "h1_opposite_bos: %s\n"
+      "transition_direction: %s\n"
+      "h1_bos_level: %.5f\n"
+      "h1_bos_distance_atr: %.4f\n"
+      "h1_trigger_close: %.5f\n"
+      "h1_atr: %.5f\n\n"
+      "m15_opposite_bos: %s\n"
+      "m15_opposite_break_distance_atr: %.4f\n\n"
+      "transition_warning: %s\n"
+      "standby_recommended: %s\n"
+      "simulated_standby_active: %s\n"
+      "simulated_standby_direction: %s\n"
+      "simulated_standby_start_time: %s\n"
+      "simulated_standby_age_h1_bars: %d\n\n"
+      "would_suppress_old_direction: %s\n"
+      "would_allow_new_direction: %s\n\n"
+      "exit_by_h4_flip: %s\n"
+      "exit_by_transition_failure: %s\n"
+      "exit_by_expiry: %s\n"
+      "transition_exit_reason: %s\n"
+      "transition_reason: %s\n\n",
+      g_transition.enabled ? "YES" : "NO",
+      g_transition.h4Directional ? "YES" : "NO",
+      g_transition.h4Direction,
+      g_transition.h4Exhaustion ? "YES" : "NO",
+      g_transition.h4SlopeWeakening ? "YES" : "NO",
+      g_transition.h4FailedToExtend ? "YES" : "NO",
+      g_transition.h4SlopeRatio,
+      g_transition.h1OppositeBOS ? "YES" : "NO",
+      g_transition.transitionDirection,
+      g_transition.h1BosLevel,
+      g_transition.h1BosDistanceATR,
+      g_transition.h1TriggerClose,
+      g_transition.h1Atr,
+      g_transition.m15OppositeBOS ? "YES" : "NO",
+      g_transition.m15OppositeBreakDistanceATR,
+      g_transition.transitionWarning ? "YES" : "NO",
+      g_transition.standbyRecommended ? "YES" : "NO",
+      g_transition.simulatedStandbyActive ? "YES" : "NO",
+      g_transition.simulatedStandbyDirection,
+      transitionStartTimeText,
+      g_transition.simulatedStandbyAgeH1Bars,
+      g_transition.wouldSuppressOldDirection ? "YES" : "NO",
+      g_transition.wouldAllowNewDirection ? "YES" : "NO",
+      g_transition.exitByH4Flip ? "YES" : "NO",
+      g_transition.exitByTransitionFailure ? "YES" : "NO",
+      g_transition.exitByExpiry ? "YES" : "NO",
+      g_transition.exitReason,
+      g_transition.reason);
 
    return(StringFormat(
-      "[MoeBot v4 Phase2.1]\n"
+      "[MoeBot v4 Phase2.2]\n"
       "Symbol: %s\n"
       "AssetClass: %s\n"
       "Mode: %s\n"
@@ -1603,7 +1976,7 @@ string BuildDiagnosticText()
       "Config: H4_EMA=%d H1_EMA=%d ATR=%d H4_SlopeLookback=%d M15_BOSLookback=%d MaxAddOns=%d ManualNewsBlackout=%s\n"
       "BrokerBlocker: %s\n"
       "Reason: %s\n"
-      "NextPhaseStatus: Phase 2.1 only - strategy analysis, scoring diagnostics, and no execution.\n\n"
+      "NextPhaseStatus: Phase 2.2 transition / standby diagnostics only; strategy analysis, scoring diagnostics, and no execution.\n\n"
       "H4:\n"
       "H4Bias: %s\n"
       "H4_EMA50_Now: %.5f\n"
@@ -1658,6 +2031,7 @@ string BuildDiagnosticText()
       "warning_low_liquidity: %s\n"
       "warning_news_blackout: %s\n"
       "warningCount: %d\n\n"
+      "%s"
       "Signal:\n"
       "HardGatesPassed: %s\n"
       "Score: %d\n"
@@ -1737,6 +2111,7 @@ string BuildDiagnosticText()
       warningLowLiquidityText,
       warningNewsBlackoutText,
       g_signal.warningCount,
+      transitionText,
       hardGateText,
       g_signal.score,
       g_signal.warningCount,
