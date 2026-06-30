@@ -74,6 +74,17 @@ enum ENUM_SETUP_TYPE
    SETUP_RANGE_EDGE_SWEEP = 5
 };
 
+enum ENUM_MARKET_VERDICT
+{
+   VERDICT_NEUTRAL = 0,
+   VERDICT_BUY_PREFERRED = 1,
+   VERDICT_SELL_PREFERRED = -1,
+   VERDICT_SUPPLY_FADE_SELL = -2,
+   VERDICT_DEMAND_FADE_BUY = 2,
+   VERDICT_BREAKOUT_BUY_ALLOWED = 3,
+   VERDICT_BREAKDOWN_SELL_ALLOWED = -3
+};
+
 //====================================================================
 // INPUTS - Growth Mode defaults agreed with user
 //====================================================================
@@ -368,6 +379,26 @@ struct RejectionZone
    string audit;
 };
 
+struct MarketVerdict
+{
+   ENUM_MARKET_VERDICT verdict;
+   int preferredDirection;
+   int confidence;
+   string verdictReason;
+   string locationClass;
+   string nearestSupplyZone;
+   string nearestDemandZone;
+   string nearestOppositeRejectionZone;
+   string nearestSupportiveRejectionZone;
+   string m15BullRejectionZone;
+   string m15BearRejectionZone;
+   string h1BullRejectionZone;
+   string h1BearRejectionZone;
+   string h4BullRejectionZone;
+   string h4BearRejectionZone;
+   string audit;
+};
+
 struct TradeQualityResult
 {
    int qualityScore;
@@ -379,6 +410,12 @@ struct TradeQualityResult
    string qualityReasons;
    string redFlags;
    string confirmations;
+   string marketVerdict;
+   string preferredDirection;
+   int verdictConfidence;
+   string verdictReason;
+   string locationClass;
+   string verdictAudit;
 };
 
 struct SetupCandidate
@@ -409,6 +446,11 @@ struct SetupCandidate
    bool rejectionZoneEntryUsed;
    bool rejectionZoneAgainstTrade;
    string rejectionZoneContext;
+   int rawScore;
+   bool verdictAligned;
+   bool againstVerdictException;
+   string verdictAdjustment;
+   string exceptionReason;
    string audit;
 };
 
@@ -565,6 +607,22 @@ struct BrainDecision
    string smartReverseQualityGrade;
    string smartReverseClosedCurrent;
    string smartReverseOpenedOpposite;
+   string marketVerdict;
+   string preferredDirection;
+   int verdictConfidence;
+   string verdictReason;
+   string locationClass;
+   string nearestSupplyZone;
+   string nearestDemandZone;
+   string nearestOppositeRejectionZone;
+   string nearestSupportiveRejectionZone;
+   string m15BullRejectionZone;
+   string m15BearRejectionZone;
+   string h1BullRejectionZone;
+   string h1BearRejectionZone;
+   string h4BullRejectionZone;
+   string h4BearRejectionZone;
+   string verdictAudit;
 };
 
 
@@ -2251,7 +2309,8 @@ void InitSetupCandidate(SetupCandidate &c, ENUM_SETUP_TYPE t, int dir)
    c.hardBlockReason=""; c.softMissingReasons=""; c.entry=0; c.sl=0; c.tp=0; c.rr=0; c.invalidationLevel=0; c.targetLevel=0;
    c.targetSource=""; c.linkedEvents=""; c.eventAges=""; c.retestType=""; c.triggerType=""; c.entryLocationType="";
    c.lateEntryStatus=""; c.locationQuality=0; c.targetQuality=0;
-   c.rejectionZoneEntryUsed=false; c.rejectionZoneAgainstTrade=false; c.rejectionZoneContext=""; c.audit="";
+   c.rejectionZoneEntryUsed=false; c.rejectionZoneAgainstTrade=false; c.rejectionZoneContext="";
+   c.rawScore=0; c.verdictAligned=false; c.againstVerdictException=false; c.verdictAdjustment=""; c.exceptionReason=""; c.audit="";
 }
 
 int EventAgeScore(int age)
@@ -2475,6 +2534,7 @@ void FinalizeCandidateAudit(SetupCandidate &c)
 {
    c.audit=StringFormat("%s %s score=%d pass=%s hard=%s hardReason=%s soft=%s entryLoc=%s retest=%s trigger=%s events=%s ages=%s entry=%.5f sl=%.5f tp=%.5f rr=%.2f target=%s %.5f late=%s locQ=%d tgtQ=%d rzEntry=%s rzAgainst=%s rzCtx=%s",
                         (c.direction>0?"BUY":"SELL"),SetupTypeToString(c.setupType),c.score,BoolYN(c.mandatoryPass),BoolYN(c.hardBlock),c.hardBlockReason,c.softMissingReasons,c.entryLocationType,c.retestType,c.triggerType,c.linkedEvents,c.eventAges,c.entry,c.sl,c.tp,c.rr,c.targetSource,c.targetLevel,c.lateEntryStatus,c.locationQuality,c.targetQuality,BoolYN(c.rejectionZoneEntryUsed),BoolYN(c.rejectionZoneAgainstTrade),c.rejectionZoneContext);
+   if(c.verdictAdjustment!="") c.audit = c.audit + " verdict{" + c.verdictAdjustment + " rawScore=" + IntegerToString(c.rawScore) + " adjustedScore=" + IntegerToString(c.score) + " aligned=" + BoolYN(c.verdictAligned) + " exception=" + BoolYN(c.againstVerdictException) + " exceptionReason=" + c.exceptionReason + "}";
 }
 
 void ScoreCommonCandidate(SetupCandidate &c, int baseScore, TFBrain &h4, TFBrain &h1, TFBrain &m15, string triggerType, int triggerQuality)
@@ -2611,6 +2671,262 @@ string RankSetupCandidates(SetupCandidate &candidates[], int count)
    return out;
 }
 
+string MarketVerdictToString(ENUM_MARKET_VERDICT v)
+{
+   if(v==VERDICT_BUY_PREFERRED) return "BUY_PREFERRED";
+   if(v==VERDICT_SELL_PREFERRED) return "SELL_PREFERRED";
+   if(v==VERDICT_SUPPLY_FADE_SELL) return "SUPPLY_FADE_SELL";
+   if(v==VERDICT_DEMAND_FADE_BUY) return "DEMAND_FADE_BUY";
+   if(v==VERDICT_BREAKOUT_BUY_ALLOWED) return "BREAKOUT_BUY_ALLOWED";
+   if(v==VERDICT_BREAKDOWN_SELL_ALLOWED) return "BREAKDOWN_SELL_ALLOWED";
+   return "NEUTRAL";
+}
+
+void InitMarketVerdict(MarketVerdict &v)
+{
+   v.verdict=VERDICT_NEUTRAL;
+   v.preferredDirection=0;
+   v.confidence=0;
+   v.verdictReason="";
+   v.locationClass="NEUTRAL";
+   v.nearestSupplyZone="";
+   v.nearestDemandZone="";
+   v.nearestOppositeRejectionZone="";
+   v.nearestSupportiveRejectionZone="";
+   v.m15BullRejectionZone="";
+   v.m15BearRejectionZone="";
+   v.h1BullRejectionZone="";
+   v.h1BearRejectionZone="";
+   v.h4BullRejectionZone="";
+   v.h4BearRejectionZone="";
+   v.audit="";
+}
+
+string ZoneBrief(string label, double low, double high, bool valid, string state)
+{
+   if(!valid) return label+"=NONE";
+   return StringFormat("%s=%.5f-%.5f/%s",label,low,high,state);
+}
+
+bool PriceNearAnyRejection(int dir, double price, double atr, TFBrain &h4, TFBrain &h1, TFBrain &m15, double tolATR, string &zoneText)
+{
+   RejectionZone z;
+   InitRejectionZone(z);
+   if(dir>0)
+   {
+      if(PriceNearRejectionZone(price,m15.bullRejectionZone,atr,tolATR)) z=m15.bullRejectionZone;
+      else if(PriceNearRejectionZone(price,h1.bullRejectionZone,atr,tolATR*1.15)) z=h1.bullRejectionZone;
+      else if(PriceNearRejectionZone(price,h4.bullRejectionZone,atr,tolATR*1.35)) z=h4.bullRejectionZone;
+   }
+   else
+   {
+      if(PriceNearRejectionZone(price,m15.bearRejectionZone,atr,tolATR)) z=m15.bearRejectionZone;
+      else if(PriceNearRejectionZone(price,h1.bearRejectionZone,atr,tolATR*1.15)) z=h1.bearRejectionZone;
+      else if(PriceNearRejectionZone(price,h4.bearRejectionZone,atr,tolATR*1.35)) z=h4.bearRejectionZone;
+   }
+   if(!z.valid) return false;
+   zoneText=z.audit;
+   return true;
+}
+
+bool PriceNearAnyZone(int dir, double price, double atr, TFBrain &h4, TFBrain &h1, TFBrain &m15, string &zoneText)
+{
+   Zone z;
+   InitZone(z);
+   if(dir>0)
+   {
+      if(PriceNearZone(price,m15.bullOB,atr,InpOBRetestATR)) z=m15.bullOB;
+      else if(PriceNearZone(price,m15.bullFVG,atr,InpFVGRetestATR)) z=m15.bullFVG;
+      else if(PriceNearZone(price,h1.bullOB,atr,InpOBRetestATR*1.4)) z=h1.bullOB;
+      else if(PriceNearZone(price,h4.bullOB,atr,InpOBRetestATR*1.8)) z=h4.bullOB;
+   }
+   else
+   {
+      if(PriceNearZone(price,m15.bearOB,atr,InpOBRetestATR)) z=m15.bearOB;
+      else if(PriceNearZone(price,m15.bearFVG,atr,InpFVGRetestATR)) z=m15.bearFVG;
+      else if(PriceNearZone(price,h1.bearOB,atr,InpOBRetestATR*1.4)) z=h1.bearOB;
+      else if(PriceNearZone(price,h4.bearOB,atr,InpOBRetestATR*1.8)) z=h4.bearOB;
+   }
+   if(!z.valid) return false;
+   zoneText=z.audit;
+   return true;
+}
+
+bool OppositeObstacleBetween(int dir, double entry, double tp, TFBrain &h4, TFBrain &h1, TFBrain &m15, string &obstacle)
+{
+   obstacle="";
+   if(entry<=0 || tp<=0) return false;
+   if(dir>0)
+   {
+      if(m15.bearRejectionZone.valid && m15.bearRejectionZone.low>entry && m15.bearRejectionZone.low<tp) { obstacle=m15.bearRejectionZone.audit; return true; }
+      if(h1.bearRejectionZone.valid && h1.bearRejectionZone.low>entry && h1.bearRejectionZone.low<tp) { obstacle=h1.bearRejectionZone.audit; return true; }
+      if(m15.bearOB.valid && m15.bearOB.low>entry && m15.bearOB.low<tp) { obstacle=m15.bearOB.audit; return true; }
+      if(m15.bearFVG.valid && m15.bearFVG.low>entry && m15.bearFVG.low<tp) { obstacle=m15.bearFVG.audit; return true; }
+      if(h1.bearOB.valid && h1.bearOB.low>entry && h1.bearOB.low<tp) { obstacle=h1.bearOB.audit; return true; }
+   }
+   else
+   {
+      if(m15.bullRejectionZone.valid && m15.bullRejectionZone.high<entry && m15.bullRejectionZone.high>tp) { obstacle=m15.bullRejectionZone.audit; return true; }
+      if(h1.bullRejectionZone.valid && h1.bullRejectionZone.high<entry && h1.bullRejectionZone.high>tp) { obstacle=h1.bullRejectionZone.audit; return true; }
+      if(m15.bullOB.valid && m15.bullOB.high<entry && m15.bullOB.high>tp) { obstacle=m15.bullOB.audit; return true; }
+      if(m15.bullFVG.valid && m15.bullFVG.high<entry && m15.bullFVG.high>tp) { obstacle=m15.bullFVG.audit; return true; }
+      if(h1.bullOB.valid && h1.bullOB.high<entry && h1.bullOB.high>tp) { obstacle=h1.bullOB.audit; return true; }
+   }
+   return false;
+}
+
+void BuildMarketVerdict(MarketMap &map, TFBrain &h4, TFBrain &h1, TFBrain &m15, MarketVerdict &v)
+{
+   InitMarketVerdict(v);
+   double price=CurrentMid();
+   double atr=MathMax(m15.atr,PointValue()*50);
+   v.m15BullRejectionZone=m15.bullRejectionZone.audit;
+   v.m15BearRejectionZone=m15.bearRejectionZone.audit;
+   v.h1BullRejectionZone=h1.bullRejectionZone.audit;
+   v.h1BearRejectionZone=h1.bearRejectionZone.audit;
+   v.h4BullRejectionZone=h4.bullRejectionZone.audit;
+   v.h4BearRejectionZone=h4.bearRejectionZone.audit;
+
+   string supplyRZ="", demandRZ="", supplyZone="", demandZone="";
+   bool nearSupplyRZ=PriceNearAnyRejection(-1,price,atr,h4,h1,m15,InpOBRetestATR*2.0,supplyRZ);
+   bool nearDemandRZ=PriceNearAnyRejection(1,price,atr,h4,h1,m15,InpOBRetestATR*2.0,demandRZ);
+   bool nearSupplyZone=PriceNearAnyZone(-1,price,atr,h4,h1,m15,supplyZone);
+   bool nearDemandZone=PriceNearAnyZone(1,price,atr,h4,h1,m15,demandZone);
+
+   int supplyScore=0, demandScore=0;
+   if(nearSupplyRZ) supplyScore+=34;
+   if(nearSupplyZone) supplyScore+=24;
+   if(nearDemandRZ) demandScore+=34;
+   if(nearDemandZone) demandScore+=24;
+   if(m15.inPremium || h1.inPremium || map.inPremium) supplyScore+=12;
+   if(m15.inDiscount || h1.inDiscount || map.inDiscount) demandScore+=12;
+   if(h4.finalBias<0) supplyScore+=8;
+   if(h1.finalBias<0) supplyScore+=8;
+   if(h4.finalBias>0) demandScore+=8;
+   if(h1.finalBias>0) demandScore+=8;
+   if(m15.sweepHigh || m15.chochDown || m15.mssDown || m15.displacementDown) supplyScore+=8;
+   if(m15.sweepLow || m15.chochUp || m15.mssUp || m15.displacementUp) demandScore+=8;
+
+   bool breakoutBuy=(m15.bosUp || m15.chochUp || m15.mssUp || (m15.displacementUp && m15.close1>m15.open1));
+   bool breakdownSell=(m15.bosDown || m15.chochDown || m15.mssDown || (m15.displacementDown && m15.close1<m15.open1));
+   bool reclaimBuy=(StringFind(demandRZ,"RZ")>=0 || m15.sweepLow || m15.priceNearBullOB || m15.priceNearBullFVG || m15.inDiscount);
+   bool rejectSell=(StringFind(supplyRZ,"RZ")>=0 || m15.sweepHigh || m15.priceNearBearOB || m15.priceNearBearFVG || m15.inPremium);
+
+   v.nearestSupplyZone=(nearSupplyRZ ? supplyRZ : supplyZone);
+   v.nearestDemandZone=(nearDemandRZ ? demandRZ : demandZone);
+   v.nearestOppositeRejectionZone=(nearSupplyRZ ? supplyRZ : (nearDemandRZ ? demandRZ : ""));
+   v.nearestSupportiveRejectionZone=v.nearestOppositeRejectionZone;
+
+   if(nearSupplyRZ || nearSupplyZone) v.locationClass="AT_SUPPLY";
+   if(nearDemandRZ || nearDemandZone) v.locationClass=(v.locationClass=="AT_SUPPLY" ? "BETWEEN_SUPPLY_DEMAND" : "AT_DEMAND");
+   if(v.locationClass=="NEUTRAL" && map.inPremium) v.locationClass="PREMIUM";
+   if(v.locationClass=="NEUTRAL" && map.inDiscount) v.locationClass="DISCOUNT";
+
+   if(nearSupplyRZ || nearSupplyZone)
+   {
+      if(breakoutBuy && !rejectSell && (m15.bosUp || m15.chochUp || m15.mssUp))
+      {
+         v.verdict=VERDICT_BREAKOUT_BUY_ALLOWED; v.preferredDirection=1;
+         v.confidence=MathMin(88,55+demandScore/2);
+         v.verdictReason="Supply context present, but bullish breakout/reclaim evidence allows BUY";
+      }
+      else
+      {
+         v.verdict=VERDICT_SUPPLY_FADE_SELL; v.preferredDirection=-1;
+         v.confidence=MathMin(92,55+supplyScore/2);
+         v.verdictReason="Price at/near supply or bearish rejection; SELL preferred unless BUY proves breakout/retest";
+      }
+   }
+   else if(nearDemandRZ || nearDemandZone)
+   {
+      if(breakdownSell && !reclaimBuy && (m15.bosDown || m15.chochDown || m15.mssDown))
+      {
+         v.verdict=VERDICT_BREAKDOWN_SELL_ALLOWED; v.preferredDirection=-1;
+         v.confidence=MathMin(88,55+supplyScore/2);
+         v.verdictReason="Demand context present, but bearish breakdown/retest evidence allows SELL";
+      }
+      else
+      {
+         v.verdict=VERDICT_DEMAND_FADE_BUY; v.preferredDirection=1;
+         v.confidence=MathMin(92,55+demandScore/2);
+         v.verdictReason="Price at/near demand or bullish rejection; BUY preferred unless SELL proves breakdown/retest";
+      }
+   }
+   else if(supplyScore>=demandScore+20 && supplyScore>=28)
+   {
+      v.verdict=VERDICT_SELL_PREFERRED; v.preferredDirection=-1; v.confidence=MathMin(82,45+supplyScore/2);
+      v.verdictReason="Broader context leans SELL from HTF/PD/supply pressure";
+   }
+   else if(demandScore>=supplyScore+20 && demandScore>=28)
+   {
+      v.verdict=VERDICT_BUY_PREFERRED; v.preferredDirection=1; v.confidence=MathMin(82,45+demandScore/2);
+      v.verdictReason="Broader context leans BUY from HTF/PD/demand pressure";
+   }
+   else
+   {
+      v.verdict=VERDICT_NEUTRAL; v.preferredDirection=0; v.confidence=MathMax(supplyScore,demandScore);
+      v.verdictReason="No strong directional location verdict; existing score competition allowed";
+   }
+
+   v.audit=StringFormat("marketVerdict=%s preferredDirection=%s verdictConfidence=%d verdictReason=%s locationClass=%s nearestSupplyZone={%s} nearestDemandZone={%s} m15BullRejectionZone={%s} m15BearRejectionZone={%s} h1BullRejectionZone={%s} h1BearRejectionZone={%s} h4BullRejectionZone={%s} h4BearRejectionZone={%s}",
+                        MarketVerdictToString(v.verdict),(v.preferredDirection>0?"BUY":(v.preferredDirection<0?"SELL":"NEUTRAL")),v.confidence,v.verdictReason,v.locationClass,v.nearestSupplyZone,v.nearestDemandZone,
+                        v.m15BullRejectionZone,v.m15BearRejectionZone,v.h1BullRejectionZone,v.h1BearRejectionZone,v.h4BullRejectionZone,v.h4BearRejectionZone);
+}
+
+bool CandidateHasAgainstVerdictException(SetupCandidate &c, MarketVerdict &v, TFBrain &h4, TFBrain &h1, TFBrain &m15, string &why)
+{
+   why="";
+   if(v.preferredDirection==0 || c.direction==v.preferredDirection) return true;
+   if(c.setupType==SETUP_REVERSAL_AFTER_SWEEP && (StringFind(c.linkedEvents,"MSS")>=0 || StringFind(c.linkedEvents,"CHOCH")>=0 || StringFind(c.linkedEvents,"BOS")>=0))
+   { why="reversal playbook has sweep plus structure shift"; return true; }
+   if(c.setupType==SETUP_BREAKOUT_RETEST && c.retestType=="BREAKOUT_RETEST" && (StringFind(c.triggerType,"RECLAIM")>=0 || StringFind(c.linkedEvents,"BOS")>=0 || StringFind(c.linkedEvents,"DISPLACEMENT")>=0))
+   { why="clean breakout/retest with reclaim/displacement evidence"; return true; }
+   if(c.direction>0 && (m15.bosUp || m15.chochUp || m15.mssUp) && (m15.displacementUp || StringFind(c.triggerType,"RECLAIM")>=0))
+   { why="bullish structure shift with displacement/reclaim"; return true; }
+   if(c.direction<0 && (m15.bosDown || m15.chochDown || m15.mssDown) && (m15.displacementDown || StringFind(c.triggerType,"RECLAIM")>=0))
+   { why="bearish structure shift with displacement/reclaim"; return true; }
+   return false;
+}
+
+void ApplyMarketVerdictToCandidates(SetupCandidate &candidates[], int count, MarketVerdict &v, TFBrain &h4, TFBrain &h1, TFBrain &m15)
+{
+   if(v.preferredDirection==0 || v.confidence<55) return;
+   for(int i=0;i<count;i++)
+   {
+      if(!candidates[i].valid || !candidates[i].mandatoryPass || candidates[i].hardBlock) continue;
+      candidates[i].rawScore=candidates[i].score;
+      candidates[i].verdictAligned=(candidates[i].direction==v.preferredDirection);
+      string obstacle="";
+      bool obstacleInPath=OppositeObstacleBetween(candidates[i].direction,candidates[i].entry,candidates[i].tp,h4,h1,m15,obstacle);
+      string exceptionWhy="";
+      candidates[i].againstVerdictException=CandidateHasAgainstVerdictException(candidates[i],v,h4,h1,m15,exceptionWhy);
+      candidates[i].exceptionReason=exceptionWhy;
+
+      if(candidates[i].verdictAligned)
+      {
+         int bonus=MathMin(18,MathMax(6,v.confidence/6));
+         candidates[i].score+=bonus;
+         candidates[i].verdictAdjustment=StringFormat("marketVerdict=%s candidateDirection=%s candidateRawScore=%d candidateAdjustedByVerdict=+%d verdictAligned=YES againstVerdictException=NO finalSelectedReason=inside preferred direction",
+                                                       MarketVerdictToString(v.verdict),(candidates[i].direction>0?"BUY":"SELL"),candidates[i].rawScore,bonus);
+      }
+      else if(candidates[i].againstVerdictException)
+      {
+         int penalty=(obstacleInPath ? 12 : 6);
+         candidates[i].score-=penalty;
+         candidates[i].verdictAdjustment=StringFormat("marketVerdict=%s candidateDirection=%s candidateRawScore=%d candidateAdjustedByVerdict=-%d verdictAligned=NO againstVerdictException=YES exceptionReason=%s obstacleInPath=%s finalSelectedReason=exception allowed but not raw-score favored",
+                                                       MarketVerdictToString(v.verdict),(candidates[i].direction>0?"BUY":"SELL"),candidates[i].rawScore,penalty,candidates[i].exceptionReason,obstacle);
+      }
+      else
+      {
+         candidates[i].hardBlock=true;
+         candidates[i].hardBlockReason="Against Market Verdict without breakout/breakdown/reversal exception";
+         candidates[i].verdictAdjustment=StringFormat("marketVerdict=%s candidateDirection=%s candidateRawScore=%d candidateAdjustedByVerdict=BLOCK verdictAligned=NO againstVerdictException=NO obstacleInPath=%s finalSelectedReason=raw score cannot override directional thesis",
+                                                       MarketVerdictToString(v.verdict),(candidates[i].direction>0?"BUY":"SELL"),candidates[i].rawScore,obstacle);
+      }
+      FinalizeCandidateAudit(candidates[i]);
+   }
+}
+
 bool SelectBestCandidate(SetupCandidate &candidates[], int count, SetupCandidate &best, SetupCandidate &opposite, string &why)
 {
    InitSetupCandidate(best,SETUP_NO_TRADE,0); InitSetupCandidate(opposite,SETUP_NO_TRADE,0); why="";
@@ -2644,6 +2960,7 @@ void InitTradeQualityResult(TradeQualityResult &q)
    q.qualityScore=0; q.grade="D"; q.decision="WAIT"; q.rejectionZoneContext="";
    q.rejectionZoneEntryUsed=false; q.rejectionZoneAgainstTrade=false;
    q.qualityReasons=""; q.redFlags=""; q.confirmations="";
+   q.marketVerdict=""; q.preferredDirection=""; q.verdictConfidence=0; q.verdictReason=""; q.locationClass=""; q.verdictAudit="";
 }
 
 string QualityGradeFromScore(int score)
@@ -2753,6 +3070,13 @@ bool JudgeTradeQuality(SetupCandidate &c, TFBrain &h4, TFBrain &h1, TFBrain &m15
    }
    if(reds>=2)
    {
+      if(!c.verdictAligned && c.againstVerdictException && q.qualityScore<86)
+      {
+         q.decision="WAIT";
+         q.qualityReasons=StringFormat("quality wait: DOWNGRADE conflicts with Market Verdict and exception evidence is not strong enough reds=%d confirmations=%d score=%d grade=%s verdict=%s",
+                                       reds,cons,q.qualityScore,q.grade,c.verdictAdjustment);
+         return false;
+      }
       q.decision="DOWNGRADE";
       q.qualityReasons=StringFormat("allowed with downgrade: reds=%d confirmations=%d score=%d grade=%s",reds,cons,q.qualityScore,q.grade);
       return true;
@@ -2791,6 +3115,9 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
    d.buyEntryAudit=""; d.sellEntryAudit=""; d.selectedSetupType="NoTrade"; d.candidateRanking=""; d.candidateAudit="";
    d.qualityGrade=""; d.qualityScore=0; d.qualityDecision=""; d.rejectionZoneContext=""; d.rejectionZoneEntryUsed="false"; d.rejectionZoneAgainstTrade="false"; d.qualityReasons=""; d.redFlags=""; d.confirmations="";
    d.smartReverseChecked=g_smartReverseChecked; d.smartReverseEligible=g_smartReverseEligible; d.smartReverseDecision=g_smartReverseDecision; d.smartReverseReason=g_smartReverseReason; d.smartReverseCurrentProfitR=g_smartReverseCurrentProfitR; d.smartReverseOppositeZone=g_smartReverseOppositeZone; d.smartReverseM15Confirmation=g_smartReverseM15Confirmation; d.smartReverseQualityGrade=g_smartReverseQualityGrade; d.smartReverseClosedCurrent=g_smartReverseClosedCurrent; d.smartReverseOpenedOpposite=g_smartReverseOpenedOpposite;
+   d.marketVerdict="NEUTRAL"; d.preferredDirection="NEUTRAL"; d.verdictConfidence=0; d.verdictReason=""; d.locationClass="NEUTRAL";
+   d.nearestSupplyZone=""; d.nearestDemandZone=""; d.nearestOppositeRejectionZone=""; d.nearestSupportiveRejectionZone="";
+   d.m15BullRejectionZone=""; d.m15BearRejectionZone=""; d.h1BullRejectionZone=""; d.h1BearRejectionZone=""; d.h4BullRejectionZone=""; d.h4BearRejectionZone=""; d.verdictAudit="";
 
    // Hard integrity checks first.
    if(!h4.dataOK || !h1.dataOK || !m15.dataOK)
@@ -2909,8 +3236,28 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
    MarketMap marketMap;
    string generationAudit="";
    GenerateSetupCandidates(h4,h1,m15,d.state,candidates,candidateCount,marketMap,generationAudit);
+   MarketVerdict verdict;
+   BuildMarketVerdict(marketMap,h4,h1,m15,verdict);
+   ApplyMarketVerdictToCandidates(candidates,candidateCount,verdict,h4,h1,m15);
+   d.marketVerdict=MarketVerdictToString(verdict.verdict);
+   d.preferredDirection=(verdict.preferredDirection>0 ? "BUY" : (verdict.preferredDirection<0 ? "SELL" : "NEUTRAL"));
+   d.verdictConfidence=verdict.confidence;
+   d.verdictReason=verdict.verdictReason;
+   d.locationClass=verdict.locationClass;
+   d.nearestSupplyZone=verdict.nearestSupplyZone;
+   d.nearestDemandZone=verdict.nearestDemandZone;
+   d.nearestOppositeRejectionZone=verdict.nearestOppositeRejectionZone;
+   d.nearestSupportiveRejectionZone=verdict.nearestSupportiveRejectionZone;
+   d.m15BullRejectionZone=verdict.m15BullRejectionZone;
+   d.m15BearRejectionZone=verdict.m15BearRejectionZone;
+   d.h1BullRejectionZone=verdict.h1BullRejectionZone;
+   d.h1BearRejectionZone=verdict.h1BearRejectionZone;
+   d.h4BullRejectionZone=verdict.h4BullRejectionZone;
+   d.h4BearRejectionZone=verdict.h4BearRejectionZone;
+   d.verdictAudit=verdict.audit;
+   SoftAdd(d.reason,"MarketVerdict="+d.marketVerdict+" preferred="+d.preferredDirection+" confidence="+IntegerToString(d.verdictConfidence));
    d.candidateRanking = RankSetupCandidates(candidates,candidateCount);
-   d.candidateAudit = generationAudit;
+   d.candidateAudit = verdict.audit+" || "+generationAudit;
    d.obAudit = "H4_OB{" + h4.bullOB.audit + " || " + h4.bearOB.audit + "} H1_OB{" + h1.bullOB.audit + " || " + h1.bearOB.audit + "} M15_OB{" + m15.bullOB.audit + " || " + m15.bearOB.audit + "} FVG{" + m15.bullFVG.audit + " || " + m15.bearFVG.audit + "}";
    d.reversalAudit = StringFormat("State=%s M15Bull{%s} M15Bear{%s} H1Bull{%s} H1Bear{%s}",StateToString(d.state),m15.lastBullEvent.audit,m15.lastBearEvent.audit,h1.lastBullEvent.audit,h1.lastBearEvent.audit);
 
@@ -2953,7 +3300,7 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
       if(!qualityOK)
       {
          selected=false;
-         selectWhy=quality.qualityReasons+" redFlags={"+quality.redFlags+"} confirmations={"+quality.confirmations+"}";
+         selectWhy=quality.qualityReasons+" redFlags={"+quality.redFlags+"} confirmations={"+quality.confirmations+"} marketVerdict={"+d.marketVerdict+" preferred="+d.preferredDirection+"}";
       }
       else
       {
@@ -2972,8 +3319,8 @@ void BuildDecision(TFBrain &h4, TFBrain &h1, TFBrain &m15, BrainDecision &d)
       if(selectWhy!="") SoftAdd(d.reason,"Entry Brain v2 WAIT: "+selectWhy);
    }
 
-   d.audit = StringFormat("Bid=%.5f Ask=%.5f Spread=%.5f TF=%s selectedSetupType=%s quality=%s/%d/%s redFlags={%s} confirmations={%s} rejectionZoneContext={%s} H4[%s] H1[%s] M15[%s] %s Reversal{%s} CandidateRanking{%s} CandidateAudit{%s} OB_FVG_AUDIT=%s",
-                          d.bid,d.ask,d.spread,d.decisionTF,d.selectedSetupType,d.qualityGrade,d.qualityScore,d.qualityDecision,d.redFlags,d.confirmations,d.rejectionZoneContext,h4.notes,h1.notes,m15.notes,generationAudit,d.reversalAudit,d.candidateRanking,d.candidateAudit,d.obAudit);
+   d.audit = StringFormat("Bid=%.5f Ask=%.5f Spread=%.5f TF=%s selectedSetupType=%s marketVerdict=%s preferredDirection=%s verdictConfidence=%d verdictReason={%s} locationClass=%s quality=%s/%d/%s redFlags={%s} confirmations={%s} rejectionZoneContext={%s} H4[%s] H1[%s] M15[%s] VerdictAudit{%s} %s Reversal{%s} CandidateRanking{%s} CandidateAudit{%s} OB_FVG_AUDIT=%s",
+                          d.bid,d.ask,d.spread,d.decisionTF,d.selectedSetupType,d.marketVerdict,d.preferredDirection,d.verdictConfidence,d.verdictReason,d.locationClass,d.qualityGrade,d.qualityScore,d.qualityDecision,d.redFlags,d.confirmations,d.rejectionZoneContext,h4.notes,h1.notes,m15.notes,d.verdictAudit,generationAudit,d.reversalAudit,d.candidateRanking,d.candidateAudit,d.obAudit);
 
    if(d.decision==DECISION_WAIT)
    {
@@ -3181,13 +3528,54 @@ void CloseOppositeIfConfirmed(BrainDecision &d)
    }
 }
 
-bool ExecuteDecision(BrainDecision &d, TFBrain &m15)
+
+bool RouteOppositeSetupToSmartReverse(BrainDecision &d, TFBrain &h4, TFBrain &h1, TFBrain &m15, bool &handled)
+{
+   handled=false;
+   if(d.decision!=DECISION_BUY && d.decision!=DECISION_SELL) return false;
+
+   long oppositeType = (d.decision==DECISION_BUY ? POSITION_TYPE_SELL : POSITION_TYPE_BUY);
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket==0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue;
+      if((long)PositionGetInteger(POSITION_MAGIC)!=InpMagic) continue;
+      if(PositionGetInteger(POSITION_TYPE)!=oppositeType) continue;
+
+      handled=true;
+      long type = PositionGetInteger(POSITION_TYPE);
+      double open=PositionGetDouble(POSITION_PRICE_OPEN);
+      double sl=PositionGetDouble(POSITION_SL);
+      double tp=PositionGetDouble(POSITION_TP);
+      double price = (type==POSITION_TYPE_BUY ? CurrentBid() : CurrentAsk());
+      double risk = MathAbs(open-sl);
+      if(risk<=PointValue()*5)
+      {
+         VPrint("Opposite setup routed to SmartReverse, but current position risk is invalid; keeping current position");
+         return false;
+      }
+      double profitDist = (type==POSITION_TYPE_BUY ? price-open : open-price);
+      double rNow = profitDist / risk;
+      bool protectedNow = PositionProtected(ticket);
+      VPrint("Opposite setup detected with existing same-symbol position; routing to Smart Profit Exit & Reverse only");
+      return TrySmartProfitReverse(ticket,type,open,sl,tp,price,rNow,protectedNow,h4,h1,m15);
+   }
+   return false;
+}
+
+bool ExecuteDecision(BrainDecision &d, TFBrain &h4, TFBrain &h1, TFBrain &m15)
 {
    if(d.decision!=DECISION_BUY && d.decision!=DECISION_SELL) return false;
 
    string why;
    if(!TradingAllowedNow(why)) { VPrint("Blocked safety: "+why); return false; }
    if(!SpreadOK(m15,why)) { VPrint("Blocked safety: "+why); return false; }
+
+   bool oppositeHandled=false;
+   bool smartReverseResult=RouteOppositeSetupToSmartReverse(d,h4,h1,m15,oppositeHandled);
+   if(oppositeHandled) return smartReverseResult;
 
    d.lot = NormalizeLot(FixedLotBySymbol());
    d.entry = (d.decision==DECISION_BUY ? CurrentAsk() : CurrentBid());
@@ -3344,10 +3732,99 @@ bool M15SmartReverseConfirmation(int reverseDir, TFBrain &m15, string &confirmat
    return (confirmation!="");
 }
 
-bool SmartReverseQualityStrongEnough(BrainDecision &reverseD)
+int TokenCount(string text)
 {
-   if(reverseD.qualityDecision=="PASS") return true;
-   if(reverseD.qualityDecision=="DOWNGRADE" && reverseD.qualityScore>=82 && StringLen(reverseD.confirmations)>0) return true;
+   if(text=="") return 0;
+   int count=1;
+   for(int i=0;i<StringLen(text);i++)
+      if(StringSubstr(text,i,1)=="|") count++;
+   return count;
+}
+
+bool HasText(string haystack, string needle)
+{
+   return (StringFind(haystack,needle)>=0);
+}
+
+bool SmartReverseQualityStrongEnough(BrainDecision &reverseD, int reverseDir, TFBrain &h4, TFBrain &h1, string &why)
+{
+   why="OK";
+   int reds=TokenCount(reverseD.redFlags);
+   int confirmations=TokenCount(reverseD.confirmations);
+
+   bool htfAgainst = ((reverseDir>0 && h4.finalBias<0 && h1.finalBias<0) ||
+                      (reverseDir<0 && h4.finalBias>0 && h1.finalBias>0) ||
+                      HasText(reverseD.redFlags,"HTF-pressure-against"));
+   if(htfAgainst && reverseD.qualityScore<90)
+   {
+      why="HTF pressure strongly against Smart Reverse and quality score is not exceptional";
+      return false;
+   }
+
+   if(HasText(reverseD.redFlags,"breakout-retest-not-on-clean-structure-level"))
+   {
+      why="Unclean BreakoutRetest is not strong enough for Smart Reverse";
+      return false;
+   }
+   if(HasText(reverseD.redFlags,"MIN_RR_FALLBACK-target") || HasText(reverseD.redFlags,"weak-or-fallback-target-quality"))
+   {
+      why="Weak or fallback target quality is not strong enough for Smart Reverse";
+      return false;
+   }
+
+   bool meaningfulEvidence = (HasText(reverseD.confirmations,"M15-rejection-wick") ||
+                              HasText(reverseD.confirmations,"reclaim-close") ||
+                              HasText(reverseD.confirmations,"fresh-structure-event") ||
+                              HasText(reverseD.confirmations,"rejection-zone-support") ||
+                              HasText(reverseD.rejectionZoneContext,"supportive"));
+   if(!meaningfulEvidence)
+   {
+      why="No meaningful rejection, reclaim, structure, or rejection-zone evidence for Smart Reverse";
+      return false;
+   }
+
+   if(reverseD.qualityDecision=="PASS" && reverseD.qualityScore>=82 && confirmations>=2) return true;
+
+   if(reverseD.qualityDecision=="DOWNGRADE")
+   {
+      bool majorRedFlags = (reds>=3 || HasText(reverseD.redFlags,"nearby-opposite-rejection-zone") ||
+                            HasText(reverseD.redFlags,"no-fresh-sweep-BOS-reclaim-displacement") ||
+                            HasText(reverseD.redFlags,"plain-continuation-trigger-not-rejection-reclaim"));
+      if(majorRedFlags)
+      {
+         why="Smart Reverse rejected DOWNGRADE with major red flags: "+reverseD.redFlags;
+         return false;
+      }
+      if(reverseD.qualityScore>=88 && confirmations>=3) return true;
+   }
+
+   why=StringFormat("Smart Reverse evidence not clearly strong enough: decision=%s score=%d confirmations=%d redFlags=%d",reverseD.qualityDecision,reverseD.qualityScore,confirmations,reds);
+   return false;
+}
+
+bool PreflightSmartReverseOrder(BrainDecision &reverseD, TFBrain &m15, string &why)
+{
+   why="OK";
+   if(!TradingAllowedNow(why)) return false;
+   if(!SpreadOK(m15,why)) return false;
+
+   reverseD.lot = NormalizeLot(FixedLotBySymbol());
+   reverseD.entry = (reverseD.decision==DECISION_BUY ? CurrentAsk() : CurrentBid());
+   reverseD.sl = NormalizePrice(reverseD.sl);
+   reverseD.tp = NormalizePrice(reverseD.tp);
+
+   if(InpBlockIfOrderWouldHaveNoSLTP && !StopsOK(reverseD.decision,reverseD.entry,reverseD.sl,reverseD.tp,why)) return false;
+   if(!MarginOK(reverseD.decision,reverseD.lot,why)) return false;
+   if(!SameDirectionCanAdd(reverseD.decision,m15,reverseD,why)) return false;
+
+   return true;
+}
+
+
+bool PositionCloseConfirmed(ulong ticket, long posid)
+{
+   if(!PositionSelectByTicket(ticket)) return true;
+   if((long)PositionGetInteger(POSITION_IDENTIFIER)!=posid) return true;
    return false;
 }
 
@@ -3417,11 +3894,22 @@ bool TrySmartProfitReverse(ulong ticket, long type, double open, double sl, doub
       VPrint("SmartReverse failed: "+g_smartReverseReason);
       return false;
    }
-   if(!SmartReverseQualityStrongEnough(reverseD))
+   string qualityWhy="";
+   if(!SmartReverseQualityStrongEnough(reverseD,reverseDir,h4,h1,qualityWhy))
    {
       g_smartReverseDecision="HOLD";
-      g_smartReverseReason="Opposite candidate failed smart reverse quality requirement: "+reverseD.qualityDecision+" grade="+reverseD.qualityGrade+" score="+IntegerToString(reverseD.qualityScore);
+      g_smartReverseReason="Opposite candidate failed smart reverse quality requirement: "+qualityWhy+" | "+reverseD.qualityDecision+" grade="+reverseD.qualityGrade+" score="+IntegerToString(reverseD.qualityScore)+" redFlags={"+reverseD.redFlags+"} confirmations={"+reverseD.confirmations+"}";
       VPrint("SmartReverse failed: "+g_smartReverseReason);
+      return false;
+   }
+
+   string preflightWhy="";
+   if(!PreflightSmartReverseOrder(reverseD,m15,preflightWhy))
+   {
+      g_smartReverseDecision="PREFLIGHT_FAILED";
+      g_smartReverseReason="Reverse order preflight failed before closing current position: "+preflightWhy;
+      VPrint("SmartReverse preflight failed: "+g_smartReverseReason);
+      AppendManagementAction(posid,"SMART_PROFIT_REVERSE_PREFLIGHT_REJECTED "+g_smartReverseReason);
       return false;
    }
 
@@ -3440,10 +3928,19 @@ bool TrySmartProfitReverse(ulong ticket, long type, double open, double sl, doub
       VPrint("SmartReverse close failed: "+g_smartReverseReason);
       return false;
    }
+   if(!PositionCloseConfirmed(ticket,posid))
+   {
+      g_smartReverseClosedCurrent="NO";
+      g_smartReverseOpenedOpposite="NO";
+      g_smartReverseDecision="CLOSE_NOT_CONFIRMED";
+      g_smartReverseReason="Current position close order returned success, but position is still open";
+      VPrint("SmartReverse close not confirmed: "+g_smartReverseReason);
+      return false;
+   }
    g_smartReverseClosedCurrent="YES";
    VPrint("SmartReverse closed current profitable position ticket="+IntegerToString((long)ticket));
 
-   bool opened=ExecuteDecision(reverseD,m15);
+   bool opened=ExecuteDecision(reverseD,h4,h1,m15);
    if(opened)
    {
       g_smartReverseOpenedOpposite="YES";
@@ -3672,7 +4169,7 @@ void EnsureCSVHeader()
    if(h==INVALID_HANDLE) return;
    if(FileSize(h)==0)
    {
-      FileWrite(h,"time","symbol","class","timeframe","bid","ask","spread","session","setupKey","learningBias","state","decision","selectedSetupType","qualityGrade","qualityScore","qualityDecision","rejectionZoneContext","rejectionZoneEntryUsed","rejectionZoneAgainstTrade","qualityReasons","redFlags","confirmations","smartReverseChecked","smartReverseEligible","smartReverseDecision","smartReverseReason","smartReverseCurrentProfitR","smartReverseOppositeZone","smartReverseM15Confirmation","smartReverseQualityGrade","smartReverseClosedCurrent","smartReverseOpenedOpposite","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","buyEntryAudit","sellEntryAudit","candidateRanking","candidateAudit","obFvgAudit","reversalAudit","fullAudit");
+      FileWrite(h,"time","symbol","class","timeframe","bid","ask","spread","session","setupKey","learningBias","state","decision","selectedSetupType","marketVerdict","preferredDirection","verdictConfidence","verdictReason","locationClass","nearestSupplyZone","nearestDemandZone","nearestOppositeRejectionZone","nearestSupportiveRejectionZone","m15BullRejectionZone","m15BearRejectionZone","h1BullRejectionZone","h1BearRejectionZone","h4BullRejectionZone","h4BearRejectionZone","qualityGrade","qualityScore","qualityDecision","rejectionZoneContext","rejectionZoneEntryUsed","rejectionZoneAgainstTrade","qualityReasons","redFlags","confirmations","smartReverseChecked","smartReverseEligible","smartReverseDecision","smartReverseReason","smartReverseCurrentProfitR","smartReverseOppositeZone","smartReverseM15Confirmation","smartReverseQualityGrade","smartReverseClosedCurrent","smartReverseOpenedOpposite","buyScore","sellScore","lot","entry","sl","tp","reason","waitBlockReason","entryModel","buyEntryAudit","sellEntryAudit","candidateRanking","candidateAudit","obFvgAudit","reversalAudit","verdictAudit","fullAudit");
    }
    FileClose(h);
 
@@ -3692,7 +4189,7 @@ void LogCSV(BrainDecision &d)
    if(h==INVALID_HANDLE) return;
    FileSeek(h,0,SEEK_END);
    FileWrite(h,TimeToString(TimeCurrent(),TIME_DATE|TIME_SECONDS),_Symbol,SymbolClassName(SymbolClass()),d.decisionTF,DoubleToString(d.bid,_Digits),DoubleToString(d.ask,_Digits),DoubleToString(d.spread,_Digits),d.sessionName,d.setupKey,d.learningBias,StateToString(d.state),DecisionToString(d.decision),
-             d.selectedSetupType,d.qualityGrade,d.qualityScore,d.qualityDecision,d.rejectionZoneContext,d.rejectionZoneEntryUsed,d.rejectionZoneAgainstTrade,d.qualityReasons,d.redFlags,d.confirmations,d.smartReverseChecked,d.smartReverseEligible,d.smartReverseDecision,d.smartReverseReason,DoubleToString(d.smartReverseCurrentProfitR,2),d.smartReverseOppositeZone,d.smartReverseM15Confirmation,d.smartReverseQualityGrade,d.smartReverseClosedCurrent,d.smartReverseOpenedOpposite,d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.buyEntryAudit,d.sellEntryAudit,d.candidateRanking,d.candidateAudit,d.obAudit,d.reversalAudit,d.audit);
+             d.selectedSetupType,d.marketVerdict,d.preferredDirection,d.verdictConfidence,d.verdictReason,d.locationClass,d.nearestSupplyZone,d.nearestDemandZone,d.nearestOppositeRejectionZone,d.nearestSupportiveRejectionZone,d.m15BullRejectionZone,d.m15BearRejectionZone,d.h1BullRejectionZone,d.h1BearRejectionZone,d.h4BullRejectionZone,d.h4BearRejectionZone,d.qualityGrade,d.qualityScore,d.qualityDecision,d.rejectionZoneContext,d.rejectionZoneEntryUsed,d.rejectionZoneAgainstTrade,d.qualityReasons,d.redFlags,d.confirmations,d.smartReverseChecked,d.smartReverseEligible,d.smartReverseDecision,d.smartReverseReason,DoubleToString(d.smartReverseCurrentProfitR,2),d.smartReverseOppositeZone,d.smartReverseM15Confirmation,d.smartReverseQualityGrade,d.smartReverseClosedCurrent,d.smartReverseOpenedOpposite,d.buyScore,d.sellScore,DoubleToString(d.lot,2),DoubleToString(d.entry,_Digits),DoubleToString(d.sl,_Digits),DoubleToString(d.tp,_Digits),d.reason,d.waitReason,d.entryModel,d.buyEntryAudit,d.sellEntryAudit,d.candidateRanking,d.candidateAudit,d.obAudit,d.reversalAudit,d.verdictAudit,d.audit);
    FileClose(h);
 }
 
@@ -3810,7 +4307,7 @@ void OnTick()
    if(InpPrintEveryNewBar || d.decision!=DECISION_WAIT) VPrint(line);
 
    if(d.decision==DECISION_BUY || d.decision==DECISION_SELL)
-      ExecuteDecision(d,m15);
+      ExecuteDecision(d,h4,h1,m15);
 }
 
 //====================================================================
