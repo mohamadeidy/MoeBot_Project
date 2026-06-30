@@ -3,7 +3,7 @@
 //| Phase 1 diagnostic skeleton only. No trade execution.            |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "4.00"
+#property version   "4.01"
 #property description "MoeBot v4 Trend Pullback Phase 1 diagnostic skeleton."
 #property description "No strategy entries, martingale, grid, or trade execution are included."
 
@@ -25,7 +25,8 @@ enum AssetClass
    GOLD    = 1,
    SILVER  = 2,
    OIL     = 3,
-   UNKNOWN = 4
+   INDEX   = 4,
+   UNKNOWN = 5
 };
 
 //+------------------------------------------------------------------+
@@ -67,11 +68,13 @@ input double  ForexLot                 = 0.02;
 input double  GoldLot                  = 0.01;
 input double  SilverLot                = 0.01;
 input double  OilLot                   = 0.01;
+input double  IndexLot                 = 0.01;
 
 input int     ForexMaxSpreadPoints     = 25;
-input int     GoldMaxSpreadPoints      = 35;
-input int     SilverMaxSpreadPoints    = 40;
-input int     OilMaxSpreadPoints       = 60;
+input int     GoldMaxSpreadPoints      = 180;
+input int     SilverMaxSpreadPoints    = 300;
+input int     OilMaxSpreadPoints       = 80;
+input int     IndexMaxSpreadPoints     = 300;
 
 input int     H4_EMA_Period            = 50;
 input int     H1_EMA_Period            = 20;
@@ -238,6 +241,9 @@ AssetClass DetectAssetClass(const string symbol)
       StringFind(upperSymbol, "BRENT") >= 0)
       return(OIL);
 
+   if(IsIndexSymbol(upperSymbol))
+      return(INDEX);
+
    if(IsCommonForexSymbol(upperSymbol))
       return(FOREX);
 
@@ -275,6 +281,13 @@ AssetParams LoadAssetParams(const AssetClass assetClass)
          params.minRR           = 1.5;
          break;
 
+      case INDEX:
+         params.fixedLot        = IndexLot;
+         params.maxSpreadPoints = IndexMaxSpreadPoints;
+         params.atrBuffer       = 0.7;
+         params.minRR           = 1.5;
+         break;
+
       case FOREX:
       case UNKNOWN:
       default:
@@ -286,6 +299,28 @@ AssetParams LoadAssetParams(const AssetClass assetClass)
    }
 
    return(params);
+}
+
+//+------------------------------------------------------------------+
+//| Checks index symbols while allowing broker prefixes/suffixes       |
+//+------------------------------------------------------------------+
+bool IsIndexSymbol(const string upperSymbol)
+{
+   string indexSymbols[] =
+   {
+      "US100", "NAS100", "USTEC", "NDX", "NASDAQ",
+      "US30", "DJ30", "DOW",
+      "US500", "SPX", "SP500",
+      "GER40", "DAX"
+   };
+
+   for(int i = 0; i < ArraySize(indexSymbols); i++)
+   {
+      if(StringFind(upperSymbol, indexSymbols[i]) >= 0)
+         return(true);
+   }
+
+   return(false);
 }
 
 //+------------------------------------------------------------------+
@@ -615,6 +650,7 @@ string AssetClassToString(const AssetClass assetClass)
       case GOLD:    return("GOLD");
       case SILVER:  return("SILVER");
       case OIL:     return("OIL");
+      case INDEX:   return("INDEX");
       case UNKNOWN: return("UNKNOWN");
       default:      return("UNKNOWN");
    }
