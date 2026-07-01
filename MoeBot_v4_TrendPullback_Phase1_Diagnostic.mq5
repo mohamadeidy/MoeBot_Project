@@ -3,8 +3,9 @@
 //| Phase 3 minimal primary execution; diagnostics retained.          |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "4.30"
+#property version   "4.31"
 #property description "MoeBot v4 Trend Pullback Phase 3 minimal primary execution with diagnostics retained."
+#property description "Phase 3.1 signal availability diagnostics; no strategy or execution changes."
 #property description "Phase 2.2 transition diagnostics are retained; no position management is included."
 
 #include <Trade/Trade.mqh>
@@ -208,6 +209,63 @@ struct SignalCandidate
    string reason;
 };
 
+//--- Phase 3.1 signal availability diagnostic details.
+struct SignalAvailabilityDiagnostics
+{
+   bool   enabled;
+   int    missingGatesCount;
+   string primaryBlocker;
+   string secondaryBlocker;
+   string nearestSetupStatus;
+
+   bool   h4Ready;
+   bool   h1ZoneReady;
+   bool   m15TriggerReady;
+   bool   scoreReady;
+   bool   warningsReady;
+
+   string h4ReadinessReason;
+   string h1ReadinessReason;
+   string m15ReadinessReason;
+   string scoreReadinessReason;
+   string warningReadinessReason;
+
+   int    currentScore;
+   int    requiredScore;
+   int    warningCount;
+   int    maxAllowedWarnings;
+
+   double m15BosBreakDistanceATR;
+   double triggerDistanceFromZoneATR;
+   double triggerBodyRatio;
+   double h1ZoneAgeBars;
+   int    h1TouchCount;
+
+   string wouldHaveBeenCandidateIf;
+   string nearestSetupDirection;
+};
+
+//--- Phase 3.1 early transition diagnostic details.
+struct EarlyTransitionDiagnostics
+{
+   bool   enabled;
+   bool   earlyTransitionWarning;
+   int    transitionStrengthScore;
+   string transitionMissingPiece;
+   string transitionRiskLabel;
+
+   bool   h4Exhaustion;
+   bool   h1OppositeBos;
+   bool   m15OppositeBos;
+   bool   h1BosDistanceEnough;
+
+   double h1BosDistanceATR;
+   double requiredH1BosDistanceATR;
+   double m15OppositeBreakDistanceATR;
+
+   string oldDirectionRisk;
+   string reason;
+};
 
 //--- Phase 3 execution diagnostic details.
 struct ExecutionDiagnostics
@@ -285,6 +343,8 @@ H1ZoneInfo       g_h1Info;
 M15TriggerInfo   g_m15Info;
 SignalCandidate  g_signal;
 TransitionDiagnostics g_transition;
+SignalAvailabilityDiagnostics g_availability;
+EarlyTransitionDiagnostics g_earlyTransition;
 ExecutionDiagnostics g_execution;
 EAState          g_state          = IDLE;
 datetime         g_lastM15BarTime = 0;
@@ -469,6 +529,8 @@ void AnalyzeTrendPullback()
    g_m15Info = AnalyzeM15Trigger(g_h4Info, g_h1Info);
    g_signal  = BuildSignalCandidate(g_h4Info, g_h1Info, g_m15Info);
    AnalyzeTransitionDiagnostics();
+   AnalyzeSignalAvailability();
+   AnalyzeEarlyTransitionDiagnostics();
 
    UpdateAnalysisState(g_h4Info, g_h1Info, g_m15Info);
 
@@ -548,6 +610,8 @@ void ResetAnalysisDiagnostics(const string reason)
    g_signal.reason = reason;
 
    ResetTransitionDiagnostics(reason);
+   ResetSignalAvailabilityDiagnostics(reason);
+   ResetEarlyTransitionDiagnostics(reason);
 }
 
 //+------------------------------------------------------------------+
@@ -1127,6 +1191,227 @@ void AnalyzeTransitionDiagnostics()
    UpdateSimulatedStandbyState();
    g_transition.wouldSuppressOldDirection = (g_transition.standbyRecommended || g_transition.simulatedStandbyActive);
    g_transition.wouldAllowNewDirection = false;
+}
+
+//+------------------------------------------------------------------+
+//| Resets Phase 3.1 signal availability diagnostics.                 |
+//+------------------------------------------------------------------+
+void ResetSignalAvailabilityDiagnostics(const string reason)
+{
+   g_availability.enabled = false;
+   g_availability.missingGatesCount = 0;
+   g_availability.primaryBlocker = "NONE";
+   g_availability.secondaryBlocker = "NONE";
+   g_availability.nearestSetupStatus = "NOT_EVALUATED";
+   g_availability.h4Ready = false;
+   g_availability.h1ZoneReady = false;
+   g_availability.m15TriggerReady = false;
+   g_availability.scoreReady = false;
+   g_availability.warningsReady = false;
+   g_availability.h4ReadinessReason = reason;
+   g_availability.h1ReadinessReason = reason;
+   g_availability.m15ReadinessReason = reason;
+   g_availability.scoreReadinessReason = reason;
+   g_availability.warningReadinessReason = reason;
+   g_availability.currentScore = 0;
+   g_availability.requiredScore = ActiveThreshold();
+   g_availability.warningCount = 0;
+   g_availability.maxAllowedWarnings = (Mode == Growth) ? 1 : 0;
+   g_availability.m15BosBreakDistanceATR = 0.0;
+   g_availability.triggerDistanceFromZoneATR = 0.0;
+   g_availability.triggerBodyRatio = 0.0;
+   g_availability.h1ZoneAgeBars = 0.0;
+   g_availability.h1TouchCount = 0;
+   g_availability.wouldHaveBeenCandidateIf = "NOT_EVALUATED";
+   g_availability.nearestSetupDirection = "NONE";
+}
+
+//+------------------------------------------------------------------+
+//| Resets Phase 3.1 early transition diagnostics.                    |
+//+------------------------------------------------------------------+
+void ResetEarlyTransitionDiagnostics(const string reason)
+{
+   g_earlyTransition.enabled = false;
+   g_earlyTransition.earlyTransitionWarning = false;
+   g_earlyTransition.transitionStrengthScore = 0;
+   g_earlyTransition.transitionMissingPiece = "NONE";
+   g_earlyTransition.transitionRiskLabel = "NONE";
+   g_earlyTransition.h4Exhaustion = false;
+   g_earlyTransition.h1OppositeBos = false;
+   g_earlyTransition.m15OppositeBos = false;
+   g_earlyTransition.h1BosDistanceEnough = false;
+   g_earlyTransition.h1BosDistanceATR = 0.0;
+   g_earlyTransition.requiredH1BosDistanceATR = TransitionMinH1BreakATR;
+   g_earlyTransition.m15OppositeBreakDistanceATR = 0.0;
+   g_earlyTransition.oldDirectionRisk = "LOW";
+   g_earlyTransition.reason = reason;
+}
+
+//+------------------------------------------------------------------+
+//| Analyzes Phase 3.1 signal availability diagnostics only.          |
+//+------------------------------------------------------------------+
+void AnalyzeSignalAvailability()
+{
+   g_availability.enabled = true;
+
+   string intendedDirection = g_signal.direction;
+   if(intendedDirection != "BUY" && intendedDirection != "SELL")
+   {
+      if(g_h4Info.bias == Bullish)
+         intendedDirection = "BUY";
+      else if(g_h4Info.bias == Bearish)
+         intendedDirection = "SELL";
+      else
+         intendedDirection = "NONE";
+   }
+   g_availability.nearestSetupDirection = intendedDirection;
+
+   g_availability.h4Ready = IsDirectionalBias(g_h4Info.bias);
+   g_availability.h4ReadinessReason = g_availability.h4Ready ? "H4_DIRECTIONAL" : g_h4Info.reason;
+
+   g_availability.h1ZoneReady = (g_h1Info.valid && !g_h1Info.invalidated && g_h1Info.touchCount < 4);
+   if(g_availability.h1ZoneReady)
+      g_availability.h1ReadinessReason = "H1_ZONE_READY";
+   else if(!g_h1Info.valid)
+      g_availability.h1ReadinessReason = g_h1Info.reason;
+   else if(g_h1Info.invalidated)
+      g_availability.h1ReadinessReason = "H1_ZONE_INVALIDATED";
+   else if(g_h1Info.touchCount >= 4)
+      g_availability.h1ReadinessReason = "H1_TOUCH_COUNT_TOO_HIGH";
+   else
+      g_availability.h1ReadinessReason = g_h1Info.reason;
+
+   bool directionMatches = (intendedDirection == "BUY" || intendedDirection == "SELL") && g_m15Info.direction == intendedDirection;
+   g_availability.m15TriggerReady = (g_m15Info.bos && directionMatches && !g_m15Info.tooLate && (g_m15Info.insideZone || g_m15Info.nearMiss));
+   if(g_availability.m15TriggerReady)
+      g_availability.m15ReadinessReason = "M15_TRIGGER_READY";
+   else if(!g_m15Info.bos)
+      g_availability.m15ReadinessReason = "M15_BOS_MISSING";
+   else if(!directionMatches)
+      g_availability.m15ReadinessReason = "M15_DIRECTION_MISMATCH";
+   else if(g_m15Info.tooLate)
+      g_availability.m15ReadinessReason = "M15_TRIGGER_TOO_LATE";
+   else if(!g_m15Info.insideZone && !g_m15Info.nearMiss)
+      g_availability.m15ReadinessReason = "M15_TRIGGER_OUTSIDE_H1_ZONE";
+   else
+      g_availability.m15ReadinessReason = g_m15Info.reason;
+
+   g_availability.currentScore = g_signal.score;
+   g_availability.requiredScore = ActiveThreshold();
+   g_availability.scoreReady = (g_signal.score >= g_availability.requiredScore);
+   g_availability.scoreReadinessReason = g_availability.scoreReady ? "SCORE_READY" : "SCORE_BELOW_THRESHOLD";
+
+   g_availability.warningCount = g_signal.warningCount;
+   g_availability.maxAllowedWarnings = (Mode == Growth) ? 1 : 0;
+   g_availability.warningsReady = (g_signal.warningCount <= g_availability.maxAllowedWarnings);
+   g_availability.warningReadinessReason = g_availability.warningsReady ? "WARNINGS_READY" : "WARNINGS_TOO_HIGH";
+
+   g_availability.missingGatesCount = 0;
+   if(!g_availability.h4Ready) g_availability.missingGatesCount++;
+   if(!g_availability.h1ZoneReady) g_availability.missingGatesCount++;
+   if(!g_availability.m15TriggerReady) g_availability.missingGatesCount++;
+   if(!g_availability.scoreReady) g_availability.missingGatesCount++;
+   if(!g_availability.warningsReady) g_availability.missingGatesCount++;
+
+   string blockers[5];
+   int blockerCount = 0;
+   if(!g_availability.h4Ready) blockers[blockerCount++] = "H4_NOT_DIRECTIONAL";
+   if(!g_availability.h1ZoneReady) blockers[blockerCount++] = "H1_ZONE_NOT_READY";
+   if(!g_availability.m15TriggerReady) blockers[blockerCount++] = "M15_TRIGGER_NOT_READY";
+   if(!g_availability.scoreReady) blockers[blockerCount++] = "SCORE_NOT_READY";
+   if(!g_availability.warningsReady) blockers[blockerCount++] = "WARNINGS_TOO_HIGH";
+   g_availability.primaryBlocker = (blockerCount > 0) ? blockers[0] : "NONE";
+   g_availability.secondaryBlocker = (blockerCount > 1) ? blockers[1] : "NONE";
+
+   if(g_signal.candidate)
+      g_availability.nearestSetupStatus = "CANDIDATE_READY";
+   else if(g_availability.missingGatesCount == 1)
+      g_availability.nearestSetupStatus = "ONE_GATE_MISSING";
+   else if(g_availability.missingGatesCount == 2)
+      g_availability.nearestSetupStatus = "TWO_GATES_MISSING";
+   else
+      g_availability.nearestSetupStatus = "FAR_FROM_SETUP";
+
+   if(g_availability.missingGatesCount == 0 && g_signal.candidate)
+      g_availability.wouldHaveBeenCandidateIf = "ALREADY_CANDIDATE";
+   else if(g_availability.missingGatesCount == 1)
+      g_availability.wouldHaveBeenCandidateIf = g_availability.primaryBlocker;
+   else
+      g_availability.wouldHaveBeenCandidateIf = "MULTIPLE_CONDITIONS_MISSING";
+
+   g_availability.m15BosBreakDistanceATR = g_m15Info.bosBreakDistanceATR;
+   g_availability.triggerBodyRatio = g_m15Info.triggerBodyRatio;
+   g_availability.h1ZoneAgeBars = g_h1Info.ageBars;
+   g_availability.h1TouchCount = g_h1Info.touchCount;
+   g_availability.triggerDistanceFromZoneATR = 0.0;
+   if(g_h1Info.atrH1 > 0.0)
+   {
+      if(g_m15Info.triggerClose > g_h1Info.upper)
+         g_availability.triggerDistanceFromZoneATR = (g_m15Info.triggerClose - g_h1Info.upper) / g_h1Info.atrH1;
+      else if(g_m15Info.triggerClose < g_h1Info.lower)
+         g_availability.triggerDistanceFromZoneATR = (g_h1Info.lower - g_m15Info.triggerClose) / g_h1Info.atrH1;
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Analyzes Phase 3.1 early transition diagnostics only.             |
+//+------------------------------------------------------------------+
+void AnalyzeEarlyTransitionDiagnostics()
+{
+   g_earlyTransition.enabled = true;
+   g_earlyTransition.h4Exhaustion = g_transition.h4Exhaustion;
+   g_earlyTransition.h1OppositeBos = g_transition.h1OppositeBOS;
+   g_earlyTransition.m15OppositeBos = g_transition.m15OppositeBOS;
+   g_earlyTransition.h1BosDistanceATR = g_transition.h1BosDistanceATR;
+   g_earlyTransition.requiredH1BosDistanceATR = TransitionMinH1BreakATR;
+   g_earlyTransition.m15OppositeBreakDistanceATR = g_transition.m15OppositeBreakDistanceATR;
+   g_earlyTransition.h1BosDistanceEnough = (g_earlyTransition.h1BosDistanceATR >= TransitionMinH1BreakATR);
+
+   int score = 0;
+   if(g_earlyTransition.h4Exhaustion) score += 35;
+   if(g_earlyTransition.h1OppositeBos) score += 30;
+   if(g_earlyTransition.h1BosDistanceEnough) score += 20;
+   if(g_earlyTransition.m15OppositeBos) score += 15;
+   g_earlyTransition.transitionStrengthScore = MathMin(score, 100);
+   g_earlyTransition.earlyTransitionWarning = (g_earlyTransition.transitionStrengthScore >= 50);
+
+   if(g_earlyTransition.transitionStrengthScore < 35)
+      g_earlyTransition.transitionRiskLabel = "NONE";
+   else if(g_earlyTransition.transitionStrengthScore < 50)
+      g_earlyTransition.transitionRiskLabel = "WATCH";
+   else if(g_earlyTransition.transitionStrengthScore < 75)
+      g_earlyTransition.transitionRiskLabel = "EARLY_WARNING";
+   else
+      g_earlyTransition.transitionRiskLabel = "STRONG_TRANSITION_RISK";
+
+   if(!g_earlyTransition.h4Exhaustion)
+      g_earlyTransition.transitionMissingPiece = "H4_EXHAUSTION_MISSING";
+   else if(!g_earlyTransition.h1OppositeBos)
+      g_earlyTransition.transitionMissingPiece = "H1_OPPOSITE_BOS_MISSING";
+   else if(!g_earlyTransition.h1BosDistanceEnough)
+      g_earlyTransition.transitionMissingPiece = "H1_BOS_DISTANCE_TOO_SMALL";
+   else if(!g_earlyTransition.m15OppositeBos)
+      g_earlyTransition.transitionMissingPiece = "M15_OPPOSITE_BOS_MISSING";
+   else
+      g_earlyTransition.transitionMissingPiece = "NONE";
+
+   if(g_earlyTransition.transitionStrengthScore < 50)
+      g_earlyTransition.oldDirectionRisk = "LOW";
+   else if(g_earlyTransition.transitionStrengthScore < 75)
+      g_earlyTransition.oldDirectionRisk = "MEDIUM";
+   else
+      g_earlyTransition.oldDirectionRisk = "HIGH";
+
+   if(g_earlyTransition.transitionStrengthScore < 35)
+      g_earlyTransition.reason = "No early transition risk";
+   else if(g_earlyTransition.h4Exhaustion && !g_earlyTransition.h1OppositeBos)
+      g_earlyTransition.reason = "H4 exhaustion present but H1 opposite BOS missing";
+   else if(g_earlyTransition.h1OppositeBos && !g_earlyTransition.h1BosDistanceEnough)
+      g_earlyTransition.reason = "H1 opposite BOS exists but distance below threshold";
+   else if(g_earlyTransition.transitionStrengthScore >= 75)
+      g_earlyTransition.reason = "Strong transition risk detected; diagnostics only";
+   else
+      g_earlyTransition.reason = "Early transition risk detected; diagnostics only";
 }
 
 bool GetH1OppositeBOS(const H4Bias bias, bool &oppositeBOS, double &bosLevel, double &distanceATR, double &triggerClose, double &atrH1)
@@ -2333,9 +2618,93 @@ string BuildDiagnosticText()
       g_transition.exitByExpiry ? "YES" : "NO",
       g_transition.exitReason,
       g_transition.reason);
+   string availabilityText = StringFormat(
+      "SignalAvailability:\n"
+      "availability_enabled: %s\n"
+      "nearest_setup_status: %s\n"
+      "nearest_setup_direction: %s\n"
+      "missing_gates_count: %d\n"
+      "primary_blocker: %s\n"
+      "secondary_blocker: %s\n"
+      "h4_ready: %s\n"
+      "h1_zone_ready: %s\n"
+      "m15_trigger_ready: %s\n"
+      "score_ready: %s\n"
+      "warnings_ready: %s\n"
+      "h4_readiness_reason: %s\n"
+      "h1_readiness_reason: %s\n"
+      "m15_readiness_reason: %s\n"
+      "score_readiness_reason: %s\n"
+      "warning_readiness_reason: %s\n"
+      "current_score: %d\n"
+      "required_score: %d\n"
+      "warning_count: %d\n"
+      "max_allowed_warnings: %d\n"
+      "m15_bos_break_distance_atr: %.4f\n"
+      "trigger_distance_from_zone_atr: %.4f\n"
+      "trigger_body_ratio: %.4f\n"
+      "h1_zone_age_bars: %.0f\n"
+      "h1_touch_count: %d\n"
+      "would_have_been_candidate_if: %s\n\n",
+      g_availability.enabled ? "YES" : "NO",
+      g_availability.nearestSetupStatus,
+      g_availability.nearestSetupDirection,
+      g_availability.missingGatesCount,
+      g_availability.primaryBlocker,
+      g_availability.secondaryBlocker,
+      g_availability.h4Ready ? "YES" : "NO",
+      g_availability.h1ZoneReady ? "YES" : "NO",
+      g_availability.m15TriggerReady ? "YES" : "NO",
+      g_availability.scoreReady ? "YES" : "NO",
+      g_availability.warningsReady ? "YES" : "NO",
+      g_availability.h4ReadinessReason,
+      g_availability.h1ReadinessReason,
+      g_availability.m15ReadinessReason,
+      g_availability.scoreReadinessReason,
+      g_availability.warningReadinessReason,
+      g_availability.currentScore,
+      g_availability.requiredScore,
+      g_availability.warningCount,
+      g_availability.maxAllowedWarnings,
+      g_availability.m15BosBreakDistanceATR,
+      g_availability.triggerDistanceFromZoneATR,
+      g_availability.triggerBodyRatio,
+      g_availability.h1ZoneAgeBars,
+      g_availability.h1TouchCount,
+      g_availability.wouldHaveBeenCandidateIf);
+   string earlyTransitionText = StringFormat(
+      "EarlyTransition:\n"
+      "early_transition_enabled: %s\n"
+      "early_transition_warning: %s\n"
+      "transition_strength_score: %d\n"
+      "transition_risk_label: %s\n"
+      "transition_missing_piece: %s\n"
+      "h4_exhaustion: %s\n"
+      "h1_opposite_bos: %s\n"
+      "m15_opposite_bos: %s\n"
+      "h1_bos_distance_enough: %s\n"
+      "h1_bos_distance_atr: %.4f\n"
+      "required_h1_bos_distance_atr: %.4f\n"
+      "m15_opposite_break_distance_atr: %.4f\n"
+      "old_direction_risk: %s\n"
+      "early_transition_reason: %s\n\n",
+      g_earlyTransition.enabled ? "YES" : "NO",
+      g_earlyTransition.earlyTransitionWarning ? "YES" : "NO",
+      g_earlyTransition.transitionStrengthScore,
+      g_earlyTransition.transitionRiskLabel,
+      g_earlyTransition.transitionMissingPiece,
+      g_earlyTransition.h4Exhaustion ? "YES" : "NO",
+      g_earlyTransition.h1OppositeBos ? "YES" : "NO",
+      g_earlyTransition.m15OppositeBos ? "YES" : "NO",
+      g_earlyTransition.h1BosDistanceEnough ? "YES" : "NO",
+      g_earlyTransition.h1BosDistanceATR,
+      g_earlyTransition.requiredH1BosDistanceATR,
+      g_earlyTransition.m15OppositeBreakDistanceATR,
+      g_earlyTransition.oldDirectionRisk,
+      g_earlyTransition.reason);
 
    return(StringFormat(
-      "[MoeBot v4 Phase3]\n"
+      "[MoeBot v4 Phase3.1]\n"
       "Symbol: %s\n"
       "AssetClass: %s\n"
       "Mode: %s\n"
@@ -2349,7 +2718,7 @@ string BuildDiagnosticText()
       "Config: H4_EMA=%d H1_EMA=%d ATR=%d H4_SlopeLookback=%d M15_BOSLookback=%d MaxAddOns=%d ManualNewsBlackout=%s\n"
       "BrokerBlocker: %s\n"
       "Reason: %s\n"
-      "NextPhaseStatus: Phase 3 minimal primary execution; Phase 2.2 transition diagnostics retained and diagnostics-only.\n\n"
+      "NextPhaseStatus: Phase 3.1 signal availability and early transition diagnostics; diagnostics-only; no strategy or execution changes.\n\n"
       "H4:\n"
       "H4Bias: %s\n"
       "H4_EMA50_Now: %.5f\n"
@@ -2404,6 +2773,8 @@ string BuildDiagnosticText()
       "warning_low_liquidity: %s\n"
       "warning_news_blackout: %s\n"
       "warningCount: %d\n\n"
+      "%s"
+      "%s"
       "%s"
       "%s"
       "Signal:\n"
@@ -2486,6 +2857,8 @@ string BuildDiagnosticText()
       warningNewsBlackoutText,
       g_signal.warningCount,
       transitionText,
+      availabilityText,
+      earlyTransitionText,
       executionText,
       hardGateText,
       g_signal.score,
