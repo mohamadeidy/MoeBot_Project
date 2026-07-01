@@ -2704,7 +2704,7 @@ string BuildDiagnosticText()
       g_earlyTransition.reason);
 
    return(StringFormat(
-      "[MoeBot v4 Phase3]\n"
+      "[MoeBot v4 Phase3.1]\n"
       "Symbol: %s\n"
       "AssetClass: %s\n"
       "Mode: %s\n"
@@ -2718,7 +2718,7 @@ string BuildDiagnosticText()
       "Config: H4_EMA=%d H1_EMA=%d ATR=%d H4_SlopeLookback=%d M15_BOSLookback=%d MaxAddOns=%d ManualNewsBlackout=%s\n"
       "BrokerBlocker: %s\n"
       "Reason: %s\n"
-      "NextPhaseStatus: Phase 3 minimal primary execution; Phase 2.2 transition diagnostics retained and diagnostics-only.\n\n"
+      "NextPhaseStatus: Phase 3.1 signal availability and early transition diagnostics; diagnostics-only; no strategy or execution changes.\n\n"
       "H4:\n"
       "H4Bias: %s\n"
       "H4_EMA50_Now: %.5f\n"
