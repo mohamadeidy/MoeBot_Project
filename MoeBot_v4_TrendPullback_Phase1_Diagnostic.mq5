@@ -1,11 +1,13 @@
 //+------------------------------------------------------------------+
 //| MoeBot_v4_TrendPullback_Phase1_Diagnostic.mq5                    |
-//| Phase 2.2 transition / standby diagnostics only.                  |
+//| Phase 3 minimal primary execution; diagnostics retained.          |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "4.22"
-#property description "MoeBot v4 Trend Pullback Phase 2.2 transition / standby diagnostics only."
-#property description "No order execution, martingale, grid, or position management is included."
+#property version   "4.30"
+#property description "MoeBot v4 Trend Pullback Phase 3 minimal primary execution with diagnostics retained."
+#property description "Phase 2.2 transition diagnostics are retained; no position management is included."
+
+#include <Trade/Trade.mqh>
 
 //--- Bot operating modes.
 enum BotMode
@@ -53,6 +55,7 @@ enum EAState
 input long    MagicNumber              = 404001;
 input bool    EnableDebug              = true;
 input BotMode Mode                     = Conservative;
+input bool    EnableTrading            = false;
 
 input double  ForexLot                 = 0.02;
 input double  GoldLot                  = 0.01;
@@ -65,6 +68,12 @@ input int     GoldMaxSpreadPoints      = 180;
 input int     SilverMaxSpreadPoints    = 300;
 input int     OilMaxSpreadPoints       = 80;
 input int     IndexMaxSpreadPoints     = 300;
+
+input int     TradeDeviationForexPoints  = 15;
+input int     TradeDeviationGoldPoints   = 30;
+input int     TradeDeviationSilverPoints = 30;
+input int     TradeDeviationOilPoints    = 50;
+input int     TradeDeviationIndexPoints  = 50;
 
 input int     H4_EMA_Period            = 50;
 input int     H1_EMA_Period            = 20;
@@ -200,6 +209,30 @@ struct SignalCandidate
 };
 
 
+//--- Phase 3 execution diagnostic details.
+struct ExecutionDiagnostics
+{
+   bool     enableTrading;
+   bool     hasOpenPositionSymbolMagic;
+   datetime executionBarTime;
+   bool     executionAllowed;
+   bool     executionAttempted;
+   string   executionResult;
+   string   executionReason;
+   uint     executionRetcode;
+   string   executionRetcodeDescription;
+   double   entryPrice;
+   double   slPrice;
+   double   tpPrice;
+   double   riskPoints;
+   double   rr;
+   double   lotRequested;
+   double   lotNormalized;
+   int      freshSpreadPoints;
+   double   marginRequired;
+   double   freeMargin;
+};
+
 //--- Phase 2.2 transition / simulated standby diagnostic details.
 struct TransitionDiagnostics
 {
@@ -243,6 +276,8 @@ struct TransitionDiagnostics
 };
 
 //--- Global runtime state.
+CTrade           trade;
+
 AssetParams      g_assetParams;
 DiagnosticStatus g_status;
 H4BiasInfo       g_h4Info;
@@ -250,6 +285,7 @@ H1ZoneInfo       g_h1Info;
 M15TriggerInfo   g_m15Info;
 SignalCandidate  g_signal;
 TransitionDiagnostics g_transition;
+ExecutionDiagnostics g_execution;
 EAState          g_state          = IDLE;
 datetime         g_lastM15BarTime = 0;
 H4Bias           g_previousDirectionalBias = Unknown;
@@ -258,6 +294,7 @@ string           g_simulatedStandbyDirection = "NONE";
 H4Bias           g_simulatedStandbyOriginalH4Bias = Unknown;
 datetime         g_simulatedStandbyStartTime = 0;
 double           g_simulatedStandbyBosLevel = 0.0;
+datetime         g_lastExecutionBarTime = 0;
 
 //--- Indicator handles used only for analysis diagnostics.
 int g_h4EmaHandle  = INVALID_HANDLE;
@@ -274,7 +311,10 @@ int OnInit()
    SetState(IDLE);
 
    g_assetParams = LoadAssetParams(DetectAssetClass(_Symbol));
+   trade.SetExpertMagicNumber(MagicNumber);
+   trade.SetDeviationInPoints(TradeDeviationForAsset(g_assetParams.assetClass));
    ResetAnalysisDiagnostics("Initialized");
+   ResetExecutionDiagnostics("Initialized");
 
    g_status.symbol              = _Symbol;
    g_status.assetClass          = g_assetParams.assetClass;
@@ -287,13 +327,13 @@ int OnInit()
    g_status.debugText           = "Initialized";
 
    if(g_assetParams.assetClass == UNKNOWN)
-      Print("[MoeBot v4 Phase2.2] WARNING: Unknown asset class for ", _Symbol, "; using Forex defaults.");
+      Print("[MoeBot v4 Phase3] WARNING: Unknown asset class for ", _Symbol, "; using Forex defaults.");
 
    if(!CreateIndicatorHandles())
-      Print("[MoeBot v4 Phase2.2] WARNING: One or more indicator handles could not be created; analysis will fail gracefully until available.");
+      Print("[MoeBot v4 Phase3] WARNING: One or more indicator handles could not be created; analysis will fail gracefully until available.");
 
    if(EnableDebug)
-      Print("[MoeBot v4 Phase2.2] Initialized on current chart symbol only: ", _Symbol);
+      Print("[MoeBot v4 Phase3] Initialized on current chart symbol only: ", _Symbol);
 
    return(INIT_SUCCEEDED);
 }
@@ -412,6 +452,7 @@ void UpdateDiagnosticStatus()
    g_status.brokerBlockerReason = blockerReason;
 
    AnalyzeTrendPullback();
+   EvaluatePhase3Execution();
    g_status.state     = g_state;
    g_status.debugText = BuildDiagnosticText();
 }
@@ -507,6 +548,32 @@ void ResetAnalysisDiagnostics(const string reason)
    g_signal.reason = reason;
 
    ResetTransitionDiagnostics(reason);
+}
+
+//+------------------------------------------------------------------+
+//| Resets Phase 3 execution diagnostics to safe defaults.            |
+//+------------------------------------------------------------------+
+void ResetExecutionDiagnostics(const string reason)
+{
+   g_execution.enableTrading = EnableTrading;
+   g_execution.hasOpenPositionSymbolMagic = false;
+   g_execution.executionBarTime = 0;
+   g_execution.executionAllowed = false;
+   g_execution.executionAttempted = false;
+   g_execution.executionResult = "NOT_EVALUATED";
+   g_execution.executionReason = reason;
+   g_execution.executionRetcode = 0;
+   g_execution.executionRetcodeDescription = "NONE";
+   g_execution.entryPrice = 0.0;
+   g_execution.slPrice = 0.0;
+   g_execution.tpPrice = 0.0;
+   g_execution.riskPoints = 0.0;
+   g_execution.rr = 0.0;
+   g_execution.lotRequested = g_assetParams.fixedLot;
+   g_execution.lotNormalized = 0.0;
+   g_execution.freshSpreadPoints = 0;
+   g_execution.marginRequired = 0.0;
+   g_execution.freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
 }
 
 //+------------------------------------------------------------------+
@@ -1881,6 +1948,269 @@ double NormalizeLotToStep(const double lot)
    return(NormalizeDouble(steppedLot, GetVolumeDigits()));
 }
 
+
+//+------------------------------------------------------------------+
+//| Returns trade deviation points for the detected asset class.      |
+//+------------------------------------------------------------------+
+int TradeDeviationForAsset(const AssetClass assetClass)
+{
+   switch(assetClass)
+   {
+      case GOLD:   return(TradeDeviationGoldPoints);
+      case SILVER: return(TradeDeviationSilverPoints);
+      case OIL:    return(TradeDeviationOilPoints);
+      case INDEX:  return(TradeDeviationIndexPoints);
+      case FOREX:
+      case UNKNOWN:
+      default:     return(TradeDeviationForexPoints);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Checks for an existing position on this symbol and magic number.  |
+//+------------------------------------------------------------------+
+bool HasOpenPositionForSymbolMagic()
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+
+      if(PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == MagicNumber)
+         return(true);
+   }
+
+   return(false);
+}
+
+//+------------------------------------------------------------------+
+//| Performs Phase 3 validation and optional primary trade execution. |
+//+------------------------------------------------------------------+
+void EvaluatePhase3Execution()
+{
+   if(g_lastExecutionBarTime == g_lastM15BarTime)
+      return;
+
+   g_lastExecutionBarTime = g_lastM15BarTime;
+   ResetExecutionDiagnostics("Execution evaluation started");
+   g_execution.executionBarTime = g_lastM15BarTime;
+   g_execution.enableTrading = EnableTrading;
+   g_execution.hasOpenPositionSymbolMagic = HasOpenPositionForSymbolMagic();
+   g_execution.lotRequested = g_assetParams.fixedLot;
+   g_execution.freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+
+   if(!g_signal.candidate)
+   {
+      g_execution.executionResult = "NO_CANDIDATE";
+      g_execution.executionReason = "No Phase 2.1 candidate";
+      return;
+   }
+
+   bool ready = ValidatePhase3ExecutionSetup();
+   if(!ready)
+   {
+      g_execution.executionResult = EnableTrading ? "BLOCKED" : "DRY_RUN_BLOCKED";
+      Print("[MoeBot v4 Phase3] ", g_execution.executionResult, ": ", g_execution.executionReason);
+      return;
+   }
+
+   if(!EnableTrading)
+   {
+      g_execution.executionAllowed = true;
+      g_execution.executionAttempted = false;
+      g_execution.executionResult = "DRY_RUN_CANDIDATE_READY";
+      g_execution.executionReason = "All execution-layer validation checks passed; trading disabled";
+      Print("[MoeBot v4 Phase3] DRY_RUN_CANDIDATE_READY: ", g_signal.direction,
+            " entry=", DoubleToString(g_execution.entryPrice, _Digits),
+            " sl=", DoubleToString(g_execution.slPrice, _Digits),
+            " tp=", DoubleToString(g_execution.tpPrice, _Digits),
+            " lot=", DoubleToString(g_execution.lotNormalized, GetVolumeDigits()));
+      return;
+   }
+
+   if(!RefreshPhase3MarketPricingAndRisk())
+   {
+      g_execution.executionAllowed = false;
+      g_execution.executionAttempted = false;
+      g_execution.executionResult = "BLOCKED";
+      Print("[MoeBot v4 Phase3] BLOCKED: ", g_execution.executionReason);
+      return;
+   }
+
+   g_execution.executionAllowed = true;
+   g_execution.executionAttempted = true;
+   bool callResult = false;
+   if(g_signal.direction == "BUY")
+      callResult = trade.Buy(g_execution.lotNormalized, _Symbol, g_execution.entryPrice, g_execution.slPrice, g_execution.tpPrice, "MoeBot Phase3 primary");
+   else if(g_signal.direction == "SELL")
+      callResult = trade.Sell(g_execution.lotNormalized, _Symbol, g_execution.entryPrice, g_execution.slPrice, g_execution.tpPrice, "MoeBot Phase3 primary");
+
+   g_execution.executionRetcode = trade.ResultRetcode();
+   g_execution.executionRetcodeDescription = trade.ResultRetcodeDescription();
+
+   if(g_execution.executionRetcode == TRADE_RETCODE_DONE)
+   {
+      g_execution.executionResult = "TRADE_OPENED";
+      g_execution.executionReason = StringFormat("retcode=%u %s order=%I64u deal=%I64u bool=%s",
+                                                  g_execution.executionRetcode,
+                                                  g_execution.executionRetcodeDescription,
+                                                  trade.ResultOrder(),
+                                                  trade.ResultDeal(),
+                                                  callResult ? "true" : "false");
+   }
+   else
+   {
+      g_execution.executionResult = "TRADE_REJECTED";
+      g_execution.executionReason = StringFormat("retcode=%u %s order=%I64u deal=%I64u bool=%s",
+                                                  g_execution.executionRetcode,
+                                                  g_execution.executionRetcodeDescription,
+                                                  trade.ResultOrder(),
+                                                  trade.ResultDeal(),
+                                                  callResult ? "true" : "false");
+   }
+
+   Print("[MoeBot v4 Phase3] ", g_execution.executionResult, ": ", g_execution.executionReason);
+}
+
+//+------------------------------------------------------------------+
+//| Validates Phase 3 execution setup without changing positions.     |
+//+------------------------------------------------------------------+
+bool ValidatePhase3ExecutionSetup()
+{
+   if(!g_signal.hardGatesPassed)
+      return(BlockPhase3Execution("BLOCKED_HARD_GATES"));
+
+   if(g_status.brokerBlockerActive)
+      return(BlockPhase3Execution("BLOCKED_BROKER: " + g_status.brokerBlockerReason));
+
+   if(g_execution.hasOpenPositionSymbolMagic)
+      return(BlockPhase3Execution("BLOCKED_EXISTING_POSITION"));
+
+   if(g_signal.direction != "BUY" && g_signal.direction != "SELL")
+      return(BlockPhase3Execution("BLOCKED_INVALID_DIRECTION"));
+
+   g_execution.lotNormalized = NormalizeLotToStep(g_assetParams.fixedLot);
+   string lotReason = "";
+   if(!IsLotValid(g_execution.lotNormalized, lotReason))
+      return(BlockPhase3Execution("BLOCKED_LOT_INVALID: " + lotReason));
+
+   return(RefreshPhase3MarketPricingAndRisk());
+}
+
+
+//+------------------------------------------------------------------+
+//| Refreshes tick, spread, SL/TP, stops/freeze, and margin checks.   |
+//+------------------------------------------------------------------+
+bool RefreshPhase3MarketPricingAndRisk()
+{
+   MqlTick tick;
+   if(!SymbolInfoTick(_Symbol, tick) || tick.ask <= 0.0 || tick.bid <= 0.0)
+      return(BlockPhase3Execution("BLOCKED_INVALID_TICK"));
+
+   g_execution.freshSpreadPoints = GetCurrentSpreadPoints();
+   if(g_execution.freshSpreadPoints > g_assetParams.maxSpreadPoints)
+      return(BlockPhase3Execution("BLOCKED_SPREAD_AT_EXECUTION"));
+
+   if(g_h1Info.atrH1 <= 0.0)
+      return(BlockPhase3Execution("BLOCKED_INVALID_ATR"));
+
+   if(g_signal.direction == "BUY")
+   {
+      if(g_h1Info.lower <= 0.0)
+         return(BlockPhase3Execution("BLOCKED_INVALID_ZONE_EDGE"));
+      g_execution.entryPrice = tick.ask;
+      g_execution.slPrice = g_h1Info.lower - (g_assetParams.atrBuffer * g_h1Info.atrH1);
+      g_execution.tpPrice = g_execution.entryPrice + ((g_execution.entryPrice - g_execution.slPrice) * g_assetParams.minRR);
+   }
+   else if(g_signal.direction == "SELL")
+   {
+      if(g_h1Info.upper <= 0.0)
+         return(BlockPhase3Execution("BLOCKED_INVALID_ZONE_EDGE"));
+      g_execution.entryPrice = tick.bid;
+      g_execution.slPrice = g_h1Info.upper + (g_assetParams.atrBuffer * g_h1Info.atrH1);
+      g_execution.tpPrice = g_execution.entryPrice - ((g_execution.slPrice - g_execution.entryPrice) * g_assetParams.minRR);
+   }
+   else
+      return(BlockPhase3Execution("BLOCKED_INVALID_DIRECTION"));
+
+   g_execution.entryPrice = NormalizeDouble(g_execution.entryPrice, _Digits);
+   g_execution.slPrice = NormalizeDouble(g_execution.slPrice, _Digits);
+   g_execution.tpPrice = NormalizeDouble(g_execution.tpPrice, _Digits);
+   g_execution.rr = g_assetParams.minRR;
+
+   if(g_execution.entryPrice <= 0.0 || g_execution.slPrice <= 0.0 || g_execution.tpPrice <= 0.0)
+      return(BlockPhase3Execution("BLOCKED_INVALID_SLTP"));
+
+   if(g_signal.direction == "BUY")
+      g_execution.riskPoints = (g_execution.entryPrice - g_execution.slPrice) / _Point;
+   else
+      g_execution.riskPoints = (g_execution.slPrice - g_execution.entryPrice) / _Point;
+
+   if(g_execution.riskPoints <= 0.0)
+      return(BlockPhase3Execution("BLOCKED_INVALID_RISK"));
+
+   if(!ValidateStopsAndFreeze())
+      return(false);
+
+   ENUM_ORDER_TYPE orderType = (g_signal.direction == "BUY") ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+   if(!OrderCalcMargin(orderType, _Symbol, g_execution.lotNormalized, g_execution.entryPrice, g_execution.marginRequired))
+      return(BlockPhase3Execution("BLOCKED_MARGIN"));
+
+   g_execution.freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   if(g_execution.marginRequired > g_execution.freeMargin)
+      return(BlockPhase3Execution("BLOCKED_MARGIN"));
+
+   return(true);
+}
+
+//+------------------------------------------------------------------+
+//| Records a Phase 3 execution blocker.                              |
+//+------------------------------------------------------------------+
+bool BlockPhase3Execution(const string reason)
+{
+   g_execution.executionAllowed = false;
+   g_execution.executionReason = reason;
+   return(false);
+}
+
+//+------------------------------------------------------------------+
+//| Validates broker stops and freeze distances.                      |
+//+------------------------------------------------------------------+
+bool ValidateStopsAndFreeze()
+{
+   if(_Point <= 0.0)
+      return(BlockPhase3Execution("BLOCKED_INVALID_RISK"));
+
+   double slDistancePoints = 0.0;
+   double tpDistancePoints = 0.0;
+   if(g_signal.direction == "BUY")
+   {
+      slDistancePoints = (g_execution.entryPrice - g_execution.slPrice) / _Point;
+      tpDistancePoints = (g_execution.tpPrice - g_execution.entryPrice) / _Point;
+   }
+   else
+   {
+      slDistancePoints = (g_execution.slPrice - g_execution.entryPrice) / _Point;
+      tpDistancePoints = (g_execution.entryPrice - g_execution.tpPrice) / _Point;
+   }
+
+   if(slDistancePoints <= 0.0 || tpDistancePoints <= 0.0)
+      return(BlockPhase3Execution("BLOCKED_INVALID_RISK"));
+
+   long stopsLevel = 0;
+   SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL, stopsLevel);
+   if(stopsLevel > 0 && (slDistancePoints < stopsLevel || tpDistancePoints < stopsLevel))
+      return(BlockPhase3Execution("BLOCKED_STOPS_LEVEL"));
+
+   long freezeLevel = 0;
+   SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL, freezeLevel);
+   if(freezeLevel > 0 && (slDistancePoints < freezeLevel || tpDistancePoints < freezeLevel))
+      return(BlockPhase3Execution("BLOCKED_FREEZE_LEVEL"));
+
+   return(true);
+}
+
 //+------------------------------------------------------------------+
 //| Builds the diagnostic block printed once per new M15 candle.       |
 //+------------------------------------------------------------------+
@@ -1902,6 +2232,49 @@ string BuildDiagnosticText()
    string growthEligibleText = g_signal.decisionGrowthEligible ? "YES" : "NO";
    string conservativeEligibleText = g_signal.decisionConservativeEligible ? "YES" : "NO";
    string transitionStartTimeText = g_transition.simulatedStandbyActive ? TimeToString(g_transition.simulatedStandbyStartTime, TIME_DATE|TIME_MINUTES) : "NONE";
+   string executionBarTimeText = g_execution.executionBarTime > 0 ? TimeToString(g_execution.executionBarTime, TIME_DATE|TIME_MINUTES) : "NONE";
+   string executionText = StringFormat(
+      "Execution:\n"
+      "enable_trading: %s\n"
+      "has_open_position_symbol_magic: %s\n"
+      "execution_bar_time: %s\n"
+      "execution_allowed: %s\n"
+      "execution_attempted: %s\n"
+      "execution_result: %s\n"
+      "execution_reason: %s\n"
+      "execution_retcode: %u\n"
+      "execution_retcode_description: %s\n"
+      "entry_price: %.5f\n"
+      "sl_price: %.5f\n"
+      "tp_price: %.5f\n"
+      "risk_points: %.2f\n"
+      "rr: %.2f\n"
+      "lot_requested: %.8f\n"
+      "lot_normalized: %.8f\n"
+      "fresh_spread_points: %d\n"
+      "margin_required: %.2f\n"
+      "free_margin: %.2f\n"
+      "sl_type: H1_ZONE_EDGE_ATR_BUFFER\n"
+      "tp_type: RR_PROJECTION_FROM_ZONE_SL\n\n",
+      g_execution.enableTrading ? "YES" : "NO",
+      g_execution.hasOpenPositionSymbolMagic ? "YES" : "NO",
+      executionBarTimeText,
+      g_execution.executionAllowed ? "YES" : "NO",
+      g_execution.executionAttempted ? "YES" : "NO",
+      g_execution.executionResult,
+      g_execution.executionReason,
+      g_execution.executionRetcode,
+      g_execution.executionRetcodeDescription,
+      g_execution.entryPrice,
+      g_execution.slPrice,
+      g_execution.tpPrice,
+      g_execution.riskPoints,
+      g_execution.rr,
+      g_execution.lotRequested,
+      g_execution.lotNormalized,
+      g_execution.freshSpreadPoints,
+      g_execution.marginRequired,
+      g_execution.freeMargin);
    string transitionText = StringFormat(
       "Transition:\n"
       "transition_enabled: %s\n"
@@ -1962,7 +2335,7 @@ string BuildDiagnosticText()
       g_transition.reason);
 
    return(StringFormat(
-      "[MoeBot v4 Phase2.2]\n"
+      "[MoeBot v4 Phase3]\n"
       "Symbol: %s\n"
       "AssetClass: %s\n"
       "Mode: %s\n"
@@ -1976,7 +2349,7 @@ string BuildDiagnosticText()
       "Config: H4_EMA=%d H1_EMA=%d ATR=%d H4_SlopeLookback=%d M15_BOSLookback=%d MaxAddOns=%d ManualNewsBlackout=%s\n"
       "BrokerBlocker: %s\n"
       "Reason: %s\n"
-      "NextPhaseStatus: Phase 2.2 transition / standby diagnostics only; strategy analysis, scoring diagnostics, and no execution.\n\n"
+      "NextPhaseStatus: Phase 3 minimal primary execution; Phase 2.2 transition diagnostics retained and diagnostics-only.\n\n"
       "H4:\n"
       "H4Bias: %s\n"
       "H4_EMA50_Now: %.5f\n"
@@ -2031,6 +2404,7 @@ string BuildDiagnosticText()
       "warning_low_liquidity: %s\n"
       "warning_news_blackout: %s\n"
       "warningCount: %d\n\n"
+      "%s"
       "%s"
       "Signal:\n"
       "HardGatesPassed: %s\n"
@@ -2112,6 +2486,7 @@ string BuildDiagnosticText()
       warningNewsBlackoutText,
       g_signal.warningCount,
       transitionText,
+      executionText,
       hardGateText,
       g_signal.score,
       g_signal.warningCount,
