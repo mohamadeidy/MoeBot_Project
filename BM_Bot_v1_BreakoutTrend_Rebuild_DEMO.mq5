@@ -19,7 +19,7 @@ input bool AllowLiveTrading = false;
 input bool EnableTradeManagement = true;
 input bool AllowDirectExitOnOppositeBreak = false;
 input long MagicNumber = 26070101;
-input string SymbolsToTrade = "XAUUSD,XAGUSD,US30,US100";
+input string SymbolsToTrade = "XAUUSD,XAGUSD,WTI,US30,US100,US500,GER30,EURUSD_,GBPUSD_,USDJPY_,AUDUSD_,USDCAD_,USDCHF_";
 input bool PrintEveryScan = true;
 input bool PrintNoTradeReasons = true;
 input BMRunMode RunMode = BM_DEMO_EXECUTION_WITH_MANAGEMENT;
@@ -41,6 +41,15 @@ input double MaxSL_ATR = 6.00;
 input double SLBufferATR = 0.25;
 input double BreakEvenAtR = 1.00;
 input double BreakEvenBufferATR = 0.05;
+input bool UseProgressiveProfitLock = true;
+input double ProfitLockTriggerR_1 = 1.50;
+input double ProfitLockSecureR_1 = 0.50;
+input double ProfitLockTriggerR_2 = 2.00;
+input double ProfitLockSecureR_2 = 1.00;
+input double ProfitLockTriggerR_3 = 2.50;
+input double ProfitLockSecureR_3 = 1.50;
+input double ProfitLockTriggerR_4 = 3.00;
+input double ProfitLockSecureR_4 = 2.00;
 input double ATRTrailMultiplier = 2.00;
 input bool UseStructureTrailing = true;
 input bool UseATRTrailing = true;
@@ -52,12 +61,30 @@ input double TPPreExtendPercent = 0.75;
 input bool RequireSLProtectedBeforeTPExtend = true;
 input int MaxSpreadPoints_XAUUSD = 150;
 input int MaxSpreadPoints_XAGUSD = 150;
+input int MaxSpreadPoints_WTI = 500;
 input int MaxSpreadPoints_US30 = 500;
 input int MaxSpreadPoints_US100 = 500;
+input int MaxSpreadPoints_US500 = 500;
+input int MaxSpreadPoints_GER30 = 500;
+input int MaxSpreadPoints_EURUSD = 50;
+input int MaxSpreadPoints_GBPUSD = 50;
+input int MaxSpreadPoints_USDJPY = 50;
+input int MaxSpreadPoints_AUDUSD = 50;
+input int MaxSpreadPoints_USDCAD = 50;
+input int MaxSpreadPoints_USDCHF = 50;
 input double Lot_XAUUSD = 0.01;
 input double Lot_XAGUSD = 0.01;
+input double Lot_WTI = 0.01;
 input double Lot_US30 = 0.01;
 input double Lot_US100 = 0.01;
+input double Lot_US500 = 0.01;
+input double Lot_GER30 = 0.01;
+input double Lot_EURUSD = 0.02;
+input double Lot_GBPUSD = 0.02;
+input double Lot_USDJPY = 0.02;
+input double Lot_AUDUSD = 0.02;
+input double Lot_USDCAD = 0.02;
+input double Lot_USDCHF = 0.02;
 
 const ENUM_TIMEFRAMES BM_TF_CONTEXT = PERIOD_H4;
 const ENUM_TIMEFRAMES BM_TF_STRUCTURE = PERIOD_H1;
@@ -74,7 +101,7 @@ struct BMSymbolContext
 struct BMSetupState { string symbol; BMDirection direction; BMEntryType entryType; bool active; double breakoutLevel; datetime setupStartTime; datetime lastUpdateTime; bool invalidated; string invalidationReason; double highestSinceBreakout; double lowestSinceBreakout; double pullbackLow; double pullbackHigh; double microHighAfterPullback; double microLowAfterPullback; bool pullbackSeen; bool continuationReady; int barsSinceSetup; };
 struct BMPositionState { string symbol; ulong ticket; BMDirection direction; double entryPrice; double currentSL; double currentTP; double initialRisk; double currentR; bool reachedBreakEven; double lastTrailLevel; double lastTPLevel; };
 
-string g_symbols[]; BMSetupState g_setups[]; datetime g_lastM15Scan[]; BMDirection g_previousContext[];
+string g_symbols[]; BMSetupState g_setups[]; datetime g_lastM15Scan[]; BMDirection g_previousContext[]; BMPositionState g_positionStates[];
 
 string DirText(BMDirection d){ if(d==BM_DIR_BUY) return "BUY"; if(d==BM_DIR_SELL) return "SELL"; return "NONE"; }
 string StateText(BMMarketState s){ switch(s){ case BM_STATE_RANGE:return "RANGE"; case BM_STATE_BREAKOUT_UP:return "BREAKOUT_UP"; case BM_STATE_BREAKOUT_DOWN:return "BREAKOUT_DOWN"; case BM_STATE_PULLBACK_WAIT_BUY:return "PULLBACK_WAIT_BUY"; case BM_STATE_PULLBACK_WAIT_SELL:return "PULLBACK_WAIT_SELL"; case BM_STATE_CONTINUATION_READY_BUY:return "CONTINUATION_READY_BUY"; case BM_STATE_CONTINUATION_READY_SELL:return "CONTINUATION_READY_SELL"; case BM_STATE_BIAS_WEAKENING:return "BIAS_WEAKENING"; case BM_STATE_OLD_SELL_FAILED:return "OLD_SELL_FAILED"; case BM_STATE_OLD_BUY_FAILED:return "OLD_BUY_FAILED"; case BM_STATE_TRADE_ACTIVE:return "TRADE_ACTIVE"; default:return "UNKNOWN"; } }
@@ -170,8 +197,43 @@ bool BuildSymbolContext(string symbol,BMSymbolContext &ctx)
    return true;
 }
 
-double LotForSymbol(string s){ string u=Upper(s); if(StringFind(u,"XAUUSD")>=0) return Lot_XAUUSD; if(StringFind(u,"XAGUSD")>=0) return Lot_XAGUSD; if(StringFind(u,"US30")>=0) return Lot_US30; if(StringFind(u,"US100")>=0) return Lot_US100; return 0.01; }
-int MaxSpreadForSymbol(string s){ string u=Upper(s); if(StringFind(u,"XAUUSD")>=0) return MaxSpreadPoints_XAUUSD; if(StringFind(u,"XAGUSD")>=0) return MaxSpreadPoints_XAGUSD; if(StringFind(u,"US30")>=0) return MaxSpreadPoints_US30; if(StringFind(u,"US100")>=0) return MaxSpreadPoints_US100; return 999999; }
+double LotForSymbol(string s)
+{
+   string u=Upper(s);
+   if(StringFind(u,"XAUUSD")>=0) return Lot_XAUUSD;
+   if(StringFind(u,"XAGUSD")>=0) return Lot_XAGUSD;
+   if(StringFind(u,"WTI")>=0 || StringFind(u,"USOIL")>=0 || StringFind(u,"XTI")>=0) return Lot_WTI;
+   if(StringFind(u,"US30")>=0) return Lot_US30;
+   if(StringFind(u,"US100")>=0) return Lot_US100;
+   if(StringFind(u,"US500")>=0) return Lot_US500;
+   if(StringFind(u,"GER30")>=0 || StringFind(u,"DAX")>=0) return Lot_GER30;
+   if(StringFind(u,"EURUSD")>=0) return Lot_EURUSD;
+   if(StringFind(u,"GBPUSD")>=0) return Lot_GBPUSD;
+   if(StringFind(u,"USDJPY")>=0) return Lot_USDJPY;
+   if(StringFind(u,"AUDUSD")>=0) return Lot_AUDUSD;
+   if(StringFind(u,"USDCAD")>=0) return Lot_USDCAD;
+   if(StringFind(u,"USDCHF")>=0) return Lot_USDCHF;
+   return 0.01;
+}
+
+int MaxSpreadForSymbol(string s)
+{
+   string u=Upper(s);
+   if(StringFind(u,"XAUUSD")>=0) return MaxSpreadPoints_XAUUSD;
+   if(StringFind(u,"XAGUSD")>=0) return MaxSpreadPoints_XAGUSD;
+   if(StringFind(u,"WTI")>=0 || StringFind(u,"USOIL")>=0 || StringFind(u,"XTI")>=0) return MaxSpreadPoints_WTI;
+   if(StringFind(u,"US30")>=0) return MaxSpreadPoints_US30;
+   if(StringFind(u,"US100")>=0) return MaxSpreadPoints_US100;
+   if(StringFind(u,"US500")>=0) return MaxSpreadPoints_US500;
+   if(StringFind(u,"GER30")>=0 || StringFind(u,"DAX")>=0) return MaxSpreadPoints_GER30;
+   if(StringFind(u,"EURUSD")>=0) return MaxSpreadPoints_EURUSD;
+   if(StringFind(u,"GBPUSD")>=0) return MaxSpreadPoints_GBPUSD;
+   if(StringFind(u,"USDJPY")>=0) return MaxSpreadPoints_USDJPY;
+   if(StringFind(u,"AUDUSD")>=0) return MaxSpreadPoints_AUDUSD;
+   if(StringFind(u,"USDCAD")>=0) return MaxSpreadPoints_USDCAD;
+   if(StringFind(u,"USDCHF")>=0) return MaxSpreadPoints_USDCHF;
+   return 999999;
+}
 
 void ScanAll(bool force)
 {
@@ -353,7 +415,174 @@ void AttemptOpen(BMSymbolContext &c,BMDirection d,BMEntryType e,double level)
    if(!EnableTrading || RunMode==BM_DIAGNOSTICS_ONLY){ BMLog("ENTRY_DECISION","SYMBOL="+c.symbol+" DIRECTION="+DirText(d)+" ENTRY_TYPE="+EntryText(e)+" BREAKOUT_LEVEL="+DoubleToString(level,DigitsFor(c.symbol))+" CLOSE="+DoubleToString(c.closePrice,DigitsFor(c.symbol))+" ATR="+DoubleToString(c.atrM15,DigitsFor(c.symbol))+" BREAKOUT_CONFIRMED="+(c.breakoutConfirmed?"true":"false")+" BODY_STRONG="+(c.bodyStrong?"true":"false")+" CLOSE_STRENGTH="+(c.closeStrength?"true":"false")+" BUY_BODY_STRONG="+(c.buyBodyStrong?"true":"false")+" SELL_BODY_STRONG="+(c.sellBodyStrong?"true":"false")+" TOO_LATE="+(c.tooLate?"true":"false")+" SL_VALID=true SPREAD_VALID="+(c.spreadValid?"true":"false")+" ACTION=WOULD_OPEN_"+DirText(d)+" REASON=DIAGNOSTICS_OR_TRADING_DISABLED"); return; }
    if(AccountInfoInteger(ACCOUNT_TRADE_MODE)!=ACCOUNT_TRADE_MODE_DEMO && !AllowLiveTrading){ NoTrade(c,d,"LIVE_ACCOUNT_BLOCKED_ALLOW_LIVE_TRADING_FALSE","USE_DEMO_OR_ENABLE_ALLOW_LIVE_TRADING"); return; }
    bool ok=(d==BM_DIR_BUY)?trade.Buy(c.lot,c.symbol,0.0,sl,tp,"B&M Bot v1 "+EntryText(e)):trade.Sell(c.lot,c.symbol,0.0,sl,tp,"B&M Bot v1 "+EntryText(e));
-   if(ok) BMLog("TRADE_OPEN","SYMBOL="+c.symbol+" DIRECTION="+DirText(d)+" ENTRY="+DoubleToString(entry,DigitsFor(c.symbol))+" LOT="+DoubleToString(c.lot,2)+" SL="+DoubleToString(sl,DigitsFor(c.symbol))+" INITIAL_TP="+DoubleToString(tp,DigitsFor(c.symbol))+" ENTRY_TYPE="+EntryText(e)+" REASON=ORDER_SENT"); else BMLog("ERROR","SYMBOL="+c.symbol+" ACTION=TRADE_REJECTED RETCODE="+(string)trade.ResultRetcode()+" COMMENT="+trade.ResultRetcodeDescription());
+   if(ok)
+   {
+      ulong openedTicket=FindLatestManagedPositionTicket(c.symbol,d);
+      if(openedTicket>0 && PositionSelectByTicket(openedTicket))
+         RegisterPositionState(openedTicket,c.symbol,d,PositionGetDouble(POSITION_PRICE_OPEN),PositionGetDouble(POSITION_SL),PositionGetDouble(POSITION_TP));
+      BMLog("TRADE_OPEN","SYMBOL="+c.symbol+" DIRECTION="+DirText(d)+" ENTRY="+DoubleToString(entry,DigitsFor(c.symbol))+" LOT="+DoubleToString(c.lot,2)+" SL="+DoubleToString(sl,DigitsFor(c.symbol))+" INITIAL_TP="+DoubleToString(tp,DigitsFor(c.symbol))+" ENTRY_TYPE="+EntryText(e)+" REASON=ORDER_SENT");
+   }
+   else BMLog("ERROR","SYMBOL="+c.symbol+" ACTION=TRADE_REJECTED RETCODE="+(string)trade.ResultRetcode()+" COMMENT="+trade.ResultRetcodeDescription());
+}
+
+int FindPositionStateIndex(ulong ticket)
+{
+   for(int i=0;i<ArraySize(g_positionStates);i++)
+   {
+      if(g_positionStates[i].ticket==ticket)
+         return i;
+   }
+   return -1;
+}
+
+void RegisterPositionState(ulong ticket,string symbol,BMDirection direction,double entry,double sl,double tp)
+{
+   if(ticket==0 || entry<=0.0 || sl<=0.0)
+      return;
+
+   double riskFromSL=MathAbs(entry-sl);
+   double riskFromTP=0.0;
+   if(tp>0.0 && InitialTP_R>0.0)
+   {
+      if(direction==BM_DIR_BUY && tp>entry)
+         riskFromTP=(tp-entry)/InitialTP_R;
+      if(direction==BM_DIR_SELL && tp<entry)
+         riskFromTP=(entry-tp)/InitialTP_R;
+   }
+
+   double risk=(riskFromTP>0.0?riskFromTP:riskFromSL);
+   if(risk<=0.0)
+      return;
+
+   int idx=FindPositionStateIndex(ticket);
+   if(idx<0)
+   {
+      idx=ArraySize(g_positionStates);
+      ArrayResize(g_positionStates,idx+1);
+   }
+
+   g_positionStates[idx].symbol=symbol;
+   g_positionStates[idx].ticket=ticket;
+   g_positionStates[idx].direction=direction;
+   g_positionStates[idx].entryPrice=entry;
+   g_positionStates[idx].currentSL=sl;
+   g_positionStates[idx].currentTP=tp;
+   g_positionStates[idx].initialRisk=risk;
+   g_positionStates[idx].currentR=0.0;
+   g_positionStates[idx].reachedBreakEven=false;
+   g_positionStates[idx].lastTrailLevel=sl;
+   g_positionStates[idx].lastTPLevel=tp;
+
+   BMLog("POSITION_STATE",
+         "SYMBOL="+symbol+
+         " POSITION="+(string)ticket+
+         " ENTRY="+DoubleToString(entry,DigitsFor(symbol))+
+         " INITIAL_SL="+DoubleToString(sl,DigitsFor(symbol))+
+         " INITIAL_RISK="+DoubleToString(risk,DigitsFor(symbol))+
+         " ACTION=REGISTER_INITIAL_RISK");
+}
+
+bool EnsurePositionState(ulong ticket,string symbol,BMDirection direction,double entry,double sl,double tp,double &initialRisk)
+{
+   int idx=FindPositionStateIndex(ticket);
+   if(idx>=0 && g_positionStates[idx].initialRisk>0.0)
+   {
+      initialRisk=g_positionStates[idx].initialRisk;
+      g_positionStates[idx].currentSL=sl;
+      g_positionStates[idx].currentTP=tp;
+      return true;
+   }
+
+   RegisterPositionState(ticket,symbol,direction,entry,sl,tp);
+   idx=FindPositionStateIndex(ticket);
+   if(idx>=0 && g_positionStates[idx].initialRisk>0.0)
+   {
+      initialRisk=g_positionStates[idx].initialRisk;
+      return true;
+   }
+
+   initialRisk=0.0;
+   return false;
+}
+
+void UpdatePositionStateAfterSL(ulong ticket,double sl,double currentR)
+{
+   int idx=FindPositionStateIndex(ticket);
+   if(idx<0)
+      return;
+
+   g_positionStates[idx].currentSL=sl;
+   g_positionStates[idx].currentR=currentR;
+   g_positionStates[idx].lastTrailLevel=sl;
+   if(currentR>=BreakEvenAtR)
+      g_positionStates[idx].reachedBreakEven=true;
+}
+
+ulong FindLatestManagedPositionTicket(string symbol,BMDirection direction)
+{
+   ulong latest=0;
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   {
+      ulong ticket=PositionGetTicket(i);
+      if(ticket==0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL)!=symbol)
+         continue;
+      if(PositionGetInteger(POSITION_MAGIC)!=MagicNumber)
+         continue;
+      long type=PositionGetInteger(POSITION_TYPE);
+      if(direction==BM_DIR_BUY && type!=POSITION_TYPE_BUY)
+         continue;
+      if(direction==BM_DIR_SELL && type!=POSITION_TYPE_SELL)
+         continue;
+      if(ticket>latest)
+         latest=ticket;
+   }
+   return latest;
+}
+
+bool ProgressiveProfitLockSL(BMDirection direction,double entry,double initialRisk,double currentR,double &lockSL,string &stage,string &reason)
+{
+   if(!UseProgressiveProfitLock || initialRisk<=0.0)
+      return false;
+
+   double secureR=-1.0;
+   double triggerR=0.0;
+
+   if(currentR>=ProfitLockTriggerR_4 && ProfitLockSecureR_4>secureR)
+   {
+      secureR=ProfitLockSecureR_4;
+      triggerR=ProfitLockTriggerR_4;
+   }
+   else if(currentR>=ProfitLockTriggerR_3 && ProfitLockSecureR_3>secureR)
+   {
+      secureR=ProfitLockSecureR_3;
+      triggerR=ProfitLockTriggerR_3;
+   }
+   else if(currentR>=ProfitLockTriggerR_2 && ProfitLockSecureR_2>secureR)
+   {
+      secureR=ProfitLockSecureR_2;
+      triggerR=ProfitLockTriggerR_2;
+   }
+   else if(currentR>=ProfitLockTriggerR_1 && ProfitLockSecureR_1>secureR)
+   {
+      secureR=ProfitLockSecureR_1;
+      triggerR=ProfitLockTriggerR_1;
+   }
+
+   if(secureR<0.0)
+      return false;
+
+   if(direction==BM_DIR_BUY)
+      lockSL=entry+(secureR*initialRisk);
+   else if(direction==BM_DIR_SELL)
+      lockSL=entry-(secureR*initialRisk);
+   else
+      return false;
+
+   stage="PROFIT_LOCK";
+   reason="PRICE_REACHED_"+DoubleToString(triggerR,2)+"R_LOCK_"+DoubleToString(secureR,2)+"R";
+   return true;
 }
 
 bool CanModifyPositions()
@@ -383,16 +612,109 @@ void ManagePositions()
 {
    for(int i=PositionsTotal()-1;i>=0;i--)
    {
-      ulong ticket=PositionGetTicket(i); if(ticket==0 || !PositionSelectByTicket(ticket) || PositionGetInteger(POSITION_MAGIC)!=MagicNumber) continue;
-      string s=PositionGetString(POSITION_SYMBOL); BMSymbolContext c; if(!BuildSymbolContext(s,c)) continue; long type=PositionGetInteger(POSITION_TYPE); BMDirection d=(type==POSITION_TYPE_BUY?BM_DIR_BUY:BM_DIR_SELL);
-      double entry=PositionGetDouble(POSITION_PRICE_OPEN), sl=PositionGetDouble(POSITION_SL), tp=PositionGetDouble(POSITION_TP); double price=(d==BM_DIR_BUY?SymbolInfoDouble(s,SYMBOL_BID):SymbolInfoDouble(s,SYMBOL_ASK)); double risk=MathAbs(entry-sl); if(risk<=0.0) continue;
-      double currentR=(d==BM_DIR_BUY?(price-entry)/risk:(entry-price)/risk); double bestSL=sl; double effectiveSL=sl; string stage=""; string reason=""; bool canModify=CanModifyPositions();
-      if(currentR>=BreakEvenAtR){ double be=(d==BM_DIR_BUY?entry+BreakEvenBufferATR*c.atrM15:entry-BreakEvenBufferATR*c.atrM15); if((d==BM_DIR_BUY && be>bestSL) || (d==BM_DIR_SELL && (bestSL==0.0 || be<bestSL))){ bestSL=be; stage="BREAKEVEN"; reason="PRICE_REACHED_1R"; } }
-      if(UseStructureTrailing){ double st=(d==BM_DIR_BUY?c.lastSwingLowM15-SLBufferATR*c.atrM15:c.lastSwingHighM15+SLBufferATR*c.atrM15); if((d==BM_DIR_BUY && st>bestSL) || (d==BM_DIR_SELL && (bestSL==0.0 || st<bestSL))){ bestSL=st; stage="STRUCTURE_TRAIL"; reason="CONFIRMED_M15_STRUCTURE"; } }
-      if(UseATRTrailing){ double at=(d==BM_DIR_BUY?price-ATRTrailMultiplier*c.atrM15:price+ATRTrailMultiplier*c.atrM15); if((d==BM_DIR_BUY && at>bestSL) || (d==BM_DIR_SELL && (bestSL==0.0 || at<bestSL))){ bestSL=at; stage="ATR_TRAIL"; reason="ATR_RUNNING_SL"; } }
-      bestSL=NormalizePrice(s,bestSL); if(bestSL!=sl && stage!=""){ if(!canModify) BMLog("SL_RUNNING","SYMBOL="+s+" POSITION="+(string)ticket+" STAGE="+stage+" OLD_SL="+DoubleToString(sl,DigitsFor(s))+" NEW_SL="+DoubleToString(bestSL,DigitsFor(s))+" REASON="+reason+" ACTION=WOULD_MODIFY_SL"); else if(!ModifyDistanceAllowed(s,d,bestSL,tp)) BMLog("SL_RUNNING","SYMBOL="+s+" POSITION="+(string)ticket+" STAGE="+stage+" OLD_SL="+DoubleToString(sl,DigitsFor(s))+" NEW_SL="+DoubleToString(bestSL,DigitsFor(s))+" REASON=BROKER_STOPS_OR_FREEZE_LEVEL ACTION=WOULD_MODIFY_SL"); else if(trade.PositionModify(ticket,bestSL,tp)){ effectiveSL=bestSL; BMLog("SL_RUNNING","SYMBOL="+s+" POSITION="+(string)ticket+" STAGE="+stage+" OLD_SL="+DoubleToString(sl,DigitsFor(s))+" NEW_SL="+DoubleToString(bestSL,DigitsFor(s))+" REASON="+reason+" ACTION=MODIFY_SL"); } else BMLog("ERROR","SYMBOL="+s+" ACTION=SL_MODIFY_REJECTED POSITION="+(string)ticket+" RETCODE="+(string)trade.ResultRetcode()+" COMMENT="+trade.ResultRetcodeDescription()); }
-      if(CheckStructureExit(ticket,c,d,entry,price,effectiveSL,tp,canModify)) continue;
-      if(UseRunningTP) ManageTP(ticket,c,d,effectiveSL,tp,price,canModify);
+      ulong ticket=PositionGetTicket(i);
+      if(ticket==0 || !PositionSelectByTicket(ticket) || PositionGetInteger(POSITION_MAGIC)!=MagicNumber)
+         continue;
+
+      string s=PositionGetString(POSITION_SYMBOL);
+      BMSymbolContext c;
+      if(!BuildSymbolContext(s,c))
+         continue;
+
+      long type=PositionGetInteger(POSITION_TYPE);
+      BMDirection d=(type==POSITION_TYPE_BUY?BM_DIR_BUY:BM_DIR_SELL);
+      double entry=PositionGetDouble(POSITION_PRICE_OPEN);
+      double sl=PositionGetDouble(POSITION_SL);
+      double tp=PositionGetDouble(POSITION_TP);
+      double price=(d==BM_DIR_BUY?SymbolInfoDouble(s,SYMBOL_BID):SymbolInfoDouble(s,SYMBOL_ASK));
+      double currentStopRisk=MathAbs(entry-sl);
+      if(currentStopRisk<=0.0)
+         continue;
+
+      double initialRisk=0.0;
+      if(!EnsurePositionState(ticket,s,d,entry,sl,tp,initialRisk) || initialRisk<=0.0)
+         continue;
+
+      double currentR=(d==BM_DIR_BUY?(price-entry)/initialRisk:(entry-price)/initialRisk);
+      double bestSL=sl;
+      double effectiveSL=sl;
+      string stage="";
+      string reason="";
+      bool canModify=CanModifyPositions();
+
+      if(currentR>=BreakEvenAtR)
+      {
+         double be=(d==BM_DIR_BUY?entry+BreakEvenBufferATR*c.atrM15:entry-BreakEvenBufferATR*c.atrM15);
+         if((d==BM_DIR_BUY && be>bestSL) || (d==BM_DIR_SELL && (bestSL==0.0 || be<bestSL)))
+         {
+            bestSL=be;
+            stage="BREAKEVEN";
+            reason="PRICE_REACHED_1R";
+         }
+      }
+
+      double profitLockSL=0.0;
+      string profitStage="";
+      string profitReason="";
+      if(ProgressiveProfitLockSL(d,entry,initialRisk,currentR,profitLockSL,profitStage,profitReason))
+      {
+         if((d==BM_DIR_BUY && profitLockSL>bestSL) || (d==BM_DIR_SELL && (bestSL==0.0 || profitLockSL<bestSL)))
+         {
+            bestSL=profitLockSL;
+            stage=profitStage;
+            reason=profitReason;
+         }
+      }
+
+      if(UseStructureTrailing)
+      {
+         double st=(d==BM_DIR_BUY?c.lastSwingLowM15-SLBufferATR*c.atrM15:c.lastSwingHighM15+SLBufferATR*c.atrM15);
+         if((d==BM_DIR_BUY && st>bestSL) || (d==BM_DIR_SELL && (bestSL==0.0 || st<bestSL)))
+         {
+            bestSL=st;
+            stage="STRUCTURE_TRAIL";
+            reason="CONFIRMED_M15_STRUCTURE";
+         }
+      }
+
+      if(UseATRTrailing)
+      {
+         double at=(d==BM_DIR_BUY?price-ATRTrailMultiplier*c.atrM15:price+ATRTrailMultiplier*c.atrM15);
+         if((d==BM_DIR_BUY && at>bestSL) || (d==BM_DIR_SELL && (bestSL==0.0 || at<bestSL)))
+         {
+            bestSL=at;
+            stage="ATR_TRAIL";
+            reason="ATR_RUNNING_SL";
+         }
+      }
+
+      bestSL=NormalizePrice(s,bestSL);
+      if(bestSL!=sl && stage!="")
+      {
+         if(!canModify)
+         {
+            BMLog("SL_RUNNING","SYMBOL="+s+" POSITION="+(string)ticket+" CURRENT_R="+DoubleToString(currentR,2)+" INITIAL_RISK="+DoubleToString(initialRisk,DigitsFor(s))+" STAGE="+stage+" OLD_SL="+DoubleToString(sl,DigitsFor(s))+" NEW_SL="+DoubleToString(bestSL,DigitsFor(s))+" REASON="+reason+" ACTION=WOULD_MODIFY_SL");
+         }
+         else if(!ModifyDistanceAllowed(s,d,bestSL,tp))
+         {
+            BMLog("SL_RUNNING","SYMBOL="+s+" POSITION="+(string)ticket+" CURRENT_R="+DoubleToString(currentR,2)+" INITIAL_RISK="+DoubleToString(initialRisk,DigitsFor(s))+" STAGE="+stage+" OLD_SL="+DoubleToString(sl,DigitsFor(s))+" NEW_SL="+DoubleToString(bestSL,DigitsFor(s))+" REASON=BROKER_STOPS_OR_FREEZE_LEVEL ACTION=WOULD_MODIFY_SL");
+         }
+         else if(trade.PositionModify(ticket,bestSL,tp))
+         {
+            effectiveSL=bestSL;
+            UpdatePositionStateAfterSL(ticket,bestSL,currentR);
+            BMLog("SL_RUNNING","SYMBOL="+s+" POSITION="+(string)ticket+" CURRENT_R="+DoubleToString(currentR,2)+" INITIAL_RISK="+DoubleToString(initialRisk,DigitsFor(s))+" STAGE="+stage+" OLD_SL="+DoubleToString(sl,DigitsFor(s))+" NEW_SL="+DoubleToString(bestSL,DigitsFor(s))+" REASON="+reason+" ACTION=MODIFY_SL");
+         }
+         else
+         {
+            BMLog("ERROR","SYMBOL="+s+" ACTION=SL_MODIFY_REJECTED POSITION="+(string)ticket+" RETCODE="+(string)trade.ResultRetcode()+" COMMENT="+trade.ResultRetcodeDescription());
+         }
+      }
+
+      if(CheckStructureExit(ticket,c,d,entry,price,effectiveSL,tp,canModify))
+         continue;
+      if(UseRunningTP)
+         ManageTP(ticket,c,d,effectiveSL,tp,price,canModify);
    }
 }
 bool CheckStructureExit(ulong ticket,BMSymbolContext &c,BMDirection d,double entry,double price,double effectiveSL,double tp,bool canModify)
