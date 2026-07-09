@@ -1,0 +1,179 @@
+B&M bot / MoeBot Price Action Strategy — Current v1.05
+
+Core principle:
+ZONE -> REACTION -> CONFIRMATION
+
+The bot does not start from BUY/SELL indicators. It starts from chart location:
+1. Where is price?
+2. Is price at support, resistance, range edge, trend pullback zone, sweep level, breakout level, or mid-range?
+3. What reaction happened at that location?
+4. Was there confirmation?
+5. Is there room to target?
+6. Where is invalidation?
+
+Decision order:
+Location first.
+Direction second.
+Confirmation third.
+Trade last.
+
+============================================================
+TIMEFRAMES
+============================================================
+
+H4:
+- Major context zones.
+- Major support/resistance.
+- Adds strength/confluence.
+- Not a hard gate.
+
+H1:
+- Main support/resistance map.
+- Main range highs/lows.
+- Main target/risk context.
+
+M15:
+- Execution.
+- Reaction.
+- Confirmation.
+- Local zones if no H1/H4 location is currently active.
+
+No valid location = no trade.
+
+============================================================
+MAIN SETUPS
+============================================================
+
+1) Resistance Rejection Sell
+- Price reaches resistance/range high.
+- Breakout fails or price rejects the zone.
+- Wick rejection or failed push-through appears.
+- Confirmation: micro low break / close below rejection structure.
+- BUY is blocked at resistance unless breakout is confirmed.
+- SELL is allowed after confirmation.
+
+2) Support Rejection Buy
+- Price reaches support/range low.
+- Breakdown fails or price rejects the zone.
+- Wick rejection or failed breakdown appears.
+- Confirmation: micro high break / close above rejection structure.
+- SELL is blocked at support unless breakdown is confirmed.
+- BUY is allowed after confirmation.
+
+3) Trend Pullback Continuation
+- Trend structure exists.
+- Price pulls back to value/structure.
+- Structure remains valid.
+- Rejection appears.
+- Micro structure breaks in trend direction.
+- Trade continuation.
+
+4) Real Breakout / Breakdown
+- Price closes beyond a zone.
+- Strong body.
+- Opposite wick is small.
+- Wick-only breakout is invalid.
+- Entry requires hold/retest/micro continuation confirmation.
+
+5) Liquidity Sweep Reclaim
+- Price sweeps a swing or range edge.
+- Price reclaims back inside.
+- Micro break confirms reclaim direction.
+
+============================================================
+GUARDS
+============================================================
+
+Buy-into-resistance guard:
+- BUY is blocked at or near strong resistance unless breakout is confirmed.
+
+Sell-into-support guard:
+- SELL is blocked at or near strong support unless breakdown is confirmed.
+
+Anti-wick breakout:
+- Wick alone is not enough.
+- Need close beyond the zone.
+
+Anti-chase:
+- Do not enter too far from confirmation trigger.
+
+Room-to-next-H1-level:
+- BUY needs room before next H1 resistance.
+- SELL needs room before next H1 support.
+
+OneOpenPositionPerSymbol:
+- Only one open EA position per symbol.
+
+============================================================
+POSITION MANAGEMENT v1.05
+============================================================
+
+Every SL layer only proposes a stop.
+The bot chooses the best valid SL.
+
+BUY:
+- Higher SL is better.
+- SL never moves down.
+
+SELL:
+- Lower SL is better.
+- SL never moves up.
+
+Layers:
+
+1) Money Protection
+Purpose: protect meaningful dollar profit before the trade can return to full loss.
+Examples:
+- XAGUSD: +12 -> protect 2, +20 -> protect 10, +30 -> protect 15
+- XAUUSD: +15 -> protect 3, +30 -> protect 12, +50 -> protect 25
+- WTI: +10 -> protect 3, +20 -> protect 8, +35 -> protect 15
+- US30/US100: +20 -> protect 5, +40 -> protect 15, +70 -> protect 35
+- Forex: +5 -> protect 1, +10 -> protect 3, +15 -> protect 7
+
+2) Profit Lock by R
+- +0.75R -> protect +0.05R
+- +1.00R -> protect +0.30R
+- +1.50R -> protect +0.75R
+
+3) Protected Running SL
+- After the trade is protected, protect a percentage of open profit.
+- Current: 40% of open profit.
+
+4) Structure Trailing
+- BUY: trail under micro swing lows if stronger.
+- SELL: trail above micro swing highs if stronger.
+
+5) Running TP Extension
+- TP extends only if the trade is protected.
+- BUY: SL must be above entry.
+- SELL: SL must be below entry.
+
+============================================================
+NOT ALLOWED
+============================================================
+
+- No score system.
+- No A/B/C grading.
+- No regime brain.
+- No EMA/RSI/ADX as entry triggers.
+- No martingale.
+- No grid.
+- No loss averaging.
+- No strategic consumed-zone memory.
+
+If price returns to the same zone and creates a valid fresh setup, the bot is allowed to trade it again.
+
+============================================================
+MONITORING PRIORITIES
+============================================================
+
+1. Does v1.05 protect winners correctly?
+2. Does Protected Running SL trail enough?
+3. Do winners still return to loss after protection?
+4. Do losing trades fail early before full SL?
+5. Does USDCAD H4 support continue losing?
+6. Do M15 local zones keep underperforming?
+7. Do breakout setups fail quickly?
+
+Next possible version:
+v1.06 Early Invalidation Exit, only if logs prove it is needed.
