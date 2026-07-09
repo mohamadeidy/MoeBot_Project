@@ -1,0 +1,435 @@
+MoeBot Price Action Decision Engine — Full Project Summary / Handoff
+Current working version: v1.0.5 DEMO ACTIVE MONEY PROTECTION PROTECTED RUNNING SL
+Date: 2026-07-09
+
+============================================================
+1) CURRENT ACTIVE VERSION
+============================================================
+
+Current active logic:
+MoeBot PA Decision Engine v1.0.5
+DEMO ACTIVE MONEY PROTECTION PROTECTED RUNNING SL
+
+Important note:
+The file name inside MetaTrader may still look like an older version because the code was modified in-place.
+The real confirmation is the Experts log line:
+VERSION=1.05_DEMO_ACTIVE_MONEY_PROTECTION_PROTECTED_RUNNING_SL
+
+Required constants/settings:
+MagicNumber = 26070801
+EnableTrading = true
+AllowLiveTrading = false
+UseCurrentChartOnly = false
+OneOpenPositionPerSymbol = true
+
+Meaning:
+- Demo trading is allowed.
+- Real/live trading is blocked.
+- The EA should be attached to ONE chart only in multi-symbol mode.
+- Do not run two versions of the EA at the same time.
+
+============================================================
+2) CORE STRATEGY PRINCIPLE
+============================================================
+
+This bot is not an indicator-signal bot.
+
+Final decision model:
+ZONE -> REACTION -> CONFIRMATION
+
+Decision order:
+1. Location first.
+2. Direction second.
+3. Confirmation third.
+4. Trade last.
+
+The bot must ask:
+- Where is price?
+- Is it at support, resistance, range edge, pullback zone, sweep level, breakout level, or mid-range?
+- What did price do there?
+- Did it reject, break, fail, sweep, reclaim, or continue?
+- Is there confirmation?
+- Is there room to target?
+- Where is invalidation?
+
+Not allowed:
+- No score system.
+- No A/B/C grading.
+- No regime brain.
+- No EMA/RSI/ADX as entry triggers.
+- No martingale.
+- No grid.
+- No cooldown/max-trades-per-day as strategy logic.
+- No strategic consumed-zone blocking.
+
+Important:
+If price returns to the same support/resistance and gives a valid fresh setup, the bot is allowed to trade it again.
+We decided NOT to block repeated zones.
+
+============================================================
+3) TIMEFRAME ROLES
+============================================================
+
+H4:
+- Major context zones.
+- Major support/resistance.
+- Adds strength/context.
+- Not a hard gate.
+
+H1:
+- Main support/resistance map.
+- Main battle lines.
+- Main zones for range highs/lows.
+
+M15:
+- Execution timeframe.
+- Reaction.
+- Confirmation.
+- Entry trigger.
+- Local M15 zones only if valid location exists and there is room.
+
+Rule:
+The bot does not trade only at H1/H4 levels.
+But it never trades without a valid location.
+
+Valid locations:
+1. H4/H1 support or resistance zone.
+2. M15 local support/resistance or range edge.
+3. Trend pullback zone.
+4. Liquidity sweep/reclaim level.
+5. Real breakout level with confirmation.
+
+No location = no trade.
+
+============================================================
+4) MAIN SETUPS
+============================================================
+
+1. Resistance Rejection Sell
+- Price reaches resistance.
+- Breakout fails or price rejects the zone.
+- Wick rejection or failed push-through appears.
+- Confirmation: micro low break / close below rejection structure.
+- BUY is blocked at resistance unless breakout is confirmed.
+- SELL is allowed after confirmation.
+
+2. Support Rejection Buy
+- Price reaches support.
+- Breakdown fails or price rejects the zone.
+- Wick rejection or failed breakdown appears.
+- Confirmation: micro high break / close above rejection structure.
+- SELL is blocked at support unless breakdown is confirmed.
+- BUY is allowed after confirmation.
+
+3. Trend Pullback Continuation
+- Trend structure exists.
+- Price pulls back to value/structure.
+- Structure remains valid.
+- Rejection appears.
+- Micro structure breaks in trend direction.
+- Trade continuation.
+
+4. Real Breakout
+- Price closes beyond a zone.
+- Strong body.
+- Opposite wick is small.
+- No wick-only breakout.
+- Entry needs hold/retest/micro continuation confirmation.
+
+5. Liquidity Sweep Reclaim
+- Price sweeps a swing.
+- Price reclaims back inside.
+- Micro break confirms reclaim direction.
+- Trade after confirmation.
+
+============================================================
+5) GUARDS
+============================================================
+
+Buy-into-resistance guard:
+If price is at or near strong resistance without confirmed breakout, BUY is blocked.
+
+Sell-into-support guard:
+If price is at or near strong support without confirmed breakdown, SELL is blocked.
+
+Anti-wick breakout:
+A wick alone is not a breakout.
+A valid breakout needs a close beyond the zone.
+
+Anti-chase:
+Do not enter too far from the confirmation trigger.
+
+Room-to-next-H1-level:
+Before BUY, there must be enough room before next H1 resistance.
+Before SELL, there must be enough room before next H1 support.
+
+One position per symbol:
+If a symbol already has an open EA position, new entries on that symbol are blocked with POSITION_ALREADY_OPEN.
+
+============================================================
+6) POSITION MANAGEMENT
+============================================================
+
+Initial SL:
+- Behind invalidation structure.
+- Sell from resistance: above rejection high / wick / zone.
+- Buy from support: below rejection low / wick / zone.
+- Breakout: behind retest / broken zone.
+- Pullback: behind pullback swing.
+
+Initial TP:
+- Structure target or fallback RR.
+- TP can be extended later only if trade is protected.
+
+============================================================
+7) SL / PROFIT MANAGEMENT v1.05
+============================================================
+
+Current SL logic:
+Each layer proposes a stop loss.
+The bot chooses the best valid stop only.
+
+For BUY:
+- Higher SL is better.
+- SL must never move down.
+
+For SELL:
+- Lower SL is better.
+- SL must never move up.
+
+Layers:
+
+1. Money Protection
+Purpose:
+Protect meaningful dollar profit early so a trade that was in good profit does not return to full loss.
+
+Threshold examples:
+XAGUSD:
+- Profit 12 USD -> protect 2 USD
+- Profit 20 USD -> protect 10 USD
+- Profit 30 USD -> protect 15 USD
+
+XAUUSD:
+- Profit 15 USD -> protect 3 USD
+- Profit 30 USD -> protect 12 USD
+- Profit 50 USD -> protect 25 USD
+
+WTI:
+- Profit 10 USD -> protect 3 USD
+- Profit 20 USD -> protect 8 USD
+- Profit 35 USD -> protect 15 USD
+
+US30 / US100:
+- Profit 20 USD -> protect 5 USD
+- Profit 40 USD -> protect 15 USD
+- Profit 70 USD -> protect 35 USD
+
+Forex:
+- Profit 5 USD -> protect 1 USD
+- Profit 10 USD -> protect 3 USD
+- Profit 15 USD -> protect 7 USD
+
+2. Profit Lock by Risk
+- At +0.75R -> protect +0.05R
+- At +1.00R -> protect +0.30R
+- At +1.50R -> protect +0.75R
+
+3. Protected Running SL
+- New v1.05 logic.
+- After a trade is protected, it protects a percentage of open profit.
+- Current setting: ProtectedRunningSL_KeepOpenProfitPct = 0.40
+Example:
+If a trade is floating +40 USD, Protected Running SL proposes protection of about 16 USD.
+
+4. Structure Trailing
+- BUY: trail below new micro swing lows if better.
+- SELL: trail above new micro swing highs if better.
+
+5. Running TP Extension
+- TP extension is allowed only if trade is actually protected.
+- BUY: SL must be above entry.
+- SELL: SL must be below entry.
+- If not protected, TP extension is blocked.
+
+Confirmed from logs:
+- v1.05 ran successfully.
+- Money Protection worked.
+- Protected Running SL worked.
+- TP_EXTEND_PROTECTED appeared only after protection.
+- SL did not move backward.
+
+============================================================
+8) CURRENT OBSERVATIONS FROM LOGS
+============================================================
+
+The bot is trading and managing positions.
+
+Observed active/managed symbols included:
+- XAUUSD
+- XAGUSD
+- WTI
+- EURUSD
+- USDCAD
+- US30
+- US100
+
+Confirmed behavior:
+- v1.05 is active even if file name looks older.
+- Money Protection modified SL.
+- Protected Running SL repeatedly moved SL with profit.
+- TP extension worked after protection.
+- The EA blocks duplicate positions on the same symbol.
+
+Known technical cleanup:
+Logs sometimes show modify position [no changes].
+This is not breaking the bot, but later cleanup could avoid sending PositionModify when SL/TP did not actually change.
+
+============================================================
+9) LOSSES SO FAR
+============================================================
+
+Approximate reviewed closed trades:
+- Total closed trades: about 41
+- Winners: about 25
+- Losers: about 16
+- Still open at review time: about 7
+
+Important:
+The old XAGUSD loss around -44 USD happened before Money Protection / Protected Running SL was active.
+Do not judge v1.05 SL logic from that trade.
+
+Main loss categories:
+1. Support Rejection Buy from H4 support, especially USDCAD.
+2. Resistance Rejection Sell from H4 resistance, especially US30.
+3. M15 local zones.
+4. Real Breakout false breakouts.
+5. Some trades failed before profit protection could activate.
+
+Resistance M15:
+- Observed executed trades: 3
+- Winners: 1
+- Losers: 2
+- Sample is small but under observation.
+
+============================================================
+10) MAIN WEAKNESSES TO MONITOR
+============================================================
+
+1. USDCAD Support H4
+Several losses came from USDCAD BUY from H4 support.
+Possible issue:
+Many touches may mean the support is consumed, not strong.
+
+2. US30 Resistance H4
+Some US30 sells from H4 resistance lost.
+Possible issue:
+Resistance was valid, but bullish momentum was stronger.
+
+3. M15 local zones
+M15 zones are mixed.
+Resistance M15 is currently 1 win / 2 losses in reviewed sample.
+Do not block yet; monitor more.
+
+4. Real Breakout
+Some breakout trades failed as false breakouts.
+Need to check if breakout failed within 1-2 candles.
+
+5. Early failure after entry
+Some trades may show setup invalidation before full SL.
+This leads to possible next improvement: Early Invalidation Exit.
+
+============================================================
+11) POSSIBLE NEXT VERSION v1.06 — NOT IMPLEMENTED YET
+============================================================
+
+Candidate improvement:
+Early Invalidation Exit
+
+Purpose:
+Do not change entries.
+Do not change setup selection.
+If a trade proves wrong quickly, exit before full SL.
+
+Examples:
+
+SELL from resistance:
+If after entry price closes above resistance/rejection high/zone, the sell idea is invalid.
+Exit early.
+
+BUY from support:
+If after entry price closes below support/rejection low/zone, the buy idea is invalid.
+Exit early.
+
+Breakout:
+If after breakout entry price closes back inside the broken zone within 1-2 candles, breakout failed.
+Exit early.
+
+Current decision:
+Do NOT implement yet.
+We are waiting for more v1.05 data.
+
+============================================================
+12) CURRENT MONITORING PLAN
+============================================================
+
+Keep v1.05 running on demo.
+
+Monitor:
+1. Does v1.05 protect winners correctly?
+2. Does Protected Running SL trail enough?
+3. Do winners still return to loss after protection?
+4. Do losing trades fail early before full SL?
+5. Does USDCAD H4 support continue losing?
+6. Does M15 local zone performance stay negative?
+7. Do breakout trades fail quickly?
+8. Does the bot keep one position per symbol?
+9. Does TP extend only after SL is protected?
+
+Decision rule:
+- Do not change entry logic yet.
+- If losses clearly show early invalidation before full SL, build v1.06 with Early Invalidation Exit only.
+- If USDCAD/H4 support continues losing repeatedly, later consider consumed-zone logic.
+- If M15 zones keep underperforming on a larger sample, later consider tightening M15 local zones.
+
+============================================================
+13) OPERATION NOTES
+============================================================
+
+Attach EA to one chart only when UseCurrentChartOnly=false.
+
+Before changing code while positions are open:
+1. Remove EA from chart.
+2. Modify code.
+3. Compile.
+4. Attach EA again.
+5. Keep same MagicNumber.
+
+The EA can manage existing positions opened by previous versions if:
+- MagicNumber is unchanged.
+- ManageOpenPositions remains true.
+- The position belongs to the same EA magic number.
+
+Do not run two EA versions at the same time.
+
+============================================================
+14) LOG EXTRACTION PRINCIPLE
+============================================================
+
+Logs should be pulled directly from MT5/Wine folders.
+Do not create permanent folders on Ubuntu Desktop.
+Create temporary ZIP in /tmp.
+Copy ZIP to laptop Desktop.
+Delete ZIP from Ubuntu after transfer.
+Do not delete original MT5 logs.
+
+============================================================
+15) CURRENT DECISION
+============================================================
+
+Current decision:
+- Keep v1.05 running on demo.
+- Do not modify code right now.
+- Pull logs later and review winners, losers, SL behavior, and early-failure patterns.
+- Next possible improvement is Early Invalidation Exit, but only if logs prove it is needed.
+
+End of summary.
