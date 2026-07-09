@@ -1,0 +1,16 @@
+Latest bot source file to store here:
+
+MoeBot_PriceAction_Decision_Engine_v1_0_5_DEMO_ACTIVE_MONEY_PROTECTION_PROTECTED_RUNNING_SL_COMPILE_READY.mq5
+
+Current internal version:
+VERSION=1.05_DEMO_ACTIVE_MONEY_PROTECTION_PROTECTED_RUNNING_SL
+
+Important:
+This note was created because the current connector action accepts text content only and does not provide a direct local-file upload parameter for the full .mq5 file from the sandbox. The full .mq5 source still exists in the working session as:
+/mnt/data/MoeBot_PriceAction_Decision_Engine_v1_0_5_DEMO_ACTIVE_MONEY_PROTECTION_PROTECTED_RUNNING_SL_COMPILE_READY.mq5
+
+If pushing manually from laptop, place it under:
+B&M bot/src/MoeBot_PriceAction_Decision_Engine_v1_0_5_DEMO_ACTIVE_MONEY_PROTECTION_PROTECTED_RUNNING_SL_COMPILE_READY.mq5
+
+Do not rename the MagicNumber. Current required MagicNumber:
+26070801
