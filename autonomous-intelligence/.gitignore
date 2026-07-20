@@ -1,0 +1,27 @@
+# Heavy data and generated databases
+*.sqlite
+*.sqlite3
+*.db
+*.tar.zst
+*.7z
+*.zip
+*.parquet
+*.feather
+*.arrow
+
+# Raw market data
+*ticks*.csv
+raw_data/
+raw_ticks/
+mt5_cache/
+
+# Generated runtime outputs
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.tmp/
+build/
+dist/
+
+# Keep portable reports and small fixtures explicitly committed as needed
