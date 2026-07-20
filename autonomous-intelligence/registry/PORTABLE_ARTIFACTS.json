@@ -1,0 +1,100 @@
+{
+  "registry_version": "1.0.0",
+  "scope": "MoeBot Autonomous Trading Intelligence Groups 1-6",
+  "policy": {
+    "paid_services_allowed": false,
+    "git_lfs": "disabled",
+    "github_actions": "disabled",
+    "codespaces": "disabled",
+    "large_databases": "excluded_and_registered_by_sha256",
+    "rule": "Stop and obtain explicit owner approval before any action that could create a charge."
+  },
+  "groups": [
+    {
+      "group": 1,
+      "official_version": "0.9.2",
+      "portable_status": "verified_local_package_available_pending_exact_binary_push",
+      "files": [
+        {
+          "filename": "MoeBot_Autonomous_Trading_Intelligence_Group1_v0.9.2_NATIVE_TEST_CANDIDATE.zip",
+          "sha256": "2665893ea5c09ce863210a9c43f75d900e9a7ca0a4a0d18ba500d9174143641c"
+        },
+        {
+          "filename": "MoeBot_Group1_MT5_Native_Test_Kit_v0.9.2.zip",
+          "sha256": "897404557303ab495a55e62850f571dfa470a81d5dda0b125cefc9e566326d4a"
+        },
+        {
+          "filename": "MoeBot_Group1_MarketMemory_Collector_v0.9.2.mq5",
+          "sha256": "5bad54ebdeadba2cdbb4cb63f8d411a4ccba68ae47f9dbe714627d48bf231bb7"
+        }
+      ]
+    },
+    {
+      "group": 2,
+      "official_version": "0.2.1",
+      "portable_status": "metadata_present_binary_pending_recovery",
+      "expected": [
+        "engine source v0.2.1",
+        "frozen config registry",
+        "schemas and tests",
+        "corrected 2024 and cross-year verification reports",
+        "handoff and checksums"
+      ],
+      "warning": "Do not substitute or promote the locally available superseded v0.1.0 package."
+    },
+    {
+      "group": 3,
+      "official_version": "0.1.1",
+      "portable_status": "metadata_present_binary_pending_recovery",
+      "expected": [
+        "market structure engine source v0.1.1",
+        "frozen config",
+        "schemas and tests",
+        "2023 and corrected 2024 validation reports",
+        "handoff and checksums"
+      ]
+    },
+    {
+      "group": 4,
+      "official_version": "0.1.6",
+      "portable_status": "indexed_source_pending_byte_recovery",
+      "expected_source": "moebot_group4_zones_engine_v0_1_6.py",
+      "expected": [
+        "design lock",
+        "source",
+        "frozen config",
+        "tests and audits",
+        "handoff and checksums"
+      ]
+    },
+    {
+      "group": 5,
+      "official_version": "0.1.6",
+      "portable_status": "indexed_source_pending_byte_recovery",
+      "expected_source": "moebot_group5_liquidity_engine_v0_1_6.py",
+      "expected": [
+        "design lock",
+        "source",
+        "frozen config",
+        "tests and audits",
+        "handoff and checksums"
+      ]
+    },
+    {
+      "group": 6,
+      "official_version": "0.6.4",
+      "schema_version": "6.35.0",
+      "config_id": "cfg6_bd9170a54b36ebd6b04b7561f48f5b10602bf19aade414d0b38dd9e4a2da0b80",
+      "portable_status": "official_metadata_present_portable_binary_pending_recovery",
+      "closure": "officially closed for XAUUSD 2023-2024; cross-year 44/44 gates",
+      "expected": [
+        "engine source v0.6.4",
+        "frozen design lock",
+        "schemas and tests",
+        "independent audit and final verdict",
+        "handoff and checksums"
+      ],
+      "heavy_dependencies_registry": "HEAVY_ARTIFACTS.json"
+    }
+  ]
+}
