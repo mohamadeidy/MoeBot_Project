@@ -1,0 +1,12 @@
+{
+  "group": 6,
+  "name": "Imbalance, FVG & Delivery",
+  "official_version": "0.6.4",
+  "schema_version": "6.35.0",
+  "config_id": "cfg6_bd9170a54b36ebd6b04b7561f48f5b10602bf19aade414d0b38dd9e4a2da0b80",
+  "required_runtime_source": "moebot_group6_engine.py",
+  "required_runtime_source_size_bytes": 64524,
+  "required_runtime_source_sha256": "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877",
+  "closure": "officially closed for XAUUSD 2023-2024; 44/44 cross-year gates",
+  "status": "official source identified in File Library; exact source bytes pending direct repository copy"
+}
