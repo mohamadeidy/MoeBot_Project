@@ -1,0 +1,12 @@
+{
+  "group": 5,
+  "name": "Liquidity Intelligence",
+  "official_version": "0.1.6",
+  "schema_version": "5.1.0",
+  "config_id": "cfg5_e15cd376d5e0d7ed81c5c24614c65b494d2e7e64ea6f0705da54cbc336009419",
+  "required_runtime_source": "moebot_group5_liquidity_engine_v0_1_6.py",
+  "required_runtime_source_size_bytes": 59657,
+  "required_runtime_source_sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+  "scope": "causal liquidity pools, equal highs/lows, sweeps, reclaims, stop runs, inducement and draw-on-liquidity",
+  "status": "official source identified in File Library; exact source bytes pending direct repository copy"
+}
