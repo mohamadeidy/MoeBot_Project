@@ -1,0 +1,25 @@
+# Heavy databases and archives
+*.sqlite
+*.sqlite3
+*.db
+*.tar.zst
+*.7z
+*.zip
+*.parquet
+*.feather
+*.arrow
+
+# Raw market data
+raw_data/
+raw_ticks/
+*ticks*.csv
+mt5_cache/
+
+# Runtime output
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.tmp/
+build/
+dist/
