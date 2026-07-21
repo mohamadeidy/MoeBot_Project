@@ -2,9 +2,9 @@
 """Restore and verify the frozen MoeBot Groups 2-6 runtime bundle.
 
 The archive is stored as ordered Base64 chunks so it can live in ordinary Git
-without changing the exact frozen source bytes. This script joins the chunks,
-decodes the Zstandard-compressed tar archive, verifies SHA-256, and optionally
-extracts it.
+without changing the exact frozen source bytes. This script joins only the
+strictly numbered chunks, decodes the Zstandard-compressed tar archive, verifies
+SHA-256, and optionally extracts it.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from pathlib import Path
 
 EXPECTED_BUNDLE_SHA256 = "174f776cd8d0e8a56b253a98a18027a61351834cc490dd1bfb6b0eb8d63c56cf"
 BUNDLE_NAME = "MoeBot_Groups2-6_Frozen_Runtime_Sources.tar.zst"
+CHUNK_PATTERN = re.compile(r"part_\d{3}\.b64")
 
 
 def sha256_file(path: Path) -> str:
@@ -31,9 +33,25 @@ def sha256_file(path: Path) -> str:
 
 def restore(root: Path, output: Path) -> Path:
     chunks_dir = root / "chunks"
-    chunks = sorted(chunks_dir.glob("part_*.b64"))
+    if not chunks_dir.is_dir():
+        raise FileNotFoundError(f"Chunks directory not found: {chunks_dir}")
+
+    chunks = sorted(
+        path
+        for path in chunks_dir.iterdir()
+        if path.is_file() and CHUNK_PATTERN.fullmatch(path.name)
+    )
     if not chunks:
-        raise FileNotFoundError(f"No chunks found under {chunks_dir}")
+        raise FileNotFoundError(f"No numbered chunks found under {chunks_dir}")
+
+    expected_names = [f"part_{index:03d}.b64" for index in range(len(chunks))]
+    actual_names = [path.name for path in chunks]
+    if actual_names != expected_names:
+        raise RuntimeError(
+            "Chunk sequence is incomplete or non-contiguous:\n"
+            f"  expected: {expected_names}\n"
+            f"  actual:   {actual_names}"
+        )
 
     encoded = b"".join(chunk.read_bytes().strip() for chunk in chunks)
     try:
