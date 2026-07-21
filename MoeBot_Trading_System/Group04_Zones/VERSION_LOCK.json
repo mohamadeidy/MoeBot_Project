@@ -1,0 +1,12 @@
+{
+  "group": 4,
+  "name": "Support, Resistance & Zones",
+  "official_version": "0.1.6",
+  "schema_version": "4.5.0",
+  "config_id": "cfg4_5ebf66840eed152106b17f614b1d4c6d4c1e5128713b57456353fca7f0f9f437",
+  "required_runtime_source": "moebot_group4_zones_engine_v0_1_6.py",
+  "required_runtime_source_size_bytes": 57168,
+  "required_runtime_source_sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+  "scope": "causal support, resistance, supply, demand, reference zones and lifecycle",
+  "status": "official source identified in File Library; exact source bytes pending direct repository copy"
+}
