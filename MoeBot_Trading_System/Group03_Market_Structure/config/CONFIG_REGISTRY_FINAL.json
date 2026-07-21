@@ -1,0 +1,29 @@
+{
+  "group": "Group 3 — Market Structure Engine",
+  "engine_version": "0.1.1",
+  "schema_version": "3.0.0",
+  "config_id": "cfg3_dbdf23da5663937ce139cb15f999d92de3757b91b5b5b5b930f080efd7cba2e3",
+  "frozen_for_2023": true,
+  "parameters": {
+    "acceptance_window_bars": 3,
+    "atr_period": 14,
+    "break_buffer_atr": 0.05,
+    "external_min_bars": 3,
+    "external_reversal_atr": 2.5,
+    "feature_round_digits": 8,
+    "internal_min_bars": 2,
+    "internal_reversal_atr": 1.0,
+    "required_closes_beyond": 2,
+    "strong_break_score": 0.7,
+    "volume_window": 20
+  },
+  "calibration_basis": "descriptive causal constants only; no PnL, MFE, MAE, or future-return calibration",
+  "scope_exclusions": [
+    "liquidity/sweeps/inducement",
+    "FVG/imbalance",
+    "order blocks/zones",
+    "setups/entries/stops/targets",
+    "PnL/MFE/MAE",
+    "Group 2 threshold changes"
+  ]
+}
