@@ -1,0 +1,11 @@
+{
+  "group": 2,
+  "name": "Market Regime Intelligence",
+  "official_version": "0.2.1",
+  "schema_version": "2.1.0",
+  "config_id": "cfg_d2a97cb84210d00d675bc1c2d1fda761c909cb2e67830d28f279d3953f6ddbab",
+  "required_runtime_source": "moebot_group2_engine_v0_2_1.py",
+  "required_runtime_source_sha256": "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926",
+  "scope": "causal regime and context classification only; no trade decisions",
+  "status": "official source identified in File Library; exact source bytes pending direct repository copy"
+}
