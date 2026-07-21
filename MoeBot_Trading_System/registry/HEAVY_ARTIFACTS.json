@@ -1,0 +1,40 @@
+{
+  "policy": {
+    "storage": "outside_git",
+    "paid_services_allowed": false,
+    "rules": [
+      "Do not upload multi-gigabyte SQLite databases, raw ticks, or tar.zst deliveries to normal Git history.",
+      "Verify exact filename, byte size, and SHA-256 before use.",
+      "A registry entry is not proof that the binary is locally present.",
+      "Do not rebuild frozen artifacts from old Collector packages without explicit approval."
+    ]
+  },
+  "artifacts": [
+    {
+      "filename": "source_2023.sqlite",
+      "role": "canonical source bars 2023",
+      "sha256": "b9295c8cecf7392105fb16e65fe66a1dd49cf309713c7f7a0e34f4c80bb6921c",
+      "git_status": "excluded"
+    },
+    {
+      "filename": "MoeBot_Group6_XAUUSD_2023_v0.6.4.sqlite",
+      "role": "Group 6 frozen dependency 2023",
+      "size_bytes": 2196496384,
+      "sha256": "0d7cbc8e4d749f597402136276524093c5b5b254b5948fc4c619be0188239c44",
+      "git_status": "excluded"
+    },
+    {
+      "filename": "source_2024_canonical.sqlite",
+      "role": "corrected canonical source bars 2024",
+      "sha256": "37ad342488338671c80e1f437a1fc2405d59b7824ea2d47e6d2823c8247daa36",
+      "git_status": "excluded"
+    },
+    {
+      "filename": "MoeBot_Group6_XAUUSD_2024_v0.6.4.sqlite",
+      "role": "Group 6 frozen dependency 2024",
+      "size_bytes": 2198540288,
+      "sha256": "9023eafbe395622cedbc6158d91bff42d7ea018f9a7f0742524080761b5ce149",
+      "git_status": "excluded"
+    }
+  ]
+}
