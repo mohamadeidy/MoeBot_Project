@@ -1,0 +1,11 @@
+{
+  "group": 3,
+  "name": "Market Structure Engine",
+  "official_version": "0.1.1",
+  "schema_version": "3.0.0",
+  "config_id": "cfg3_dbdf23da5663937ce139cb15f999d92de3757b91b5b5b5b930f080efd7cba2e3",
+  "required_runtime_source": "moebot_group3_structure_engine_v0_1_1.py",
+  "required_runtime_source_sha256": "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512",
+  "scope": "causal swings, structure state, BOS, CHOCH, MSS and failed breaks",
+  "status": "official source identified in File Library; exact source bytes pending direct repository copy"
+}
