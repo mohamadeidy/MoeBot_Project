@@ -1,0 +1,30 @@
+{
+  "group": "Group 4 — Support, Resistance & Zones",
+  "engine_version": "0.1.6",
+  "schema_version": "4.5.0",
+  "config_id": "cfg4_5ebf66840eed152106b17f614b1d4c6d4c1e5128713b57456353fca7f0f9f437",
+  "parameters": {
+    "arrival_window_bars": 5,
+    "base_search_bars": 6,
+    "break_buffer_atr": 0.05,
+    "break_required_closes": 2,
+    "confluence_tolerance_atr": 0.1,
+    "fallback_base_bars": 3,
+    "feature_round_digits": 8,
+    "london_end_hour": 12,
+    "london_start_hour": 8,
+    "max_source_age_bars": 200,
+    "mitigation_penetration": 0.5,
+    "newyork_end_hour": 18,
+    "newyork_start_hour": 14,
+    "reference_half_width_atr": 0.05,
+    "strength_age_scale_bars": 200,
+    "swing_point": 0.001
+  },
+  "timeframe_roles": {
+    "H1": "primary_zone_map",
+    "H4": "major_context_zones",
+    "M15": "reaction_interaction_map"
+  },
+  "calibration_basis": "descriptive causal constants only; no PnL/MFE/MAE/future-return calibration"
+}
