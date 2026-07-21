@@ -1,0 +1,33 @@
+{
+  "group": "Group 5 — Liquidity Intelligence",
+  "engine_version": "0.1.6",
+  "schema_version": "5.1.0",
+  "config_id": "cfg5_e15cd376d5e0d7ed81c5c24614c65b494d2e7e64ea6f0705da54cbc336009419",
+  "parameters": {
+    "breach_buffer_atr": 0.02,
+    "draw_advantage_ratio": 0.15,
+    "draw_max_distance_atr": 8.0,
+    "equal_tolerance_atr": 0.1,
+    "feature_round_digits": 8,
+    "inducement_window_bars": 20,
+    "point": 0.001,
+    "prior_volume_bars": 20,
+    "reclaim_window_bars": 3,
+    "shallow_grab_depth_atr": 0.2,
+    "stop_run_volume_ratio": 1.5,
+    "structural_half_width_atr": 0.05,
+    "structural_max_age_bars": 200,
+    "void_max_age_bars": 200,
+    "void_max_mean_overlap": 0.25,
+    "void_min_displacement_atr": 1.5,
+    "void_min_efficiency": 0.8,
+    "void_min_mean_body_ratio": 0.55,
+    "void_sequence_bars": 3
+  },
+  "timeframe_roles": {
+    "H1": "primary_map",
+    "H4": "external_macro",
+    "M15": "interaction"
+  },
+  "calibration_basis": "descriptive causal constants only; no PnL/MFE/MAE/future-return calibration"
+}
