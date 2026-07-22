@@ -1,0 +1,10 @@
+{
+  "group": 1,
+  "name": "Market Memory Collector",
+  "official_version": "0.9.2",
+  "schema_version": "1.4.0",
+  "required_runtime_source": "MoeBot_Group1_MarketMemory_Collector_v0.9.2.mq5",
+  "required_runtime_source_sha256": "5bad54ebdeadba2cdbb4cb63f8d411a4ccba68ae47f9dbe714627d48bf231bb7",
+  "scope": "causal market-memory collection only; no trading decisions",
+  "status": "official version locked; exact runtime source archived under Group_1/code"
+}
