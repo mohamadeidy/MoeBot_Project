@@ -1,0 +1,12 @@
+{
+  "group": 1,
+  "repository_path": "MoeBot_Trading_System/Group_1",
+  "official_collector": "code/MoeBot_Group1_MarketMemory_Collector_v0.9.2.mq5",
+  "official_collector_version": "0.9.2",
+  "spool_schema": "1.4.0",
+  "expected_sha256": "5bad54ebdeadba2cdbb4cb63f8d411a4ccba68ae47f9dbe714627d48bf231bb7",
+  "files_archived": 8,
+  "heavy_sqlite_committed": false,
+  "raw_collector_archives_committed": false,
+  "status": "repository archive prepared; native runtime artifacts tracked by checksum"
+}
