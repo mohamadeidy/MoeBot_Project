@@ -1,0 +1,18 @@
+{
+  "group": 1,
+  "policy": "generated SQLite files are recreated when required and must be verified before downstream use",
+  "databases": [
+    {
+      "year": 2023,
+      "filename": "source_2023.sqlite",
+      "sha256": "b9295c8cecf7392105fb16e65fe66a1dd49cf309713c7f7a0e34f4c80bb6921c",
+      "storage": "not committed; regenerate or restore exact frozen database"
+    },
+    {
+      "year": 2024,
+      "filename": "source_2024_canonical.sqlite",
+      "sha256": "37ad342488338671c80e1f437a1fc2405d59b7824ea2d47e6d2823c8247daa36",
+      "storage": "not committed; regenerate or restore exact frozen database"
+    }
+  ]
+}
