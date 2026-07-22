@@ -1,0 +1,163 @@
+name: Build MoeBot SQLite Data Vault
+
+"on":
+  workflow_dispatch:
+  "public":
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: moebot-sqlite-rebuild-v1
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  build-year:
+    if: github.event_name == 'public' || github.event.repository.private == false
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Restore frozen Groups 2-6 runtime bundle
+        run: |
+          python MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/restore_bundle.py \
+            --extract-to "$RUNNER_TEMP/frozen_groups_2_6"
+
+      - name: Resolve output names
+        id: names
+        shell: bash
+        run: |
+          if [ "${{ matrix.year }}" = "2024" ]; then
+            SOURCE_NAME="source_2024_canonical_rebuilt_dukascopy_v1.sqlite"
+          else
+            SOURCE_NAME="source_2023_rebuilt_dukascopy_v1.sqlite"
+          fi
+          GROUP6_NAME="MoeBot_Group6_XAUUSD_${{ matrix.year }}_v0.6.4_rebuilt_dukascopy_v1.sqlite"
+          echo "source_name=$SOURCE_NAME" >> "$GITHUB_OUTPUT"
+          echo "group6_name=$GROUP6_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build public-source SQLite
+        run: |
+          mkdir -p "$RUNNER_TEMP/build/${{ matrix.year }}" "$RUNNER_TEMP/cache"
+          python MoeBot_Trading_System/Data_Vault/rebuild/build_source_sqlite.py \
+            --year "${{ matrix.year }}" \
+            --output "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.source_name }}" \
+            --cache-dir "$RUNNER_TEMP/cache/dukascopy" \
+            --report "$RUNNER_TEMP/build/${{ matrix.year }}/source_build_report_${{ matrix.year }}.json"
+
+      - name: Run exact frozen Group 2 through Group 6 engines
+        run: |
+          python MoeBot_Trading_System/Data_Vault/rebuild/run_frozen_pipeline.py \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.source_name }}" \
+            --runtime-root "$RUNNER_TEMP/frozen_groups_2_6" \
+            --work-dir "$RUNNER_TEMP/build/${{ matrix.year }}/intermediate" \
+            --group6-output "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.group6_name }}" \
+            --report "$RUNNER_TEMP/build/${{ matrix.year }}/frozen_pipeline_report_${{ matrix.year }}.json"
+
+      - name: Independent SQLite verification
+        run: |
+          python MoeBot_Trading_System/Data_Vault/rebuild/verify_sqlite.py \
+            --db "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.source_name }}" \
+            --kind source \
+            --report "$RUNNER_TEMP/build/${{ matrix.year }}/source_sqlite_verification_${{ matrix.year }}.json"
+          python MoeBot_Trading_System/Data_Vault/rebuild/verify_sqlite.py \
+            --db "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.group6_name }}" \
+            --kind group6 \
+            --report "$RUNNER_TEMP/build/${{ matrix.year }}/group6_sqlite_verification_${{ matrix.year }}.json"
+
+      - name: Compress and split release assets
+        run: |
+          mkdir -p "$RUNNER_TEMP/release/${{ matrix.year }}"
+          python MoeBot_Trading_System/Data_Vault/rebuild/package_databases.py \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.source_name }}" \
+            --group6 "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.group6_name }}" \
+            --output-dir "$RUNNER_TEMP/release/${{ matrix.year }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG"
+          cp "$RUNNER_TEMP/build/${{ matrix.year }}"/*report*.json "$RUNNER_TEMP/release/${{ matrix.year }}/"
+          cp "$RUNNER_TEMP/build/${{ matrix.year }}"/*verification*.json "$RUNNER_TEMP/release/${{ matrix.year }}/"
+
+      - name: Ensure public release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --title "MoeBot SQLite Public Data Vault v1" \
+              --notes "Public, reproducible SQLite rebuild from Dukascopy XAU/USD BID M1 data. This is a new validated lineage and is not byte-identical to the unavailable legacy Collector databases." \
+              || gh release view "$RELEASE_TAG" >/dev/null
+          fi
+
+      - name: Upload split databases and verification evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/release/${{ matrix.year }}"/* --clobber
+
+      - name: Upload small manifest for registry finalization
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-${{ matrix.year }}
+          path: ${{ runner.temp }}/release/${{ matrix.year }}/moebot_sqlite_${{ matrix.year }}_manifest.json
+          retention-days: 7
+
+      - name: Remove large working files
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/build" "$RUNNER_TEMP/cache" "$RUNNER_TEMP/frozen_groups_2_6" || true
+
+  finalize-registry:
+    if: github.event_name == 'public' || github.event.repository.private == false
+    needs: build-year
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: manifest-*
+          path: manifests
+          merge-multiple: true
+
+      - name: Generate permanent public registry
+        run: |
+          python MoeBot_Trading_System/Data_Vault/rebuild/build_registry.py \
+            --manifests-dir manifests \
+            --output MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json
+
+      - name: Commit generated database registry
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish MoeBot SQLite data vault registry"
+            git push origin main
+          fi

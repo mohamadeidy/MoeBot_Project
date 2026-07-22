@@ -1,0 +1,23 @@
+{
+  "format_version": 1,
+  "status": "awaiting_public_build",
+  "lineage": "dukascopy_rebuild_v1",
+  "public_repository": "mohamadeidy/MoeBot_Project",
+  "release_tag": "moebot-sqlite-rebuild-v1",
+  "workflow": ".github/workflows/build-moebot-sqlite-vault.yml",
+  "legacy_identity_notice": {
+    "legacy_files_unavailable": true,
+    "legacy_hashes_are_not_reused": true,
+    "requires_group7_annual_revalidation": true
+  },
+  "expected_outputs": {
+    "2023": [
+      "source_2023_rebuilt_dukascopy_v1.sqlite",
+      "MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite"
+    ],
+    "2024": [
+      "source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
+      "MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite"
+    ]
+  }
+}
