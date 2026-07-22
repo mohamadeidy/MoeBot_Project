@@ -1,0 +1,24 @@
+{
+  "provider": "Dukascopy Jetta public candles API",
+  "api_root": "https://jetta.dukascopy.com/v1",
+  "instrument": "XAU-USD",
+  "price_type": "BID",
+  "base_timeframe": "M1",
+  "years": [
+    2023,
+    2024
+  ],
+  "endpoint_template": "https://jetta.dukascopy.com/v1/candles/minute/XAU-USD/BID/{year}/{month}/{day}",
+  "time_basis": "UTC",
+  "gap_policy": "Preserve observed records; no synthetic flat bars are manufactured.",
+  "aggregation": [
+    "M5",
+    "M15",
+    "M30",
+    "H1",
+    "H4",
+    "D1"
+  ],
+  "symbol_written_to_sqlite": "XAUUSD_",
+  "lineage": "dukascopy_rebuild_v1"
+}
