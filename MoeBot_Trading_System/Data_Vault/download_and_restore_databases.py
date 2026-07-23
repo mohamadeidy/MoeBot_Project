@@ -162,7 +162,7 @@ def restore(entry: dict[str, Any], download_dir: Path, output_dir: Path) -> Path
         raise RuntimeError('zstd executable is required')
     output_dir.mkdir(parents=True, exist_ok=True)
     db = output_dir / entry['database_filename']
-    subprocess.run([zstd, '-d', '-f', str(compressed), '-o', str(db)], check=True)
+    subprocess.run([zstd, '-d', '--long=31', '-f', str(compressed), '-o', str(db)], check=True)
     if (
         db.stat().st_size != entry['database_size_bytes']
         or sha256_file(db) != entry['database_sha256']
