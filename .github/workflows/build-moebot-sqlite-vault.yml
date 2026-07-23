@@ -94,6 +94,20 @@ jobs:
           path: ${{ runner.temp }}/build/${{ matrix.year }}/frozen_pipeline_console_${{ matrix.year }}.log
           retention-days: 7
 
+      - name: Publish frozen pipeline diagnostics to repository
+        if: failure() && steps.frozen_pipeline.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          LOG="$RUNNER_TEMP/build/${{ matrix.year }}/frozen_pipeline_console_${{ matrix.year }}.log"
+          DEST="MoeBot_Trading_System/Data_Vault/diagnostics/run_${GITHUB_RUN_ID}_year_${{ matrix.year }}.log"
+          ENCODED=$(base64 -w 0 "$LOG")
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/$DEST" \
+            -f message="Publish frozen pipeline diagnostic for ${{ matrix.year }}" \
+            -f content="$ENCODED" \
+            -f branch="main"
+
       - name: Independent SQLite verification
         run: |
           python MoeBot_Trading_System/Data_Vault/rebuild/verify_sqlite.py \
