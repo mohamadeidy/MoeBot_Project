@@ -69,14 +69,30 @@ jobs:
             --report "$RUNNER_TEMP/build/${{ matrix.year }}/source_build_report_${{ matrix.year }}.json"
 
       - name: Run exact frozen Group 2 through Group 6 engines
+        id: frozen_pipeline
+        shell: bash
         run: |
+          set +e
+          LOG="$RUNNER_TEMP/build/${{ matrix.year }}/frozen_pipeline_console_${{ matrix.year }}.log"
           python MoeBot_Trading_System/Data_Vault/rebuild/run_frozen_pipeline.py \
             --year "${{ matrix.year }}" \
             --source "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.source_name }}" \
             --runtime-root "$RUNNER_TEMP/frozen_groups_2_6" \
             --work-dir "$RUNNER_TEMP/build/${{ matrix.year }}/intermediate" \
             --group6-output "$RUNNER_TEMP/build/${{ matrix.year }}/${{ steps.names.outputs.group6_name }}" \
-            --report "$RUNNER_TEMP/build/${{ matrix.year }}/frozen_pipeline_report_${{ matrix.year }}.json"
+            --report "$RUNNER_TEMP/build/${{ matrix.year }}/frozen_pipeline_report_${{ matrix.year }}.json" \
+            >"$LOG" 2>&1
+          RC=$?
+          cat "$LOG"
+          exit "$RC"
+
+      - name: Upload frozen pipeline diagnostics
+        if: failure() && steps.frozen_pipeline.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-pipeline-diagnostics-${{ matrix.year }}
+          path: ${{ runner.temp }}/build/${{ matrix.year }}/frozen_pipeline_console_${{ matrix.year }}.log
+          retention-days: 7
 
       - name: Independent SQLite verification
         run: |
