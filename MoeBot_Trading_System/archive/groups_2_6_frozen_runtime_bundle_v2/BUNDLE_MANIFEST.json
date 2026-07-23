@@ -1,0 +1,44 @@
+{
+  "format_version": 2,
+  "status": "frozen_verified_runtime",
+  "bundle_filename": "MoeBot_Groups2-6_Frozen_Runtime_Sources_v2.tar.zst",
+  "bundle_size_bytes": 63561,
+  "bundle_sha256": "d12deaadb90f7c7a30337246eb144e55399bdad1e4e2e065fb95723c3ae2d436",
+  "chunk_encoding": "independent_base64_objects",
+  "chunk_count": 16,
+  "chunk_names": [
+    "part_000.b64", "part_001.b64", "part_002.b64", "part_003.b64",
+    "part_004.b64", "part_005.b64", "part_006.b64", "part_007.b64",
+    "part_008.b64", "part_009.b64", "part_010.b64", "part_011.b64",
+    "part_012.b64", "part_013.b64", "part_014.b64", "part_015.b64"
+  ],
+  "runtime_engines": {
+    "group2": {
+      "filename": "moebot_group2_engine_v0_2_1.py",
+      "sha256": "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926"
+    },
+    "group3": {
+      "filename": "moebot_group3_structure_engine_v0_1_1.py",
+      "sha256": "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512"
+    },
+    "group4": {
+      "filename": "moebot_group4_zones_engine_v0_1_6.py",
+      "sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad"
+    },
+    "group5": {
+      "filename": "moebot_group5_liquidity_engine_v0_1_6.py",
+      "sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc"
+    },
+    "group6": {
+      "filename": "moebot_group6_engine.py",
+      "sha256": "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877"
+    }
+  },
+  "local_verification": {
+    "archive_reassembly": "PASS",
+    "archive_extraction": "PASS",
+    "python_compile": "PASS",
+    "group5_tests": "PASS",
+    "group6_selftest": "PASS"
+  }
+}
