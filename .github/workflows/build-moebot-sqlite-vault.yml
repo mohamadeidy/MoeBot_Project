@@ -41,6 +41,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
 
+      - name: Restore missing archival runtime chunk
+        run: |
+          CHUNKS_DIR="MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/chunks"
+          mkdir -p "$CHUNKS_DIR"
+          git show b58a79cff032d98dd7c60104b997ee7a1da7001a:"$CHUNKS_DIR/part_002.b64" > "$CHUNKS_DIR/part_002.b64"
+          test -s "$CHUNKS_DIR/part_002.b64"
+          echo "Recovered part_002.b64 from the original archival commit."
+
       - name: Restore frozen Groups 2-6 runtime bundle
         run: |
           python MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/restore_bundle.py \
