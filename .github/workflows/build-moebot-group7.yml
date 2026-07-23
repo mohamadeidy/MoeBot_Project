@@ -11,6 +11,8 @@ name: Build and Close MoeBot Group 7
       - "MoeBot_Trading_System/Group_7/00_DESIGN_LOCK.md"
       - "MoeBot_Trading_System/Group_7/FROZEN_CONFIG_REGISTRY.json"
       - "MoeBot_Trading_System/Group_7/ANNUAL_DEPENDENCY_REQUIREMENTS.json"
+      - "MoeBot_Trading_System/Data_Vault/download_and_restore_databases.py"
+      - "MoeBot_Trading_System/Group_7/code/DATA_VAULT_RESTORE_POLICY.md"
 
 permissions:
   contents: write
