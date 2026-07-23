@@ -97,6 +97,7 @@ def build(year: int, source: Path, runtime_root: Path, work_dir: Path, group6_ou
 
     py = sys.executable
     logs: dict[str, Any] = {}
+    logs["runtime_dependency_sortedcontainers"] = run([py, "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir", "sortedcontainers"])
     logs["group2_build"] = run([py, str(engines["g2"]), "build", "--source-db", str(source), "--output-db", str(paths["group2"]), "--source-meta", str(source_meta_path)])
     logs["group2_verify"] = run([py, str(engines["g2"]), "verify", "--db", str(paths["group2"])])
     logs["group3_build"] = run([py, str(engines["g3"]), "--source", str(source), "--out", str(paths["group3"]), "--year", str(year)])
