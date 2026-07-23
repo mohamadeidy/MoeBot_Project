@@ -125,7 +125,8 @@ jobs:
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
               --title "MoeBot Group 7 v0.7.5 Frozen Annual Data" \
-              --notes "Causal Group 7 Blocks and Institutional Zones annual databases. Immutable candidates, separate definition matches, no backdating, no trading signals. Upstream lineage: dukascopy_rebuild_v1."
+              --notes "Causal Group 7 Blocks and Institutional Zones annual databases. Immutable candidates, separate definition matches, no backdating, no trading signals. Upstream lineage: dukascopy_rebuild_v1." \
+              || gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
           fi
       - name: Upload annual database parts and evidence
         env:
