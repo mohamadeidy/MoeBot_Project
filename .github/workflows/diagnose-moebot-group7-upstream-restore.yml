@@ -1,0 +1,75 @@
+name: Diagnose MoeBot Group 7 Upstream Restore
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/diagnose-moebot-group7-upstream-restore.yml"
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_REGISTRY: MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  diagnose-year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Zstandard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Run verified restore with full diagnostics
+        id: restore
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python MoeBot_Trading_System/Data_Vault/download_and_restore_databases.py \
+            --registry "$UPSTREAM_REGISTRY" \
+            --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/diagnose_downloads/${{ matrix.year }}" \
+            --output-dir "$RUNNER_TEMP/diagnose_output/${{ matrix.year }}" \
+            2>&1 | tee "$RUNNER_TEMP/restore-${{ matrix.year }}.log"
+      - name: Record runner state
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "restore_outcome=${{ steps.restore.outcome }}"
+            echo "year=${{ matrix.year }}"
+            echo "disk:"
+            df -h
+            echo "memory:"
+            free -h
+            echo "downloads:"
+            find "$RUNNER_TEMP/diagnose_downloads" -maxdepth 4 -type f -printf '%s %p\n' 2>/dev/null || true
+            echo "outputs:"
+            find "$RUNNER_TEMP/diagnose_output" -maxdepth 3 -type f -printf '%s %p\n' 2>/dev/null || true
+          } > "$RUNNER_TEMP/state-${{ matrix.year }}.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group7-upstream-restore-diagnostic-${{ matrix.year }}
+          path: |
+            ${{ runner.temp }}/restore-${{ matrix.year }}.log
+            ${{ runner.temp }}/state-${{ matrix.year }}.txt
+          retention-days: 7
+      - name: Preserve failure status
+        if: steps.restore.outcome != 'success'
+        run: exit 1
