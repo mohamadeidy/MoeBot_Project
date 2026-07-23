@@ -1,0 +1,122 @@
+name: Verify MoeBot SQLite Data Vault Clean Room
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/verify-moebot-sqlite-vault.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  clean-room-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Zstandard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Restore all published databases from public Release assets
+        run: |
+          rm -rf "$RUNNER_TEMP/moebot-clean-room"
+          mkdir -p "$RUNNER_TEMP/moebot-clean-room"
+          python MoeBot_Trading_System/Data_Vault/download_and_restore_databases.py \
+            --registry MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json \
+            --year both \
+            --download-dir "$RUNNER_TEMP/moebot-clean-room/downloads" \
+            --output-dir "$RUNNER_TEMP/moebot-clean-room/databases" \
+            | tee "$RUNNER_TEMP/moebot-clean-room/restore-output.json"
+
+      - name: Produce independent verification evidence
+        run: |
+          python - <<'PY'
+          import datetime as dt
+          import hashlib
+          import json
+          import sqlite3
+          from pathlib import Path
+
+          root = Path("${{ runner.temp }}") / "moebot-clean-room"
+          registry_path = Path("MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json")
+          registry = json.loads(registry_path.read_text(encoding="utf-8"))
+
+          def sha256_file(path: Path) -> str:
+              h = hashlib.sha256()
+              with path.open("rb") as fh:
+                  while chunk := fh.read(8 * 1024 * 1024):
+                      h.update(chunk)
+              return h.hexdigest()
+
+          verified = {}
+          for year, year_entry in sorted(registry["years"].items()):
+              verified[year] = {}
+              for kind, entry in sorted(year_entry["databases"].items()):
+                  db = root / "databases" / entry["database_filename"]
+                  if not db.is_file():
+                      raise SystemExit(f"Missing restored database: {db}")
+                  actual_size = db.stat().st_size
+                  actual_sha = sha256_file(db)
+                  conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+                  quick = conn.execute("PRAGMA quick_check").fetchone()[0]
+                  integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+                  fk_errors = len(conn.execute("PRAGMA foreign_key_check").fetchall())
+                  table_count = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+                  conn.close()
+                  if actual_size != entry["database_size_bytes"]:
+                      raise SystemExit(f"Size mismatch for {db}: {actual_size}")
+                  if actual_sha != entry["database_sha256"]:
+                      raise SystemExit(f"SHA-256 mismatch for {db}: {actual_sha}")
+                  if quick != "ok" or integrity != "ok" or fk_errors:
+                      raise SystemExit(f"SQLite checks failed for {db}")
+                  verified[year][kind] = {
+                      "filename": entry["database_filename"],
+                      "size_bytes": actual_size,
+                      "sha256": actual_sha,
+                      "quick_check": quick,
+                      "integrity_check": integrity,
+                      "foreign_key_errors": fk_errors,
+                      "table_count": table_count,
+                  }
+
+          report = {
+              "format_version": 1,
+              "status": "pass",
+              "verified_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+              "repository": "mohamadeidy/MoeBot_Project",
+              "release_tag": registry["release_tag"],
+              "lineage": registry["lineage"],
+              "method": "clean-room public Release download, part SHA-256 verification, reassembly, compressed SHA-256 verification, zstd decompression, database size and SHA-256 verification, SQLite quick_check, integrity_check, and foreign_key_check",
+              "databases": verified,
+          }
+          out = Path("MoeBot_Trading_System/Data_Vault/registry/CLEAN_ROOM_VERIFICATION.json")
+          out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - name: Commit clean-room verification report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add MoeBot_Trading_System/Data_Vault/registry/CLEAN_ROOM_VERIFICATION.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish MoeBot SQLite clean-room verification"
+            git push origin main
+          fi
+
+      - name: Remove restored databases
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/moebot-clean-room" || true
