@@ -1,0 +1,12 @@
+{
+  "annual_lineage": "dukascopy_rebuild_v1",
+  "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+  "engine_version": "0.7.5",
+  "group": 7,
+  "group8_authorized": false,
+  "independent_audit": "35/35 PASS",
+  "officially_closed": false,
+  "schema_version": "7.5.0",
+  "status": "ANNUAL_VALIDATION_PENDING",
+  "synthetic_tests": "47/47 PASS"
+}

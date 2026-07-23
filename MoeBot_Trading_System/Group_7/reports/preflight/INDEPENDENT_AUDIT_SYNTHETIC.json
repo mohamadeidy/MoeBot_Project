@@ -1,0 +1,192 @@
+{
+  "checks": {
+    "base_zone_has_match": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "breaker_parent_contract": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "candidate_cardinality": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "candidate_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "config_hash_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "dataset_hash_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "definition_registry_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "definitions_not_merged": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "dependency_id_hash_readonly": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "duplicate_transition_ordinals": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "evaluation_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "evidence_causality": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "evidence_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "foreign_keys": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "group6_file_present": {
+      "details": "/mnt/data/g7_work/test_run_47/group6.sqlite",
+      "errors": 0,
+      "status": "PASS"
+    },
+    "group6_fingerprint": {
+      "details": {
+        "actual": "c6d1a111e4284f50f33ac57032be760d20e88449000e0472129a9c2936314037",
+        "expected": "c6d1a111e4284f50f33ac57032be760d20e88449000e0472129a9c2936314037"
+      },
+      "errors": 0,
+      "status": "PASS"
+    },
+    "immutable_summary_coverage": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "invalid_bounds": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "match_after_candidate": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "match_after_evidence": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "match_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "mitigation_parent_contract": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "no_trade_schema": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "relation_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "source_file_present": {
+      "details": "/mnt/data/g7_work/test_run_47/source.sqlite",
+      "errors": 0,
+      "status": "PASS"
+    },
+    "source_fingerprint": {
+      "details": {
+        "actual": "f9136f7e6708838c3ad578bc6617e95b9bc36d1fd33e1bea3c2313653324e7de",
+        "expected": "f9136f7e6708838c3ad578bc6617e95b9bc36d1fd33e1bea3c2313653324e7de"
+      },
+      "errors": 0,
+      "status": "PASS"
+    },
+    "sqlite_integrity": {
+      "details": "ok",
+      "errors": 0,
+      "status": "PASS"
+    },
+    "summary_hash_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "transition_causality": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "transition_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "two_close_candidate_presence": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "visit_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "zone_after_match": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "zone_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "zone_time_order": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    }
+  },
+  "database": "/mnt/data/g7_work/test_run_47/group7.sqlite",
+  "passed": true,
+  "summary": {
+    "fail": 0,
+    "pass": 35,
+    "total": 35
+  }
+}

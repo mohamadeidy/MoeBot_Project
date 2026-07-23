@@ -1,0 +1,18 @@
+{
+  "candidate": "Group 7 annual v0.7.1/v0.7.2 mixed runner",
+  "future_evidence_counts": {
+    "2023": {
+      "future_fvg": 57924,
+      "future_group6_evidence": 64991,
+      "future_validation": 57924
+    },
+    "2024": {
+      "future_fvg": 58872,
+      "future_group6_evidence": 66153,
+      "future_validation": 58872
+    }
+  },
+  "reason": "definition matches used Group 6 FVG/validation/upstream evidence whose availability_time was later than the displacement leg availability, while Group 7 match/zone availability was incorrectly set to the leg availability",
+  "replacement": "v0.7.5 immutable definition candidates plus separate causal definition matches and later zone lifecycle",
+  "status": "REJECTED"
+}

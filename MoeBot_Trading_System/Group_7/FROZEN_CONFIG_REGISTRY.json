@@ -1,0 +1,76 @@
+{
+  "calibration_basis": "descriptive causal constants only; no PnL/MFE/MAE/future-return calibration",
+  "causality_contract": {
+    "definition_matches_separate": true,
+    "lifecycle_start": "strictly after zone availability",
+    "match_availability": "maximum of candidate availability and exact required evidence availability",
+    "origin_candidates_immutable": true,
+    "zone_availability": "never earlier than definition match availability"
+  },
+  "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+  "config_sha256": "d6a62ffb7922020ff124fa9fbc2818813fef24953f6e4f34c982c22070a9e146",
+  "definitions": {
+    "breaker_block": {
+      "definition_version": "D4.0",
+      "derived": true,
+      "invalidation_closes": 1,
+      "range_policy": "inherited_parent_range"
+    },
+    "last_opposing_candle": {
+      "definition_version": "D3.0",
+      "derived": false,
+      "invalidation_closes": 1,
+      "range_policy": "exact_last_opposing_candle_full_range"
+    },
+    "loose_order_block": {
+      "definition_version": "D2.0",
+      "derived": false,
+      "invalidation_closes": 2,
+      "range_policy": "neutral_origin_window_full_range"
+    },
+    "mitigation_block": {
+      "definition_version": "D5.0",
+      "derived": true,
+      "invalidation_closes": 1,
+      "range_policy": "parent_later_origin_intersection"
+    },
+    "propulsion_block": {
+      "definition_version": "D7.0",
+      "derived": false,
+      "invalidation_closes": 1,
+      "range_policy": "first_impulse_candle_body"
+    },
+    "rejection_block": {
+      "definition_version": "D6.0",
+      "derived": false,
+      "invalidation_closes": 1,
+      "range_policy": "dominant_rejection_wick_segment"
+    },
+    "strict_order_block": {
+      "definition_version": "D1.0",
+      "derived": false,
+      "invalidation_closes": 1,
+      "range_policy": "exact_last_opposing_candle_body"
+    },
+    "supply_demand_origin": {
+      "definition_version": "D8.0",
+      "derived": false,
+      "invalidation_closes": 2,
+      "range_policy": "neutral_origin_window_full_range"
+    }
+  },
+  "engine_version": "0.7.5",
+  "frozen_for_annual_validation": true,
+  "group": "Group 7 \u2014 Blocks and Institutional Zones",
+  "parameters": {
+    "feature_round_digits": 8,
+    "propulsion_requires_bos_or_mss": true,
+    "propulsion_requires_fvg": true,
+    "rejection_close_half": 0.5,
+    "rejection_wick_ratio": 0.5,
+    "strict_requires_bos_or_mss": true,
+    "strict_requires_fvg": true,
+    "supply_demand_min_base_bars": 2
+  },
+  "schema_version": "7.5.0"
+}
