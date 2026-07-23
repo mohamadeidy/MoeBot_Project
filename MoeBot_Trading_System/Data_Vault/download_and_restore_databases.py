@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/mohamadeidy/MoeBot_Project/main/MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json'
+RESTORE_CONTRACT_VERSION = '1.3-long-window-verified'
 
 
 def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
@@ -31,7 +32,7 @@ def load_json(location: str) -> dict[str, Any]:
     p = Path(location)
     if p.exists():
         return json.loads(p.read_text(encoding='utf-8'))
-    headers = {'User-Agent': 'MoeBot-Data-Vault-Restore/1.2'}
+    headers = {'User-Agent': f'MoeBot-Data-Vault-Restore/{RESTORE_CONTRACT_VERSION}'}
     token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
     if token and 'api.github.com' in location:
         headers['Authorization'] = f'Bearer {token}'
@@ -59,7 +60,7 @@ def _curl_download(url: str, tmp: Path) -> None:
         '--speed-limit', '1024',
         '--continue-at', '-',
         '--output', str(tmp),
-        '--user-agent', 'MoeBot-Data-Vault-Restore/1.2',
+        '--user-agent', f'MoeBot-Data-Vault-Restore/{RESTORE_CONTRACT_VERSION}',
         url,
     ]
     subprocess.run(command, check=True)
@@ -68,7 +69,7 @@ def _curl_download(url: str, tmp: Path) -> None:
 def _urllib_download(url: str, tmp: Path) -> None:
     """Fallback downloader with Range resume when curl is unavailable."""
     headers = {
-        'User-Agent': 'MoeBot-Data-Vault-Restore/1.2',
+        'User-Agent': f'MoeBot-Data-Vault-Restore/{RESTORE_CONTRACT_VERSION}',
         'Accept': 'application/octet-stream',
     }
     existing = tmp.stat().st_size if tmp.exists() else 0
@@ -111,8 +112,6 @@ def download(url: str, dest: Path, expected_sha: str, attempts: int = 6) -> None
             http.client.HTTPException,
         ) as exc:
             last_error = exc
-            # Preserve a partial transfer for a resumable retry. A checksum mismatch
-            # cannot be resumed safely, so discard only that case.
             if isinstance(exc, RuntimeError) and 'checksum mismatch' in str(exc):
                 tmp.unlink(missing_ok=True)
             if attempt == attempts:
