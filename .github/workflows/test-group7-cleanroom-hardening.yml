@@ -1,0 +1,93 @@
+name: Test Group 7 Clean-room Hardening
+
+"on":
+  push:
+    branches:
+      - agent/group7-cleanroom-hardening
+    paths:
+      - ".github/workflows/test-group7-cleanroom-hardening.yml"
+      - "MoeBot_Trading_System/Group_7/code/download_and_restore_group7.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/group7-cleanroom-hardening
+      - name: Install Zstandard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Compile and test strict restore round-trip
+        shell: bash
+        run: |
+          python -m py_compile MoeBot_Trading_System/Group_7/code/download_and_restore_group7.py
+          python - <<'PY'
+          import hashlib
+          import importlib.util
+          import shutil
+          import sqlite3
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          module_path = Path('MoeBot_Trading_System/Group_7/code/download_and_restore_group7.py')
+          spec = importlib.util.spec_from_file_location('g7restore', module_path)
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+
+          with tempfile.TemporaryDirectory() as tmp_name:
+              tmp = Path(tmp_name)
+              source = tmp / 'synthetic_group7.sqlite'
+              con = sqlite3.connect(source)
+              con.execute('PRAGMA foreign_keys=ON')
+              con.execute('CREATE TABLE evidence(id INTEGER PRIMARY KEY, value TEXT NOT NULL)')
+              con.executemany('INSERT INTO evidence(value) VALUES(?)', [('alpha',), ('beta',), ('gamma',)])
+              con.commit(); con.close()
+
+              compressed = tmp / (source.name + '.zst')
+              subprocess.run(['zstd', '-19', '--long=31', '-f', str(source), '-o', str(compressed)], check=True)
+              part = tmp / (compressed.name + '.part-000')
+              shutil.copy2(compressed, part)
+
+              def sha(path):
+                  h = hashlib.sha256(); h.update(path.read_bytes()); return h.hexdigest()
+
+              entry = {
+                  'database_filename': source.name,
+                  'database_size_bytes': source.stat().st_size,
+                  'database_sha256': sha(source),
+                  'compressed_filename': compressed.name,
+                  'compressed_size_bytes': compressed.stat().st_size,
+                  'compressed_sha256': sha(compressed),
+                  'parts': [{
+                      'filename': part.name,
+                      'size_bytes': part.stat().st_size,
+                      'sha256': sha(part),
+                      'url': 'synthetic://part-000',
+                  }],
+              }
+
+              original = mod.download_verified
+              def local_download(url, destination, expected_size, expected_sha256, attempts=6):
+                  shutil.copy2(part, destination)
+                  assert destination.stat().st_size == expected_size
+                  assert mod.sha256_file(destination) == expected_sha256
+              mod.download_verified = local_download
+              result = mod.restore_year('2023', entry, tmp / 'downloads', tmp / 'restored')
+              mod.download_verified = original
+
+              restored = Path(result['path'])
+              assert restored.stat().st_size == source.stat().st_size
+              assert mod.sha256_file(restored) == sha(source)
+              assert result['quick_check'] == 'ok'
+              assert result['integrity_check'] == 'ok'
+              assert result['foreign_key_errors'] == 0
+              print('PASS: Group 7 clean-room hardening round-trip')
+          PY
