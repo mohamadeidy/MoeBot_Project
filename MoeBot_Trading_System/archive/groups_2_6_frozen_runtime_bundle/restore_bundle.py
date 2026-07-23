@@ -2,9 +2,13 @@
 """Restore and verify the frozen MoeBot Groups 2-6 runtime bundle.
 
 The archive is stored as ordered Base64 chunks so it can live in ordinary Git
-without changing the exact frozen source bytes. This script joins only the
-strictly numbered chunks, decodes the Zstandard-compressed tar archive, verifies
-SHA-256, and optionally extracts it.
+without changing the exact frozen source bytes. The restorer accepts either:
+
+1. one Base64 stream split across files; or
+2. independently Base64-encoded binary chunks.
+
+The reconstructed archive is always rejected unless its SHA-256 matches the
+registered frozen identity.
 """
 
 from __future__ import annotations
@@ -31,6 +35,28 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def decode_chunks(chunks: list[Path]) -> bytes:
+    payloads = [chunk.read_bytes().strip() for chunk in chunks]
+
+    # Preferred format: one Base64 stream split across numbered files.
+    joined = b"".join(payloads)
+    try:
+        return base64.b64decode(joined, validate=True)
+    except Exception as joined_error:  # noqa: BLE001
+        # Compatibility format: each numbered file is a complete Base64 object.
+        decoded_parts: list[bytes] = []
+        try:
+            for chunk, payload in zip(chunks, payloads, strict=True):
+                decoded_parts.append(base64.b64decode(payload, validate=True))
+        except Exception as part_error:  # noqa: BLE001
+            raise RuntimeError(
+                "Invalid Base64 chunks in both supported layouts:\n"
+                f"  joined-stream error: {joined_error}\n"
+                f"  independent-chunk error at {chunk.name}: {part_error}"
+            ) from part_error
+        return b"".join(decoded_parts)
+
+
 def restore(root: Path, output: Path) -> Path:
     chunks_dir = root / "chunks"
     if not chunks_dir.is_dir():
@@ -53,12 +79,7 @@ def restore(root: Path, output: Path) -> Path:
             f"  actual:   {actual_names}"
         )
 
-    encoded = b"".join(chunk.read_bytes().strip() for chunk in chunks)
-    try:
-        decoded = base64.b64decode(encoded, validate=True)
-    except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"Invalid Base64 chunks: {exc}") from exc
-
+    decoded = decode_chunks(chunks)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(decoded)
 
