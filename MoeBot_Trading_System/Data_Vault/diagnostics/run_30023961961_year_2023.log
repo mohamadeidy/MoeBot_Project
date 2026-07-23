@@ -1,0 +1,26 @@
+Traceback (most recent call last):
+  File "/home/runner/work/MoeBot_Project/MoeBot_Project/MoeBot_Trading_System/Data_Vault/rebuild/run_frozen_pipeline.py", line 134, in <module>
+    main()
+  File "/home/runner/work/MoeBot_Project/MoeBot_Project/MoeBot_Trading_System/Data_Vault/rebuild/run_frozen_pipeline.py", line 127, in main
+    result = build(args.year, args.source, args.runtime_root, args.work_dir, args.group6_output)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/MoeBot_Project/MoeBot_Project/MoeBot_Trading_System/Data_Vault/rebuild/run_frozen_pipeline.py", line 103, in build
+    logs["group4_build"] = run([py, str(engines["g4"]), "--source-db", str(source), "--group3-db", str(paths["group3"]), "--out-db", str(paths["group4"])])
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/MoeBot_Project/MoeBot_Project/MoeBot_Trading_System/Data_Vault/rebuild/run_frozen_pipeline.py", line 38, in run
+    raise RuntimeError(json.dumps(result, indent=2))
+RuntimeError: {
+  "command": [
+    "/opt/hostedtoolcache/Python/3.12.13/x64/bin/python",
+    "/home/runner/work/_temp/frozen_groups_2_6/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py",
+    "--source-db",
+    "/home/runner/work/_temp/build/2023/source_2023_rebuilt_dukascopy_v1.sqlite",
+    "--group3-db",
+    "/home/runner/work/_temp/build/2023/intermediate/MoeBot_Group3_XAUUSD_2023_v0.1.1_rebuilt_dukascopy_v1.sqlite",
+    "--out-db",
+    "/home/runner/work/_temp/build/2023/intermediate/MoeBot_Group4_XAUUSD_2023_v0.1.6_rebuilt_dukascopy_v1.sqlite"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 5.088,
+  "output": "Traceback (most recent call last):\n  File \"/home/runner/work/_temp/frozen_groups_2_6/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py\", line 935, in <module>\n    if __name__==\"__main__\": main()\n                             ^^^^^^\n  File \"/home/runner/work/_temp/frozen_groups_2_6/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py\", line 928, in main\n    summary=eng.run(args.source_db,args.group3_db,args.out_db)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/_temp/frozen_groups_2_6/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py\", line 903, in run\n    zones,interactions,transitions=self.run_lifecycle(bars,zones)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/_temp/frozen_groups_2_6/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py\", line 521, in run_lifecycle\n    import numpy as np\nModuleNotFoundError: No module named 'numpy'\n"
+}
