@@ -1,23 +1,102 @@
 {
   "format_version": 1,
-  "status": "awaiting_public_build",
-  "lineage": "dukascopy_rebuild_v1",
-  "public_repository": "mohamadeidy/MoeBot_Project",
-  "release_tag": "moebot-sqlite-rebuild-v1",
-  "workflow": ".github/workflows/build-moebot-sqlite-vault.yml",
   "legacy_identity_notice": {
     "legacy_files_unavailable": true,
     "legacy_hashes_are_not_reused": true,
     "requires_group7_annual_revalidation": true
   },
-  "expected_outputs": {
-    "2023": [
-      "source_2023_rebuilt_dukascopy_v1.sqlite",
-      "MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite"
-    ],
-    "2024": [
-      "source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
-      "MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite"
-    ]
+  "lineage": "dukascopy_rebuild_v1",
+  "public_repository": "mohamadeidy/MoeBot_Project",
+  "release_tag": "moebot-sqlite-rebuild-v1",
+  "status": "published",
+  "years": {
+    "2023": {
+      "databases": {
+        "group6": {
+          "compressed_filename": "MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite.zst",
+          "compressed_sha256": "6f52d7c102efd0e737304a92ee42e51ada17f7720a88db99e7b9608e8b45802d",
+          "compressed_size_bytes": 363239140,
+          "compression": "zstd -19 --long=31",
+          "database_filename": "MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+          "database_sha256": "35004ebb105f6d02a89021760258950f1ad20f23d6ddbac2a8d0bf567fe04f46",
+          "database_size_bytes": 2156257280,
+          "parts": [
+            {
+              "filename": "MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+              "sha256": "6f52d7c102efd0e737304a92ee42e51ada17f7720a88db99e7b9608e8b45802d",
+              "size_bytes": 363239140,
+              "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-sqlite-rebuild-v1/MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+            }
+          ]
+        },
+        "source": {
+          "compressed_filename": "source_2023_rebuilt_dukascopy_v1.sqlite.zst",
+          "compressed_sha256": "2523318677d5bc47a4037d1ca67990814715ec2067e695afceedcf07de11260e",
+          "compressed_size_bytes": 27973393,
+          "compression": "zstd -19 --long=31",
+          "database_filename": "source_2023_rebuilt_dukascopy_v1.sqlite",
+          "database_sha256": "68b48fd154f6a41ae1a7d2a2d835abb91a944cdf8bcdbda0618e632076a9a9c1",
+          "database_size_bytes": 120107008,
+          "parts": [
+            {
+              "filename": "source_2023_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+              "sha256": "2523318677d5bc47a4037d1ca67990814715ec2067e695afceedcf07de11260e",
+              "size_bytes": 27973393,
+              "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-sqlite-rebuild-v1/source_2023_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+            }
+          ]
+        }
+      },
+      "format_version": 1,
+      "lineage": "dukascopy_rebuild_v1",
+      "release_tag": "moebot-sqlite-rebuild-v1",
+      "repository": "mohamadeidy/MoeBot_Project",
+      "warning": "New validated rebuild lineage; not byte-identical to unavailable legacy Collector databases",
+      "year": 2023
+    },
+    "2024": {
+      "databases": {
+        "group6": {
+          "compressed_filename": "MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite.zst",
+          "compressed_sha256": "d3fcec6ed8685c9c8acf06d6accd462df920d03f9f7511c3d87a95d9f12d360c",
+          "compressed_size_bytes": 352643800,
+          "compression": "zstd -19 --long=31",
+          "database_filename": "MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+          "database_sha256": "4c212ab7516a95b0f0a6e05257529be56188a3bbd48dd1f2f9f621b6ce08cdef",
+          "database_size_bytes": 2075295744,
+          "parts": [
+            {
+              "filename": "MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+              "sha256": "d3fcec6ed8685c9c8acf06d6accd462df920d03f9f7511c3d87a95d9f12d360c",
+              "size_bytes": 352643800,
+              "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-sqlite-rebuild-v1/MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+            }
+          ]
+        },
+        "source": {
+          "compressed_filename": "source_2024_canonical_rebuilt_dukascopy_v1.sqlite.zst",
+          "compressed_sha256": "3536443dc16bca800ce84c4edae4e6e05d284ac78312c3d5004a2d1d0b7103f3",
+          "compressed_size_bytes": 28449332,
+          "compression": "zstd -19 --long=31",
+          "database_filename": "source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
+          "database_sha256": "4d18ff7ca052ae9d744acf3b8d2537929495b920110748bbdd4dc0c0c49ab792",
+          "database_size_bytes": 121090048,
+          "parts": [
+            {
+              "filename": "source_2024_canonical_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+              "sha256": "3536443dc16bca800ce84c4edae4e6e05d284ac78312c3d5004a2d1d0b7103f3",
+              "size_bytes": 28449332,
+              "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-sqlite-rebuild-v1/source_2024_canonical_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+            }
+          ]
+        }
+      },
+      "format_version": 1,
+      "lineage": "dukascopy_rebuild_v1",
+      "release_tag": "moebot-sqlite-rebuild-v1",
+      "repository": "mohamadeidy/MoeBot_Project",
+      "warning": "New validated rebuild lineage; not byte-identical to unavailable legacy Collector databases",
+      "year": 2024
+    }
   }
 }
