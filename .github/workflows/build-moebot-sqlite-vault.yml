@@ -43,9 +43,12 @@ jobs:
 
       - name: Restore missing archival runtime chunk
         run: |
+          ARCHIVE_COMMIT="b58a79cff032d98dd7c60104b997ee7a1da7001a"
           CHUNKS_DIR="MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/chunks"
           mkdir -p "$CHUNKS_DIR"
-          git show b58a79cff032d98dd7c60104b997ee7a1da7001a:"$CHUNKS_DIR/part_002.b64" > "$CHUNKS_DIR/part_002.b64"
+          git fetch --no-tags --depth=1 origin "$ARCHIVE_COMMIT"
+          git cat-file -e "$ARCHIVE_COMMIT:$CHUNKS_DIR/part_002.b64"
+          git show "$ARCHIVE_COMMIT:$CHUNKS_DIR/part_002.b64" > "$CHUNKS_DIR/part_002.b64"
           test -s "$CHUNKS_DIR/part_002.b64"
           echo "Recovered part_002.b64 from the original archival commit."
 
