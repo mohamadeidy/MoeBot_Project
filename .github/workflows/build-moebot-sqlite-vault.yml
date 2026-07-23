@@ -3,6 +3,13 @@ name: Build MoeBot SQLite Data Vault
 "on":
   workflow_dispatch:
   "public":
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-moebot-sqlite-vault.yml"
+      - "MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/restore_bundle.py"
+      - "MoeBot_Trading_System/Data_Vault/rebuild/**"
 
 permissions:
   contents: write
