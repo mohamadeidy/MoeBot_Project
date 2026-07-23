@@ -20,6 +20,9 @@ jobs:
       - name: Dispatch annual SQLite vault build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run build-moebot-sqlite-vault.yml --ref main
+        run: >-
+          gh workflow run build-moebot-sqlite-vault.yml
+          --repo mohamadeidy/MoeBot_Project
+          --ref main
 
-# Retry 2: dispatch after restoring chunk decoder fix on main.
+# Retry 3: explicitly target the repository so dispatch works outside a checkout.
