@@ -42,15 +42,18 @@ jobs:
             | tee "$RUNNER_TEMP/moebot-clean-room/restore-output.json"
 
       - name: Produce independent verification evidence
+        env:
+          CLEAN_ROOM_ROOT: ${{ runner.temp }}/moebot-clean-room
         run: |
           python - <<'PY'
           import datetime as dt
           import hashlib
           import json
+          import os
           import sqlite3
           from pathlib import Path
 
-          root = Path("${{ runner.temp }}") / "moebot-clean-room"
+          root = Path(os.environ["CLEAN_ROOM_ROOT"])
           registry_path = Path("MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json")
           registry = json.loads(registry_path.read_text(encoding="utf-8"))
 
