@@ -82,13 +82,15 @@ jobs:
               raise SystemExit(f"Group 7 audit failed: {audit}")
           print("PASS: 47/47 tests and independent audit")
           PY
-      - name: Replace bootstrap transport with restored source
+      - name: Commit restored Group 7 source without workflow mutation
         shell: bash
         run: |
           rm -rf MoeBot_Trading_System/Group_7_bootstrap
-          rm -f .github/workflows/bootstrap-moebot-group7-source.yml
+          rm -f .github/workflows/build-moebot-group7.yml
+          find MoeBot_Trading_System/Group_7 -type d -name __pycache__ -prune -exec rm -rf {} +
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add MoeBot_Trading_System/Group_7
+          git add -u MoeBot_Trading_System/Group_7_bootstrap
           git commit -m "Add MoeBot Group 7 v0.7.5 annual closure package"
           git push origin HEAD:agent/group7-v075-annual-closure
