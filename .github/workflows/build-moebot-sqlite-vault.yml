@@ -36,10 +36,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install system tools
+      - name: Install system and Python runtime tools
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
+          python -m pip install --disable-pip-version-check --no-cache-dir numpy
 
       - name: Restore frozen Groups 2-6 runtime bundle
         run: |
