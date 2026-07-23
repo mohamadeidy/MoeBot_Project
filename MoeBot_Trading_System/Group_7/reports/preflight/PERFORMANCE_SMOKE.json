@@ -1,0 +1,10 @@
+{
+  "bars": 5000,
+  "elapsed_seconds": 0.165439,
+  "method": "dynamic SQLite RTree candidate retrieval with exact Python recheck",
+  "naive_zone_bar_checks_avoided": 100000000,
+  "passed": true,
+  "transitions": 0,
+  "visits": 0,
+  "zones": 20000
+}

@@ -1,0 +1,32 @@
+{
+  "2023": {
+    "group6": {
+      "filename": "MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+      "sha256": "35004ebb105f6d02a89021760258950f1ad20f23d6ddbac2a8d0bf567fe04f46",
+      "size_bytes": 2156257280
+    },
+    "source": {
+      "filename": "source_2023_rebuilt_dukascopy_v1.sqlite",
+      "sha256": "68b48fd154f6a41ae1a7d2a2d835abb91a944cdf8bcdbda0618e632076a9a9c1",
+      "size_bytes": 120107008
+    }
+  },
+  "2024": {
+    "group6": {
+      "filename": "MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+      "sha256": "4c212ab7516a95b0f0a6e05257529be56188a3bbd48dd1f2f9f621b6ce08cdef",
+      "size_bytes": 2075295744
+    },
+    "source": {
+      "filename": "source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
+      "sha256": "4d18ff7ca052ae9d744acf3b8d2537929495b920110748bbdd4dc0c0c49ab792",
+      "size_bytes": 121090048
+    }
+  },
+  "legacy_identity_notice": {
+    "annual_results_are_new_validated_lineage": true,
+    "legacy_files_unavailable": true,
+    "legacy_hashes_not_reused": true
+  },
+  "lineage": "dukascopy_rebuild_v1"
+}
