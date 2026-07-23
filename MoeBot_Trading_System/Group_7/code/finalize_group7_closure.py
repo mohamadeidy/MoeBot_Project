@@ -59,7 +59,8 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     args = parser.parse_args()
 
-    registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
+    registry_path = Path(args.registry)
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
     clean = json.loads(Path(args.clean_room_report).read_text(encoding="utf-8"))
     passed = registry["cross_year"]["passed"] and clean["status"] == "pass"
     if not passed:
@@ -68,6 +69,16 @@ def main() -> None:
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     closed_at = dt.datetime.now(dt.timezone.utc).isoformat()
+
+    # Finalize the registry bytes before hashing repository dependencies. The
+    # workflow's subsequent compatibility write applies the same value and format,
+    # so the handoff SHA remains valid after the closure commit.
+    registry["status"] = "published_verified_officially_closed"
+    registry_path.write_text(
+        json.dumps(registry, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
     status = {
         "group": 7,
         "status": "OFFICIALLY_CLOSED",
