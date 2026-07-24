@@ -1,6 +1,6 @@
 {
   "closed_at_utc": "2026-07-24T01:39:33.632015+00:00",
-  "closure_commit_sha": "80cc64c45ba613c2ef4a6cc7766ef9d139f7d5fb",
+  "closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
   "closure_tag": "moebot-group7-v0.7.5-closure",
   "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
   "data_release_tag": "moebot-group7-v0.7.5",
