@@ -1,28 +1,100 @@
 {
   "bundle_filename": "MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar.zst",
-  "bundle_sha256": "6d4daaa0f9a4e817639b52b0c40fe36552e2b4e75735de84225a2c6c2de0f282",
-  "bundle_size_bytes": 63541,
+  "bundle_sha256": "203657ca74ccc6badb27947eb23dc6c4ff9140e73ab943c0fd82bf46c8cfb80f",
+  "bundle_size_bytes": 63540,
   "chunk_count": 8,
   "chunk_encoding": "independent_base64_objects",
   "chunks": [
-    {"decoded_sha256":"0ebdc1d7c88af72ba40d853a016eb346d8fd74544b6f0809d119de558192e4b7","decoded_size_bytes":8192,"name":"part_000.b64","text_size_bytes":10925},
-    {"decoded_sha256":"102dc1305fd41de0c2b7e967cec6e8072338f41ca730f167597c3f8481ea9b8a","decoded_size_bytes":8192,"name":"part_001.b64","text_size_bytes":10925},
-    {"decoded_sha256":"e4cc7bbdd1f918c713c7adbcf91a56e35de4dfcada2d2efe9a8efa553d9cbf1a","decoded_size_bytes":8192,"name":"part_002.b64","text_size_bytes":10925},
-    {"decoded_sha256":"d95f618bb7d424fb0b8799c33d04f3bd53e335d38ffd9e44777ff5d32871af34","decoded_size_bytes":8192,"name":"part_003.b64","text_size_bytes":10925},
-    {"decoded_sha256":"4dd9b8b0d6e551b22a18ea08c8b56030c2ee663d1d8c55095bfa3b120665db05","decoded_size_bytes":8192,"name":"part_004.b64","text_size_bytes":10925},
-    {"decoded_sha256":"006d1e9842ee98afb346f9ba7860a2759d750189ca087996bb8fbdab0c3f90aa","decoded_size_bytes":8192,"name":"part_005.b64","text_size_bytes":10925},
-    {"decoded_sha256":"f752ae6e15b9e0b57525786fd3578eff8ac32e3a82de022c8370e67657725bc1","decoded_size_bytes":8192,"name":"part_006.b64","text_size_bytes":10925},
-    {"decoded_sha256":"cd8d49941585f94f5d52bdd9bf7af2ee93da7ee7cb0e6de4227e81982ca39f1b","decoded_size_bytes":6197,"name":"part_007.b64","text_size_bytes":8265}
+    {
+      "decoded_sha256": "79b85e0127692100b799f82e2418b03277a19759120bd77f3b4e28db205c31f9",
+      "decoded_size_bytes": 8192,
+      "name": "part_000.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "5d039c6c7915326e47f0fd23c45cb906b79dcc7825386ef881675a84cb28ad73",
+      "decoded_size_bytes": 8192,
+      "name": "part_001.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "02105ad3ee3b9fba490e9499917c074382c8d990f682dda86b22d6ce0d445e98",
+      "decoded_size_bytes": 8192,
+      "name": "part_002.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "b45aaeb365d0d9feec558fd2bec99d8a7f323a31af841d42d4c2014cfdbb6cad",
+      "decoded_size_bytes": 8192,
+      "name": "part_003.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "a3e8b4b32174dffbe69535157d632e60a686275efdaf97e0a299c615d1abd224",
+      "decoded_size_bytes": 8192,
+      "name": "part_004.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "e32c2c287680ca3bc575c00fe598bfb1e326c050695ca65d7dfa2432129b80c5",
+      "decoded_size_bytes": 8192,
+      "name": "part_005.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "5c8ad388d182387a52d2e26b15a0256678a687dce3256889212950828fce2bae",
+      "decoded_size_bytes": 8192,
+      "name": "part_006.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "b9fee94836d18eb2c90e619f349936956f18c58e7e5c09b08d0048e333e80196",
+      "decoded_size_bytes": 6196,
+      "name": "part_007.b64",
+      "text_size_bytes": 8265
+    }
   ],
   "format_version": 3,
-  "provenance": {"base_bundle_generation":"v2","group4_canonical_source":"File Library official Group 4 v0.1.6 delivery","group5_canonical_source":"File Library official Group 5 v0.1.6 delivery","reason":"Correct G4/G5 source-byte mismatch discovered by Group 8 dependency intake"},
+  "provenance": {
+    "base_bundle_generation": "v2",
+    "group4_official_sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+    "group4_official_size_bytes": 57168,
+    "group5_official_sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+    "group5_official_size_bytes": 59657,
+    "reason": "Correct G4/G5 source-byte mismatch detected by Group 8 dependency intake"
+  },
   "runtime_engines": {
-    "group2": {"path":"runtime/groups2_5/code/moebot_group2_engine_v0_2_1.py","sha256":"3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926","size_bytes":35853},
-    "group3": {"path":"runtime/groups2_5/code/moebot_group3_structure_engine_v0_1_1.py","sha256":"8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512","size_bytes":23933},
-    "group4": {"path":"runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py","sha256":"744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad","size_bytes":57168},
-    "group5": {"path":"runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py","sha256":"97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc","size_bytes":59657},
-    "group6": {"path":"runtime/group6/code/moebot_group6_engine.py","sha256":"1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877","size_bytes":64524}
+    "group2": {
+      "path": "runtime/groups2_5/code/moebot_group2_engine_v0_2_1.py",
+      "sha256": "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926",
+      "size_bytes": 35853
+    },
+    "group3": {
+      "path": "runtime/groups2_5/code/moebot_group3_structure_engine_v0_1_1.py",
+      "sha256": "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512",
+      "size_bytes": 23933
+    },
+    "group4": {
+      "path": "runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py",
+      "sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+      "size_bytes": 57168
+    },
+    "group5": {
+      "path": "runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py",
+      "sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+      "size_bytes": 59657
+    },
+    "group6": {
+      "path": "runtime/group6/code/moebot_group6_engine.py",
+      "sha256": "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877",
+      "size_bytes": 64524
+    }
   },
   "status": "frozen_verified_runtime",
-  "verification_policy": {"all_five_engines_must_match":true,"archive_sha_required":true,"source_sha_required":true,"source_size_required":true}
+  "verification_policy": {
+    "all_five_engines_must_match": true,
+    "archive_sha_required": true,
+    "source_sha_required": true,
+    "source_size_required": true
+  }
 }
