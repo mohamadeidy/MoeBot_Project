@@ -1,0 +1,49 @@
+name: MoeBot Group 7 Tag Publication Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_7/registry/TRIGGER_TAG_PUBLICATION_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  FAILED_JOB_ID: "89608956312"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download exact failed publication job log
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$FAILED_JOB_ID/logs" > "$RUNNER_TEMP/failed.log"
+          test -s "$RUNNER_TEMP/failed.log"
+      - name: Extract tag creation failure context
+        run: |
+          python - <<'PY' | tee "$RUNNER_TEMP/tag-failure-context.txt"
+          import os,re
+          from pathlib import Path
+          lines=(Path(os.environ['RUNNER_TEMP'])/'failed.log').read_text(encoding='utf-8',errors='replace').splitlines()
+          hits=[]
+          pats=('Create recovery tag explicitly','git push origin','remote:','##[error]','error:','fatal:','GH013','ruleset','protected','permission','denied','403','422')
+          for i,line in enumerate(lines):
+              low=line.lower()
+              if any(p.lower() in low for p in pats):
+                  lo=max(0,i-8); hi=min(len(lines),i+12)
+                  hits.append(f'--- around line {i+1} ---')
+                  hits.extend(lines[lo:hi])
+          text='\n'.join(hits)+'\n'
+          print(text)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-tag-publication-failure-context
+          path: ${{ runner.temp }}/tag-failure-context.txt
+          retention-days: 30
