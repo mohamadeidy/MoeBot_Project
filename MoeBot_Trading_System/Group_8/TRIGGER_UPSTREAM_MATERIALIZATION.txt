@@ -1,0 +1,1 @@
+Materialize and freeze real annual Groups 2-5 dependencies from canonical runtime v3, prove Group 6 semantic equivalence to the published Data Vault, publish additive SHA-pinned assets, clean-room verify 2023/2024, and build the permanent Group 8 upstream registry.
