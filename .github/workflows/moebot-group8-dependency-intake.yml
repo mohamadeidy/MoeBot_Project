@@ -8,7 +8,7 @@ name: MoeBot Group 8 Dependency Intake
       - "MoeBot_Trading_System/Group_8/code/group8_dependency_intake.py"
       - "MoeBot_Trading_System/Group_8/code/group8_real_schema_intake.py"
       - "MoeBot_Trading_System/Group_8/code/group8_bundle_diagnostic.py"
-      - "MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/**"
+      - "MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v2/**"
       - ".github/workflows/moebot-group8-dependency-intake.yml"
   pull_request:
     branches:
@@ -22,7 +22,7 @@ permissions:
 
 env:
   GROUP8_ROOT: MoeBot_Trading_System/Group_8
-  BUNDLE_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle
+  BUNDLE_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v2
   CLOSURE_TAG: moebot-group7-v0.7.5-closure
   CLOSURE_SHA: c9a481d5d8f40bc80d833ef1d135fe56578b5fe2
   GROUP7_2023_URL: https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000
@@ -53,34 +53,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
 
-      - name: Restore missing archival runtime chunk
-        run: |
-          CHUNKS_DIR="$BUNDLE_ROOT/chunks"
-          mkdir -p "$CHUNKS_DIR"
-          git fetch --no-tags origin b58a79cff032d98dd7c60104b997ee7a1da7001a
-          git cat-file -e b58a79cff032d98dd7c60104b997ee7a1da7001a^{commit}
-          git show b58a79cff032d98dd7c60104b997ee7a1da7001a:"$CHUNKS_DIR/part_002.b64" > "$CHUNKS_DIR/part_002.b64"
-          test -s "$CHUNKS_DIR/part_002.b64"
-
-      - name: Diagnose frozen Groups 2-6 runtime bundle
+      - name: Diagnose verified Groups 2-6 runtime bundle v2
         run: |
           python "$GROUP8_ROOT/code/group8_bundle_diagnostic.py" \
             --bundle-root "$BUNDLE_ROOT" \
             --output "$GROUP8_ROOT/reports/00_BUNDLE_DIAGNOSTIC.json"
 
-      - name: Upload bundle diagnostic
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: group8-bundle-diagnostic
-          path: ${{ env.GROUP8_ROOT }}/reports/00_BUNDLE_DIAGNOSTIC.json
-          retention-days: 7
-
       - name: Restore exact Groups 2-6 runtime and inventory static schemas
         run: |
           rm -rf "$RUNNER_TEMP/moebot-groups2-6"
           python "$BUNDLE_ROOT/restore_bundle.py" \
-            --output "$RUNNER_TEMP/MoeBot_Groups2-6_Frozen_Runtime_Sources.tar.zst" \
+            --output "$RUNNER_TEMP/MoeBot_Groups2-6_Frozen_Runtime_Sources_v2.tar.zst" \
             --extract-to "$RUNNER_TEMP/moebot-groups2-6"
           python "$GROUP8_ROOT/code/group8_dependency_intake.py" \
             --restored-root "$RUNNER_TEMP/moebot-groups2-6" \
@@ -122,6 +105,8 @@ jobs:
               "data_release_sha256": "PASS",
               "repository_dependency_sha256": "PASS",
               "sqlite_integrity": "PASS",
+              "frozen_runtime_bundle_generation": "v2",
+              "frozen_runtime_bundle_sha256": "d12deaadb90f7c7a30337246eb144e55399bdad1e4e2e065fb95723c3ae2d436",
               "frozen_runtime_bundle_identity": "PASS",
               "frozen_runtime_schema_inventory": "PASS",
               "real_sqlite_schema_inventory": "PASS",
