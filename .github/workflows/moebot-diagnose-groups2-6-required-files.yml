@@ -1,0 +1,104 @@
+name: MoeBot Diagnose Groups 2-6 REQUIRED_FILES
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || 'main' }}
+          fetch-depth: 0
+
+      - name: Diagnose archive packs
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+          import base64, hashlib, json, shutil, tarfile, tempfile, traceback
+          from pathlib import Path
+
+          root = Path.cwd()
+          specs = {
+              "group2": (root/"MoeBot_Trading_System/Group_2/archive", "Group_2_REQUIRED_FILES.tar.gz.b64.part-", "moebot_group2_engine_v0_2_1.py", "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926"),
+              "group3": (root/"MoeBot_Trading_System/Group_3/archive", "Group_3_REQUIRED_FILES.tar.gz.b64.part-", "moebot_group3_structure_engine_v0_1_1.py", "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512"),
+              "group4": (root/"MoeBot_Trading_System/Group_4/archive", "Group_4_REQUIRED_FILES.tar.gz.b64.part-", "moebot_group4_zones_engine_v0_1_6.py", "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad"),
+              "group5": (root/"MoeBot_Trading_System/Group_5/archive", "Group_5_REQUIRED_FILES.tar.gz.b64.part-", "moebot_group5_liquidity_engine_v0_1_6.py", "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc"),
+              "group6": (root/"MoeBot_Trading_System/Group_6/archive", "Group_6_REQUIRED_FILES.tar.gz.b64.part-", "moebot_group6_engine.py", "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877"),
+          }
+          report = {"format_version": 1, "groups": {}}
+          with tempfile.TemporaryDirectory() as td:
+              temp = Path(td)
+              for group, (adir, prefix, filename, expected) in specs.items():
+                  rec = {"archive_dir": str(adir.relative_to(root)), "expected_filename": filename, "expected_sha256": expected}
+                  report["groups"][group] = rec
+                  try:
+                      parts = sorted(adir.glob(prefix + "*"))
+                      rec["parts"] = [{"name": p.name, "size_bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in parts]
+                      rec["part_count"] = len(parts)
+                      payloads = [p.read_bytes().strip() for p in parts]
+                      candidates = []
+                      try:
+                          b = base64.b64decode(b"".join(payloads), validate=True)
+                          candidates.append(("joined_stream", b))
+                      except Exception as exc:
+                          rec["joined_stream_error"] = repr(exc)
+                      try:
+                          b = b"".join(base64.b64decode(x, validate=True) for x in payloads)
+                          candidates.append(("independent_objects", b))
+                      except Exception as exc:
+                          rec["independent_objects_error"] = repr(exc)
+                      rec["decode_candidates"] = []
+                      success = False
+                      for mode, data in candidates:
+                          cand = {"mode": mode, "size_bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(), "gzip_magic": data[:2].hex()}
+                          rec["decode_candidates"].append(cand)
+                          archive = temp / f"{group}_{mode}.tar.gz"
+                          archive.write_bytes(data)
+                          edir = temp / f"{group}_{mode}_extract"
+                          edir.mkdir(exist_ok=True)
+                          try:
+                              with tarfile.open(archive, "r:gz") as tf:
+                                  names = tf.getnames()
+                                  cand["tar_open"] = "PASS"
+                                  cand["tar_names"] = names[:200]
+                                  tf.extractall(edir)
+                              matches = list(edir.rglob(filename))
+                              cand["filename_matches"] = [str(p.relative_to(edir)) for p in matches]
+                              if len(matches) == 1:
+                                  src = matches[0]
+                                  raw = src.read_bytes()
+                                  cand["source_size_bytes"] = len(raw)
+                                  cand["source_sha256"] = hashlib.sha256(raw).hexdigest()
+                                  cand["source_match"] = cand["source_sha256"] == expected
+                                  success = success or cand["source_match"]
+                          except Exception as exc:
+                              cand["tar_error"] = repr(exc)
+                      rec["status"] = "PASS" if success else "FAIL"
+                  except Exception as exc:
+                      rec["status"] = "FAIL"
+                      rec["fatal_error"] = repr(exc)
+                      rec["traceback"] = traceback.format_exc()
+          report["verdict"] = "PASS" if all(x.get("status") == "PASS" for x in report["groups"].values()) else "FAIL"
+          out = root / "MoeBot_Trading_System/Group_8/reports/00_REQUIRED_FILES_ARCHIVE_DIAGNOSTIC.json"
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: groups2-6-required-files-diagnostic
+          path: MoeBot_Trading_System/Group_8/reports/00_REQUIRED_FILES_ARCHIVE_DIAGNOSTIC.json
+          retention-days: 7
