@@ -57,6 +57,8 @@ def main() -> None:
     parser.add_argument("--registry", required=True)
     parser.add_argument("--clean-room-report", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--closure-tag", required=True)
+    parser.add_argument("--closure-commit-sha", required=True)
     args = parser.parse_args()
 
     registry_path = Path(args.registry)
@@ -69,6 +71,7 @@ def main() -> None:
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     closed_at = dt.datetime.now(dt.timezone.utc).isoformat()
+    data_release_tag = registry["release_tag"]
 
     # Finalize the registry bytes before hashing repository dependencies. The
     # workflow's subsequent compatibility write applies the same value and format,
@@ -88,7 +91,10 @@ def main() -> None:
         "schema_version": registry["schema_version"],
         "config_id": registry["config_id"],
         "lineage": registry["lineage"],
-        "release_tag": registry["release_tag"],
+        "data_release_tag": data_release_tag,
+        "closure_tag": args.closure_tag,
+        "closure_commit_sha": args.closure_commit_sha,
+        "release_tag": data_release_tag,
         "closed_at_utc": closed_at,
     }
 
@@ -104,7 +110,10 @@ def main() -> None:
         "group8_authorized": True,
         "closed_at_utc": closed_at,
         "public_repository": registry["public_repository"],
-        "release_tag": registry["release_tag"],
+        "data_release_tag": data_release_tag,
+        "closure_tag": args.closure_tag,
+        "closure_commit_sha": args.closure_commit_sha,
+        "release_tag": data_release_tag,
         "engine_version": registry["engine_version"],
         "schema_version": registry["schema_version"],
         "config_id": registry["config_id"],
@@ -131,6 +140,8 @@ def main() -> None:
         "future_group_rules": [
             "consume Group 7 read-only",
             "verify every repository file and database against this manifest before use",
+            "treat data_release_tag as the immutable database-asset reference",
+            "treat closure_tag and closure_commit_sha as the immutable source-and-handoff reference",
             "preserve candidate, match, and zone lifecycle separation",
             "never backdate a zone to the displacement origin",
             "do not reinterpret descriptive blocks as trade signals",
