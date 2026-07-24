@@ -1,14 +1,6 @@
 name: MoeBot Group 8 Dependency Intake
 
 "on":
-  push:
-    branches: [main]
-    paths:
-      - "MoeBot_Trading_System/Group_8/code/group8_dependency_intake.py"
-      - "MoeBot_Trading_System/Group_8/code/group8_real_schema_intake.py"
-      - "MoeBot_Trading_System/Group_8/code/group8_bundle_diagnostic.py"
-      - "MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v2/**"
-      - ".github/workflows/moebot-group8-dependency-intake.yml"
   pull_request:
     branches: [main]
     paths:
@@ -20,7 +12,7 @@ permissions:
 
 env:
   GROUP8_ROOT: MoeBot_Trading_System/Group_8
-  BUNDLE_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v2
+  BUNDLE_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3
   CLOSURE_TAG: moebot-group7-v0.7.5-closure
   CLOSURE_SHA: c9a481d5d8f40bc80d833ef1d135fe56578b5fe2
   GROUP7_2023_URL: https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000
@@ -51,39 +43,42 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
 
-      - name: Diagnose verified Groups 2-6 runtime bundle v2
+      - name: Diagnose canonical Groups 2-6 runtime bundle v3
         run: |
           python "$GROUP8_ROOT/code/group8_bundle_diagnostic.py" \
             --bundle-root "$BUNDLE_ROOT" \
             --output "$GROUP8_ROOT/reports/00_BUNDLE_DIAGNOSTIC.json"
 
-      - name: Restore exact Groups 2-6 runtime bundle v2
+      - name: Restore and verify canonical Groups 2-6 runtime bundle v3
         run: |
           rm -rf "$RUNNER_TEMP/moebot-groups2-6"
           python "$BUNDLE_ROOT/restore_bundle.py" \
-            --output "$RUNNER_TEMP/MoeBot_Groups2-6_Frozen_Runtime_Sources_v2.tar.zst" \
+            --output "$RUNNER_TEMP/MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar.zst" \
             --extract-to "$RUNNER_TEMP/moebot-groups2-6"
 
-      - name: Upload restored runtime sources
-        uses: actions/upload-artifact@v4
-        with:
-          name: group8-restored-runtime-sources
-          path: ${{ runner.temp }}/moebot-groups2-6
-          retention-days: 7
-
       - name: Inventory exact frozen runtime schemas
-        id: static_inventory
-        continue-on-error: true
         run: |
           set -o pipefail
           python "$GROUP8_ROOT/code/group8_dependency_intake.py" \
             --restored-root "$RUNNER_TEMP/moebot-groups2-6" \
             --output "$GROUP8_ROOT/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json" \
             2>&1 | tee "$GROUP8_ROOT/reports/01_STATIC_SCHEMA_INVENTORY.log"
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System")
+          manifest=json.loads((root/"archive/groups_2_6_frozen_runtime_bundle_v3/BUNDLE_MANIFEST.json").read_text())
+          path=root/"Group_8/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json"
+          report=json.loads(path.read_text())
+          report["bundle_generation"]="v3"
+          report["bundle_sha256"]=manifest["bundle_sha256"]
+          report["bundle_size_bytes"]=manifest["bundle_size_bytes"]
+          payload=dict(report); payload.pop("report_hash",None)
+          report["report_hash"]=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
+          path.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+          PY
 
       - name: Download and verify real Group 7 2023 database
-        id: real_inventory
-        continue-on-error: true
         run: |
           set -o pipefail
           COMPRESSED="$RUNNER_TEMP/group7_2023.sqlite.zst"
@@ -102,75 +97,78 @@ jobs:
           rm -f "$DATABASE"
 
       - name: Finalize dependency intake status
-        if: always()
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          root = Path("MoeBot_Trading_System/Group_8")
-          def load(name):
-              path = root / name
-              return json.loads(path.read_text()) if path.exists() and path.stat().st_size else None
-          diagnostic = load("reports/00_BUNDLE_DIAGNOSTIC.json")
-          static = load("reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json")
-          real = load("reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json")
-          passed = bool(diagnostic and static and real and diagnostic.get("status") == "pass" and static.get("status") == "pass" and real.get("status") == "pass")
-          status_path = root / "STATUS.json"
-          status = json.loads(status_path.read_text())
-          status["dependency_intake"] = {
-              "closure_reference": "PASS",
-              "closure_tag": "moebot-group7-v0.7.5-closure",
-              "closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
-              "data_release_sha256": "PASS",
-              "repository_dependency_sha256": "PASS",
-              "sqlite_integrity": "PASS" if real and real.get("sqlite", {}).get("pass") else "PENDING_OR_FAIL",
-              "frozen_runtime_bundle_generation": "v2",
-              "frozen_runtime_bundle_sha256": "d12deaadb90f7c7a30337246eb144e55399bdad1e4e2e065fb95723c3ae2d436",
-              "frozen_runtime_bundle_identity": "PASS" if diagnostic and diagnostic.get("status") == "pass" else "FAIL",
-              "frozen_runtime_schema_inventory": "PASS" if static and static.get("status") == "pass" else "FAIL",
-              "real_sqlite_schema_inventory": "PASS" if real and real.get("status") == "pass" else "FAIL",
-              "verdict": "PASS" if passed else "FAIL"
+          root=Path("MoeBot_Trading_System/Group_8")
+          manifest=json.loads(Path("MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3/BUNDLE_MANIFEST.json").read_text())
+          diagnostic=json.loads((root/"reports/00_BUNDLE_DIAGNOSTIC.json").read_text())
+          static=json.loads((root/"reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json").read_text())
+          real=json.loads((root/"reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json").read_text())
+          passed=(diagnostic.get("status")=="pass" and static.get("status")=="pass" and real.get("status")=="pass")
+          status_path=root/"STATUS.json"
+          status=json.loads(status_path.read_text())
+          status["dependency_intake"]={
+            "closure_reference":"PASS",
+            "closure_tag":"moebot-group7-v0.7.5-closure",
+            "closure_commit_sha":"c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
+            "group7_2023_database_identity":"PASS" if real.get("database",{}).get("identity_pass") else "FAIL",
+            "sqlite_integrity":"PASS" if real.get("sqlite",{}).get("pass") else "FAIL",
+            "frozen_runtime_bundle_generation":"v3",
+            "frozen_runtime_bundle_sha256":manifest["bundle_sha256"],
+            "frozen_runtime_bundle_size_bytes":manifest["bundle_size_bytes"],
+            "frozen_runtime_bundle_identity":"PASS" if diagnostic.get("status")=="pass" else "FAIL",
+            "frozen_runtime_schema_inventory":"PASS" if static.get("status")=="pass" else "FAIL",
+            "real_sqlite_schema_inventory":"PASS" if real.get("status")=="pass" else "FAIL",
+            "verdict":"PASS" if passed else "FAIL"
           }
-          status["engine_build_authorized"] = passed
-          status["status"] = "DEPENDENCY_INTAKE_PASS_DESIGN_FREEZE_PENDING" if passed else "DEPENDENCY_INTAKE_FAIL_GAP_ANALYSIS_REQUIRED"
-          status_path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n")
+          status["engine_build_authorized"]=bool(passed)
+          status["status"]="DEPENDENCY_INTAKE_PASS_DESIGN_FREEZE_PENDING" if passed else "DEPENDENCY_INTAKE_FAIL_GAP_ANALYSIS_REQUIRED"
+          status_path.write_text(json.dumps(status,indent=2,sort_keys=True)+"\n")
           if not passed:
-              print("Dependency intake evidence incomplete/failed; artifacts retained for gap analysis.")
+            raise SystemExit("Group 8 dependency intake did not pass")
           PY
+
+      - name: Preserve dependency evidence
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/group8-dependency-evidence"
+          mkdir -p "$RUNNER_TEMP/group8-dependency-evidence/reports"
+          cp "$GROUP8_ROOT/STATUS.json" "$RUNNER_TEMP/group8-dependency-evidence/STATUS.json"
+          for f in \
+            00_BUNDLE_DIAGNOSTIC.json \
+            01_STATIC_SCHEMA_INVENTORY.log \
+            02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json \
+            03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json \
+            03_REAL_SQLITE_SCHEMA_INVENTORY_2023.log; do
+            if [ -f "$GROUP8_ROOT/reports/$f" ]; then cp "$GROUP8_ROOT/reports/$f" "$RUNNER_TEMP/group8-dependency-evidence/reports/$f"; fi
+          done
 
       - name: Upload dependency evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: group8-dependency-intake
-          path: |
-            ${{ env.GROUP8_ROOT }}/reports/00_BUNDLE_DIAGNOSTIC.json
-            ${{ env.GROUP8_ROOT }}/reports/01_STATIC_SCHEMA_INVENTORY.log
-            ${{ env.GROUP8_ROOT }}/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json
-            ${{ env.GROUP8_ROOT }}/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json
-            ${{ env.GROUP8_ROOT }}/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.log
-            ${{ env.GROUP8_ROOT }}/STATUS.json
-          if-no-files-found: warn
+          name: group8-dependency-intake-v3
+          path: ${{ runner.temp }}/group8-dependency-evidence
           retention-days: 7
 
-      - name: Enforce dependency gate
+      - name: Commit PASS evidence to PR branch
+        if: github.event_name == 'pull_request' && success()
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          status = json.loads(Path("MoeBot_Trading_System/Group_8/STATUS.json").read_text())
-          if status["dependency_intake"]["verdict"] != "PASS":
-              raise SystemExit("Group 8 dependency intake did not pass")
-          PY
-
-      - name: Commit verified dependency intake
-        if: github.event_name != 'pull_request'
-        run: |
+          git reset --hard HEAD
+          git clean -fd
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          mkdir -p "$GROUP8_ROOT/reports"
+          cp "$RUNNER_TEMP/group8-dependency-evidence/STATUS.json" "$GROUP8_ROOT/STATUS.json"
+          cp -a "$RUNNER_TEMP/group8-dependency-evidence/reports/." "$GROUP8_ROOT/reports/"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$GROUP8_ROOT/reports" "$GROUP8_ROOT/STATUS.json"
+          git add "$GROUP8_ROOT/STATUS.json" "$GROUP8_ROOT/reports"
           if ! git diff --cached --quiet; then
-            git commit -m "Verify Group 8 dependency intake [skip actions]"
-            git pull --rebase origin main
-            git push origin main
+            git commit -m "Pass Group 8 dependency intake on canonical runtime v3 [skip actions]"
+            git push origin "HEAD:$HEAD_BRANCH"
           fi
