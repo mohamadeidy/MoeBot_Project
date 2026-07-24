@@ -1,0 +1,519 @@
+{
+  "database": {
+    "filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+    "path": "/home/runner/work/_temp/g7_build/2024/MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+    "sha256": "727ce8ca1b68881dc5c8e22836c5642614559cf7868a981aca83f055ed222436",
+    "size_bytes": 7921500160
+  },
+  "elapsed_seconds": 4077.088,
+  "engine_version": "0.7.5",
+  "first_build": {
+    "audit": {
+      "checks": {
+        "base_zone_without_match": 0,
+        "candidate_count_mismatch": 0,
+        "definitions_missing": 0,
+        "evidence_before_zone": 0,
+        "match_before_candidate": 0,
+        "match_before_evidence": 0,
+        "missing_summary": 0,
+        "non_read_only_dependency": 0,
+        "reconstruction_hash_errors": 0,
+        "signals_present": 0,
+        "transition_before_availability": 0,
+        "zone_before_confirmation": 0,
+        "zone_before_match": 0,
+        "zone_invalid_bounds": 0
+      },
+      "counts": {
+        "block_evaluations": 1073448,
+        "config_registry": 1,
+        "dataset_registry": 1,
+        "definition_candidates": 700314,
+        "definition_matches": 289015,
+        "definition_registry": 8,
+        "dependency_registry": 5,
+        "group7_audit_evidence": 0,
+        "institutional_zones": 460581,
+        "zone_evidence": 1718611,
+        "zone_lifecycle_summary": 460581,
+        "zone_relations": 681472,
+        "zone_state_transitions": 5919660,
+        "zone_visit_observations": 1166521
+      },
+      "foreign_key_errors": 0,
+      "integrity": "ok",
+      "passed": true
+    },
+    "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+    "dataset_id": "ds7_c4b1573e55f0479702374c38de93c42be2b45238328900d9cbac0eb553ff272d",
+    "elapsed_seconds": 2132.894,
+    "evaluations": 1073448,
+    "foreign_key_errors": 0,
+    "inserted": {
+      "block_evaluations": 1073448,
+      "config_registry": 1,
+      "dataset_registry": 1,
+      "definition_candidates": 700314,
+      "definition_matches": 289015,
+      "definition_registry": 8,
+      "dependency_registry": 5,
+      "institutional_zones": 460581,
+      "zone_evidence": 1718611,
+      "zone_lifecycle_summary": 460581,
+      "zone_relations": 681472,
+      "zone_state_transitions": 5919660,
+      "zone_visit_observations": 1166521
+    },
+    "integrity": "ok",
+    "zones": 460581
+  },
+  "format_version": 1,
+  "gates": {
+    "all_definitions_nonempty": true,
+    "all_definitions_registered": true,
+    "base_candidates_present": true,
+    "causal_matches_present": true,
+    "causality_zero_errors": true,
+    "engine_version": true,
+    "first_build_integrity": true,
+    "idempotent_reimport": true,
+    "independent_audit": true,
+    "real_visual_audit": true,
+    "schema_version": true,
+    "summary_sqlite": true
+  },
+  "holdout_policy": "2024 used the unchanged frozen v0.7.5 config and definitions; no result-driven threshold changes",
+  "independent_audit": {
+    "checks": {
+      "base_zone_has_match": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "breaker_parent_contract": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "candidate_cardinality": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "candidate_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "config_hash_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "dataset_hash_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "definition_registry_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "definitions_not_merged": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "dependency_id_hash_readonly": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "duplicate_transition_ordinals": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "evaluation_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "evidence_causality": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "evidence_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "foreign_keys": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "group6_file_present": {
+        "details": "/home/runner/work/_temp/upstream/2024/MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+        "errors": 0,
+        "status": "PASS"
+      },
+      "group6_fingerprint": {
+        "details": {
+          "actual": "4c212ab7516a95b0f0a6e05257529be56188a3bbd48dd1f2f9f621b6ce08cdef",
+          "expected": "4c212ab7516a95b0f0a6e05257529be56188a3bbd48dd1f2f9f621b6ce08cdef"
+        },
+        "errors": 0,
+        "status": "PASS"
+      },
+      "immutable_summary_coverage": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "invalid_bounds": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "match_after_candidate": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "match_after_evidence": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "match_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "mitigation_parent_contract": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "no_trade_schema": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "relation_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "source_file_present": {
+        "details": "/home/runner/work/_temp/upstream/2024/source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
+        "errors": 0,
+        "status": "PASS"
+      },
+      "source_fingerprint": {
+        "details": {
+          "actual": "4d18ff7ca052ae9d744acf3b8d2537929495b920110748bbdd4dc0c0c49ab792",
+          "expected": "4d18ff7ca052ae9d744acf3b8d2537929495b920110748bbdd4dc0c0c49ab792"
+        },
+        "errors": 0,
+        "status": "PASS"
+      },
+      "sqlite_integrity": {
+        "details": "ok",
+        "errors": 0,
+        "status": "PASS"
+      },
+      "summary_hash_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "transition_causality": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "transition_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "two_close_candidate_presence": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "visit_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "zone_after_match": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "zone_full_reconstruction": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      },
+      "zone_time_order": {
+        "details": null,
+        "errors": 0,
+        "status": "PASS"
+      }
+    },
+    "database": "/home/runner/work/_temp/g7_build/2024/MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+    "passed": true,
+    "summary": {
+      "fail": 0,
+      "pass": 35,
+      "total": 35
+    }
+  },
+  "lineage": "dukascopy_rebuild_v1",
+  "passed": true,
+  "profitability_used": false,
+  "reimport_nonzero": {},
+  "schema_version": "7.5.0",
+  "summary": {
+    "by_definition": {
+      "breaker_block": {
+        "evaluations": 186567,
+        "fresh": 5622,
+        "invalidated": 106448,
+        "passed_evaluations": 113416,
+        "tested": 1346,
+        "zones": 113416
+      },
+      "last_opposing_candle": {
+        "evaluations": 116719,
+        "fresh": 910,
+        "invalidated": 66654,
+        "passed_evaluations": 68501,
+        "tested": 937,
+        "zones": 68501
+      },
+      "loose_order_block": {
+        "evaluations": 116719,
+        "fresh": 781,
+        "invalidated": 113380,
+        "passed_evaluations": 116718,
+        "tested": 2557,
+        "zones": 116718
+      },
+      "mitigation_block": {
+        "evaluations": 186567,
+        "fresh": 833,
+        "invalidated": 56559,
+        "passed_evaluations": 58150,
+        "tested": 758,
+        "zones": 58150
+      },
+      "propulsion_block": {
+        "evaluations": 116719,
+        "fresh": 39,
+        "invalidated": 1855,
+        "passed_evaluations": 1991,
+        "tested": 97,
+        "zones": 1991
+      },
+      "rejection_block": {
+        "evaluations": 116719,
+        "fresh": 220,
+        "invalidated": 9405,
+        "passed_evaluations": 9710,
+        "tested": 85,
+        "zones": 9710
+      },
+      "strict_order_block": {
+        "evaluations": 116719,
+        "fresh": 92,
+        "invalidated": 1210,
+        "passed_evaluations": 1348,
+        "tested": 46,
+        "zones": 1348
+      },
+      "supply_demand_origin": {
+        "evaluations": 116719,
+        "fresh": 761,
+        "invalidated": 87919,
+        "passed_evaluations": 90747,
+        "tested": 2067,
+        "zones": 90747
+      }
+    },
+    "candidates": 700314,
+    "causality_checks": {
+      "base_zone_without_match": 0,
+      "candidate_cardinality_errors": 0,
+      "evidence_before_zone": 0,
+      "match_before_candidate": 0,
+      "match_before_evidence": 0,
+      "missing_lifecycle_summary": 0,
+      "non_read_only_dependency": 0,
+      "transition_before_zone": 0,
+      "zone_before_match": 0
+    },
+    "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+    "dataset_id": "ds7_c4b1573e55f0479702374c38de93c42be2b45238328900d9cbac0eb553ff272d",
+    "engine_version": "0.7.5",
+    "evaluations": 1073448,
+    "foreign_key_errors": 0,
+    "matches": 289015,
+    "schema_version": "7.5.0",
+    "sqlite_integrity_check": "ok",
+    "sqlite_quick_check": "ok",
+    "transitions": 5919660,
+    "visits": 1166521,
+    "zones": 460581
+  },
+  "verified_dependencies": {
+    "group6": {
+      "filename": "MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+      "path": "/home/runner/work/_temp/upstream/2024/MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+      "sha256": "4c212ab7516a95b0f0a6e05257529be56188a3bbd48dd1f2f9f621b6ce08cdef",
+      "size_bytes": 2075295744
+    },
+    "source": {
+      "filename": "source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
+      "path": "/home/runner/work/_temp/upstream/2024/source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
+      "sha256": "4d18ff7ca052ae9d744acf3b8d2537929495b920110748bbdd4dc0c0c49ab792",
+      "size_bytes": 121090048
+    }
+  },
+  "visual_audit": {
+    "case_records": [
+      {
+        "definition": "strict_order_block",
+        "image": "accepted_strict_order_block.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_7e8a6265708483c88050889450e03f7a6398468ba34f1709c830044be131c83a"
+      },
+      {
+        "definition": "loose_order_block",
+        "image": "accepted_loose_order_block.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_b12faee8c118d1e938924c8fb3c6c1c982aa8601d71cb7c76898ff45a65d2fc7"
+      },
+      {
+        "definition": "last_opposing_candle",
+        "image": "accepted_last_opposing_candle.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_9f1f4f7f1959c762a4c0a21c0fb4412e533dc6dcc807e8691a0d2292bd8a1dd0"
+      },
+      {
+        "definition": "breaker_block",
+        "image": "accepted_breaker_block.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_45449e1af6a1e4abf6711e34005b7042dc378a995c8dac1a96c8b8c18ff21e5e"
+      },
+      {
+        "definition": "mitigation_block",
+        "image": "accepted_mitigation_block.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_3c0cd390d98dc7c6a74d38b4e5c494dd27cccbc9580df849abd08b4b4b538f70"
+      },
+      {
+        "definition": "rejection_block",
+        "image": "accepted_rejection_block.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_c85d387d9310f2b25a369704164e155b7f04cb3e9b852d584a4199b95518aab5"
+      },
+      {
+        "definition": "propulsion_block",
+        "image": "accepted_propulsion_block.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_08418cf488e762b0d78bdfb696cf85d43bfcf7e21c5e762dd2e557f7805e8120"
+      },
+      {
+        "definition": "supply_demand_origin",
+        "image": "accepted_supply_demand_origin.png",
+        "selection": "earliest with lifecycle variety",
+        "type": "accepted",
+        "zone_id": "zone7_783938b427c661fe79ae6fe0d7fcaf55ff463807f937853f2bb86a80bba021eb"
+      },
+      {
+        "definition": "strict_order_block",
+        "evaluation_id": "eval7_40cfe6a512f0ad6b34966d904d73c2f8be80d17e397edb9fbdba697d98b380f6",
+        "image": "failed_strict_order_block.png",
+        "reasons": [
+          "intrinsic_origin_failed",
+          "bos_or_mss_not_yet_available"
+        ],
+        "type": "failed"
+      },
+      {
+        "definition": "loose_order_block",
+        "evaluation_id": "eval7_dbefe2242647d61f04c7b4971ee60c2c212a4e7d282086a4f7bdc1ff2c54ec0b",
+        "image": "failed_loose_order_block.png",
+        "reasons": [
+          "zero_width_origin"
+        ],
+        "type": "failed"
+      },
+      {
+        "definition": "last_opposing_candle",
+        "evaluation_id": "eval7_b52eabd43166c32045ed541a8ca3241a29f3a4b48f278da8f3cab285ef1134ff",
+        "image": "failed_last_opposing_candle.png",
+        "reasons": [
+          "missing_or_non_opposing_last_candle"
+        ],
+        "type": "failed"
+      },
+      {
+        "definition": "rejection_block",
+        "evaluation_id": "eval7_dc3b18f8aff8cdf2e36aed9be88de6a833df97fbb6f542f4b5227d0594f91848",
+        "image": "failed_rejection_block.png",
+        "reasons": [
+          "missing_or_non_opposing_last_candle"
+        ],
+        "type": "failed"
+      },
+      {
+        "definition": "propulsion_block",
+        "evaluation_id": "eval7_e31c857b4b36d0963f499a2a039039b505ffe1d0cdd115a4d14f9c1e6681cf90",
+        "image": "failed_propulsion_block.png",
+        "reasons": [
+          "bos_or_mss_not_yet_available"
+        ],
+        "type": "failed"
+      },
+      {
+        "definition": "supply_demand_origin",
+        "evaluation_id": "eval7_da91fd111264507726df62536d74597d65978e4398e4d40bdfb4a896396f5a4a",
+        "image": "failed_supply_demand_origin.png",
+        "reasons": [
+          "validation_not_yet_available"
+        ],
+        "type": "failed"
+      },
+      {
+        "image": "boundary_touch_not_invalidation.png",
+        "type": "boundary",
+        "zone_id": "zone7_a36329a31ad5a821b5a9dd8f1563b5a1622b96b80cd32e0562e2a57e6dbcc720"
+      },
+      {
+        "image": "two_close_invalidation.png",
+        "type": "lifecycle",
+        "zone_id": "zone7_c12922b36e4176ce980769ed7e7d90dfc48db141631581f1373d6e50ed279034"
+      }
+    ],
+    "cases": 16,
+    "html": "VISUAL_AUDIT_REAL.html",
+    "passed": true
+  },
+  "year": 2024
+}

@@ -1,0 +1,361 @@
+{
+  "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+  "cross_year": {
+    "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+    "distribution": {
+      "breaker_block": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 0.9758649469545091,
+        "zones_2023": 116221,
+        "zones_2024": 113416
+      },
+      "last_opposing_candle": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 0.9882137395770219,
+        "zones_2023": 69318,
+        "zones_2024": 68501
+      },
+      "loose_order_block": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 0.9882645803698435,
+        "zones_2023": 118104,
+        "zones_2024": 116718
+      },
+      "mitigation_block": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 0.9770317724347666,
+        "zones_2023": 59517,
+        "zones_2024": 58150
+      },
+      "propulsion_block": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 1.051769677760169,
+        "zones_2023": 1893,
+        "zones_2024": 1991
+      },
+      "rejection_block": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 1.030238726790451,
+        "zones_2023": 9425,
+        "zones_2024": 9710
+      },
+      "strict_order_block": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 1.0135338345864662,
+        "zones_2023": 1330,
+        "zones_2024": 1348
+      },
+      "supply_demand_origin": {
+        "descriptive_only": true,
+        "ratio_2024_to_2023": 0.9815261478557136,
+        "zones_2023": 92455,
+        "zones_2024": 90747
+      }
+    },
+    "engine_version": "0.7.5",
+    "format_version": 1,
+    "gates": {
+      "2024_untouched_holdout_config": true,
+      "all_definitions_2023": true,
+      "all_definitions_2024": true,
+      "both_years_passed": true,
+      "causal_candidates_2023": true,
+      "causal_candidates_2024": true,
+      "causal_matches_2023": true,
+      "causal_matches_2024": true,
+      "no_definition_collapse_2023": true,
+      "no_definition_collapse_2024": true,
+      "no_profitability_calibration": true,
+      "same_engine_version": true,
+      "same_frozen_config": true,
+      "same_lineage": true,
+      "same_schema_version": true,
+      "zero_causality_errors_2023": true,
+      "zero_causality_errors_2024": true
+    },
+    "lineage": "dukascopy_rebuild_v1",
+    "passed": true,
+    "policy": "2024 was frozen out-of-sample; distribution is descriptive and did not change thresholds",
+    "schema_version": "7.5.0"
+  },
+  "engine_version": "0.7.5",
+  "format_version": 1,
+  "legacy_identity_notice": {
+    "legacy_group7_databases_never_existed": true,
+    "published_lineage_is_rebuilt_dukascopy_v1": true,
+    "upstream_legacy_databases_unavailable": true
+  },
+  "lineage": "dukascopy_rebuild_v1",
+  "public_repository": "mohamadeidy/MoeBot_Project",
+  "release_tag": "moebot-group7-v0.7.5",
+  "schema_version": "7.5.0",
+  "status": "published_pending_clean_room",
+  "years": {
+    "2023": {
+      "compressed_filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst",
+      "compressed_sha256": "64920a85644a37796d312ff280866c44d711eab0586d1346683d279f2228abab",
+      "compressed_size_bytes": 1159188423,
+      "compression": "zstd -19 --long=31",
+      "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+      "database_filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+      "database_sha256": "bcd550cca8a9131efa17d3cd4323aa47467172222756edc9c765bfacc5468af7",
+      "database_size_bytes": 8115417088,
+      "engine_version": "0.7.5",
+      "format_version": 1,
+      "gates": {
+        "all_definitions_nonempty": true,
+        "all_definitions_registered": true,
+        "base_candidates_present": true,
+        "causal_matches_present": true,
+        "causality_zero_errors": true,
+        "engine_version": true,
+        "first_build_integrity": true,
+        "idempotent_reimport": true,
+        "independent_audit": true,
+        "real_visual_audit": true,
+        "schema_version": true,
+        "summary_sqlite": true
+      },
+      "lineage": "dukascopy_rebuild_v1",
+      "parts": [
+        {
+          "filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+          "sha256": "64920a85644a37796d312ff280866c44d711eab0586d1346683d279f2228abab",
+          "size_bytes": 1159188423,
+          "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+        }
+      ],
+      "passed": true,
+      "release_tag": "moebot-group7-v0.7.5",
+      "repository": "mohamadeidy/MoeBot_Project",
+      "schema_version": "7.5.0",
+      "summary": {
+        "by_definition": {
+          "breaker_block": {
+            "evaluations": 188752,
+            "fresh": 3692,
+            "invalidated": 111869,
+            "passed_evaluations": 116221,
+            "tested": 660,
+            "zones": 116221
+          },
+          "last_opposing_candle": {
+            "evaluations": 118106,
+            "fresh": 436,
+            "invalidated": 68439,
+            "passed_evaluations": 69318,
+            "tested": 443,
+            "zones": 69318
+          },
+          "loose_order_block": {
+            "evaluations": 118106,
+            "fresh": 371,
+            "invalidated": 116531,
+            "passed_evaluations": 118104,
+            "tested": 1202,
+            "zones": 118104
+          },
+          "mitigation_block": {
+            "evaluations": 188752,
+            "fresh": 409,
+            "invalidated": 58720,
+            "passed_evaluations": 59517,
+            "tested": 388,
+            "zones": 59517
+          },
+          "propulsion_block": {
+            "evaluations": 118106,
+            "fresh": 10,
+            "invalidated": 1835,
+            "passed_evaluations": 1893,
+            "tested": 48,
+            "zones": 1893
+          },
+          "rejection_block": {
+            "evaluations": 118106,
+            "fresh": 99,
+            "invalidated": 9286,
+            "passed_evaluations": 9425,
+            "tested": 40,
+            "zones": 9425
+          },
+          "strict_order_block": {
+            "evaluations": 118106,
+            "fresh": 33,
+            "invalidated": 1271,
+            "passed_evaluations": 1330,
+            "tested": 26,
+            "zones": 1330
+          },
+          "supply_demand_origin": {
+            "evaluations": 118106,
+            "fresh": 366,
+            "invalidated": 91116,
+            "passed_evaluations": 92455,
+            "tested": 973,
+            "zones": 92455
+          }
+        },
+        "candidates": 708636,
+        "causality_checks": {
+          "base_zone_without_match": 0,
+          "candidate_cardinality_errors": 0,
+          "evidence_before_zone": 0,
+          "match_before_candidate": 0,
+          "match_before_evidence": 0,
+          "missing_lifecycle_summary": 0,
+          "non_read_only_dependency": 0,
+          "transition_before_zone": 0,
+          "zone_before_match": 0
+        },
+        "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+        "dataset_id": "ds7_594281d5a019aa0edd25dade5bfa8845f64498e21d5e6a126a1407699b55c1b4",
+        "engine_version": "0.7.5",
+        "evaluations": 1086140,
+        "foreign_key_errors": 0,
+        "matches": 292525,
+        "schema_version": "7.5.0",
+        "sqlite_integrity_check": "ok",
+        "sqlite_quick_check": "ok",
+        "transitions": 6114533,
+        "visits": 1220805,
+        "zones": 468263
+      },
+      "verification_filename": "GROUP7_YEAR_2023.json",
+      "year": 2023
+    },
+    "2024": {
+      "compressed_filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst",
+      "compressed_sha256": "9e94befd9a6be350e00e85f7e55ad95b967c9335912ab7760c0073775d8244a0",
+      "compressed_size_bytes": 1127479211,
+      "compression": "zstd -19 --long=31",
+      "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+      "database_filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+      "database_sha256": "727ce8ca1b68881dc5c8e22836c5642614559cf7868a981aca83f055ed222436",
+      "database_size_bytes": 7921500160,
+      "engine_version": "0.7.5",
+      "format_version": 1,
+      "gates": {
+        "all_definitions_nonempty": true,
+        "all_definitions_registered": true,
+        "base_candidates_present": true,
+        "causal_matches_present": true,
+        "causality_zero_errors": true,
+        "engine_version": true,
+        "first_build_integrity": true,
+        "idempotent_reimport": true,
+        "independent_audit": true,
+        "real_visual_audit": true,
+        "schema_version": true,
+        "summary_sqlite": true
+      },
+      "lineage": "dukascopy_rebuild_v1",
+      "parts": [
+        {
+          "filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+          "sha256": "9e94befd9a6be350e00e85f7e55ad95b967c9335912ab7760c0073775d8244a0",
+          "size_bytes": 1127479211,
+          "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+        }
+      ],
+      "passed": true,
+      "release_tag": "moebot-group7-v0.7.5",
+      "repository": "mohamadeidy/MoeBot_Project",
+      "schema_version": "7.5.0",
+      "summary": {
+        "by_definition": {
+          "breaker_block": {
+            "evaluations": 186567,
+            "fresh": 5622,
+            "invalidated": 106448,
+            "passed_evaluations": 113416,
+            "tested": 1346,
+            "zones": 113416
+          },
+          "last_opposing_candle": {
+            "evaluations": 116719,
+            "fresh": 910,
+            "invalidated": 66654,
+            "passed_evaluations": 68501,
+            "tested": 937,
+            "zones": 68501
+          },
+          "loose_order_block": {
+            "evaluations": 116719,
+            "fresh": 781,
+            "invalidated": 113380,
+            "passed_evaluations": 116718,
+            "tested": 2557,
+            "zones": 116718
+          },
+          "mitigation_block": {
+            "evaluations": 186567,
+            "fresh": 833,
+            "invalidated": 56559,
+            "passed_evaluations": 58150,
+            "tested": 758,
+            "zones": 58150
+          },
+          "propulsion_block": {
+            "evaluations": 116719,
+            "fresh": 39,
+            "invalidated": 1855,
+            "passed_evaluations": 1991,
+            "tested": 97,
+            "zones": 1991
+          },
+          "rejection_block": {
+            "evaluations": 116719,
+            "fresh": 220,
+            "invalidated": 9405,
+            "passed_evaluations": 9710,
+            "tested": 85,
+            "zones": 9710
+          },
+          "strict_order_block": {
+            "evaluations": 116719,
+            "fresh": 92,
+            "invalidated": 1210,
+            "passed_evaluations": 1348,
+            "tested": 46,
+            "zones": 1348
+          },
+          "supply_demand_origin": {
+            "evaluations": 116719,
+            "fresh": 761,
+            "invalidated": 87919,
+            "passed_evaluations": 90747,
+            "tested": 2067,
+            "zones": 90747
+          }
+        },
+        "candidates": 700314,
+        "causality_checks": {
+          "base_zone_without_match": 0,
+          "candidate_cardinality_errors": 0,
+          "evidence_before_zone": 0,
+          "match_before_candidate": 0,
+          "match_before_evidence": 0,
+          "missing_lifecycle_summary": 0,
+          "non_read_only_dependency": 0,
+          "transition_before_zone": 0,
+          "zone_before_match": 0
+        },
+        "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+        "dataset_id": "ds7_c4b1573e55f0479702374c38de93c42be2b45238328900d9cbac0eb553ff272d",
+        "engine_version": "0.7.5",
+        "evaluations": 1073448,
+        "foreign_key_errors": 0,
+        "matches": 289015,
+        "schema_version": "7.5.0",
+        "sqlite_integrity_check": "ok",
+        "sqlite_quick_check": "ok",
+        "transitions": 5919660,
+        "visits": 1166521,
+        "zones": 460581
+      },
+      "verification_filename": "GROUP7_YEAR_2024.json",
+      "year": 2024
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+  "distribution": {
+    "breaker_block": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 0.9758649469545091,
+      "zones_2023": 116221,
+      "zones_2024": 113416
+    },
+    "last_opposing_candle": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 0.9882137395770219,
+      "zones_2023": 69318,
+      "zones_2024": 68501
+    },
+    "loose_order_block": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 0.9882645803698435,
+      "zones_2023": 118104,
+      "zones_2024": 116718
+    },
+    "mitigation_block": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 0.9770317724347666,
+      "zones_2023": 59517,
+      "zones_2024": 58150
+    },
+    "propulsion_block": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 1.051769677760169,
+      "zones_2023": 1893,
+      "zones_2024": 1991
+    },
+    "rejection_block": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 1.030238726790451,
+      "zones_2023": 9425,
+      "zones_2024": 9710
+    },
+    "strict_order_block": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 1.0135338345864662,
+      "zones_2023": 1330,
+      "zones_2024": 1348
+    },
+    "supply_demand_origin": {
+      "descriptive_only": true,
+      "ratio_2024_to_2023": 0.9815261478557136,
+      "zones_2023": 92455,
+      "zones_2024": 90747
+    }
+  },
+  "engine_version": "0.7.5",
+  "format_version": 1,
+  "gates": {
+    "2024_untouched_holdout_config": true,
+    "all_definitions_2023": true,
+    "all_definitions_2024": true,
+    "both_years_passed": true,
+    "causal_candidates_2023": true,
+    "causal_candidates_2024": true,
+    "causal_matches_2023": true,
+    "causal_matches_2024": true,
+    "no_definition_collapse_2023": true,
+    "no_definition_collapse_2024": true,
+    "no_profitability_calibration": true,
+    "same_engine_version": true,
+    "same_frozen_config": true,
+    "same_lineage": true,
+    "same_schema_version": true,
+    "zero_causality_errors_2023": true,
+    "zero_causality_errors_2024": true
+  },
+  "lineage": "dukascopy_rebuild_v1",
+  "passed": true,
+  "policy": "2024 was frozen out-of-sample; distribution is descriptive and did not change thresholds",
+  "schema_version": "7.5.0"
+}
