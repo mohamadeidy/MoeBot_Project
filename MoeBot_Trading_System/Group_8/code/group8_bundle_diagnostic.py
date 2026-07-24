@@ -9,23 +9,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-EXPECTED = "d12deaadb90f7c7a30337246eb144e55399bdad1e4e2e065fb95723c3ae2d436"
-EXPECTED_SIZE = 63561
-
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def payload_text(path: Path) -> bytes:
-    lines: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if stripped and not stripped.startswith("#"):
-            lines.append(stripped)
-    if not lines:
-        raise RuntimeError(f"No Base64 payload in {path}")
-    return "".join(lines).encode("ascii")
 
 
 def main() -> int:
@@ -33,47 +19,80 @@ def main() -> int:
     p.add_argument("--bundle-root", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     a = p.parse_args()
-    chunks = sorted((a.bundle_root / "chunks").glob("part_*.b64"))
-    expected_names = [f"part_{i:03d}.b64" for i in range(len(chunks))]
-    actual_names = [x.name for x in chunks]
+
+    manifest_path = a.bundle_root / "BUNDLE_MANIFEST.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    rows = manifest.get("chunks", [])
+    expected_names = [str(row["name"]) for row in rows]
+    actual_paths = sorted((a.bundle_root / "chunks").glob("part_*.b64"))
+    actual_names = [path.name for path in actual_paths]
+
     result: dict[str, object] = {
-        "bundle_generation": "v2",
-        "expected_sha256": EXPECTED,
-        "expected_size_bytes": EXPECTED_SIZE,
-        "chunk_count": len(chunks),
+        "bundle_generation": "v3",
+        "manifest_format_version": manifest.get("format_version"),
+        "manifest_status": manifest.get("status"),
+        "expected_sha256": manifest.get("bundle_sha256"),
+        "expected_size_bytes": manifest.get("bundle_size_bytes"),
+        "chunk_count": len(actual_paths),
         "chunk_sequence_pass": actual_names == expected_names,
-        "chunks": [{"name": x.name, "size_bytes": x.stat().st_size, "sha256": hashlib.sha256(x.read_bytes()).hexdigest()} for x in chunks],
+        "chunks": [],
     }
-    payloads = [payload_text(x) for x in chunks]
-    variants: dict[str, object] = {}
-    decoded_candidates: list[tuple[str, bytes]] = []
-    try:
-        data = base64.b64decode(b"".join(payloads), validate=True)
-        variants["joined"] = {"decode": "pass", "size_bytes": len(data), "sha256": digest(data)}
-        decoded_candidates.append(("joined", data))
-    except Exception as exc:
-        variants["joined"] = {"decode": "fail", "error": repr(exc)}
-    try:
-        data = b"".join(base64.b64decode(x, validate=True) for x in payloads)
-        variants["independent"] = {"decode": "pass", "size_bytes": len(data), "sha256": digest(data)}
-        decoded_candidates.append(("independent", data))
-    except Exception as exc:
-        variants["independent"] = {"decode": "fail", "error": repr(exc)}
-    matches: list[str] = []
-    for name, data in decoded_candidates:
-        if len(data) == EXPECTED_SIZE and digest(data) == EXPECTED:
-            matches.append(name)
-            with tempfile.TemporaryDirectory() as td:
-                archive = Path(td) / "bundle.tar.zst"
-                archive.write_bytes(data)
-                proc = subprocess.run(["tar", "--zstd", "-tf", str(archive)], text=True, capture_output=True)
-                variants[name]["tar_list_returncode"] = proc.returncode  # type: ignore[index]
-                variants[name]["tar_list_first_lines"] = proc.stdout.splitlines()[:30]  # type: ignore[index]
-                variants[name]["tar_list_stderr"] = proc.stderr[-2000:]  # type: ignore[index]
-                variants[name]["tar_list_pass"] = proc.returncode == 0  # type: ignore[index]
-    result["variants"] = variants
-    result["matching_variants"] = matches
-    result["status"] = "pass" if result["chunk_sequence_pass"] and matches and all(variants[n].get("tar_list_pass") for n in matches) else "fail"  # type: ignore[union-attr]
+
+    parts: list[bytes] = []
+    chunk_pass = actual_names == expected_names and len(rows) == len(actual_paths)
+    if chunk_pass:
+        for row in rows:
+            path = a.bundle_root / "chunks" / row["name"]
+            try:
+                payload = base64.b64decode(path.read_text(encoding="ascii").strip(), validate=True)
+            except Exception as exc:  # noqa: BLE001
+                result["chunks"].append({"name": path.name, "decode": "fail", "error": repr(exc)})  # type: ignore[union-attr]
+                chunk_pass = False
+                continue
+            actual_sha = digest(payload)
+            ok = len(payload) == int(row["decoded_size_bytes"]) and actual_sha == row["decoded_sha256"]
+            result["chunks"].append({  # type: ignore[union-attr]
+                "name": path.name,
+                "decoded_size_bytes": len(payload),
+                "decoded_sha256": actual_sha,
+                "pass": ok,
+            })
+            chunk_pass = chunk_pass and ok
+            parts.append(payload)
+
+    bundle = b"".join(parts) if chunk_pass else b""
+    archive_pass = bool(
+        chunk_pass
+        and len(bundle) == int(manifest.get("bundle_size_bytes", -1))
+        and digest(bundle) == manifest.get("bundle_sha256")
+    )
+    result["archive"] = {
+        "size_bytes": len(bundle),
+        "sha256": digest(bundle) if bundle else None,
+        "pass": archive_pass,
+    }
+
+    tar_pass = False
+    tar_first_lines: list[str] = []
+    tar_stderr = ""
+    if archive_pass:
+        with tempfile.TemporaryDirectory() as td:
+            archive = Path(td) / "bundle.tar.zst"
+            archive.write_bytes(bundle)
+            proc = subprocess.run(["tar", "--zstd", "-tf", str(archive)], text=True, capture_output=True, check=False)
+            tar_pass = proc.returncode == 0
+            tar_first_lines = proc.stdout.splitlines()[:50]
+            tar_stderr = proc.stderr[-2000:]
+    result["tar"] = {"pass": tar_pass, "first_lines": tar_first_lines, "stderr": tar_stderr}
+
+    result["status"] = "pass" if (
+        manifest.get("format_version") == 3
+        and manifest.get("status") == "frozen_verified_runtime"
+        and chunk_pass
+        and archive_pass
+        and tar_pass
+    ) else "fail"
+
     a.output.parent.mkdir(parents=True, exist_ok=True)
     a.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2, sort_keys=True))
