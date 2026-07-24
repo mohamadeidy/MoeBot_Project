@@ -1,0 +1,91 @@
+{
+  "failed_gates": [],
+  "gates": {
+    "2024_untouched_holdout_config": true,
+    "all_definitions_2023": true,
+    "all_definitions_2024": true,
+    "both_years_passed": true,
+    "causal_candidates_2023": true,
+    "causal_candidates_2024": true,
+    "causal_matches_2023": true,
+    "causal_matches_2024": true,
+    "no_definition_collapse_2023": true,
+    "no_definition_collapse_2024": true,
+    "no_profitability_calibration": true,
+    "same_engine_version": true,
+    "same_frozen_config": true,
+    "same_lineage": true,
+    "same_schema_version": true,
+    "zero_causality_errors_2023": true,
+    "zero_causality_errors_2024": true
+  },
+  "manifest_2023": {
+    "causality_checks": {
+      "base_zone_without_match": 0,
+      "candidate_cardinality_errors": 0,
+      "evidence_before_zone": 0,
+      "match_before_candidate": 0,
+      "match_before_evidence": 0,
+      "missing_lifecycle_summary": 0,
+      "non_read_only_dependency": 0,
+      "transition_before_zone": 0,
+      "zone_before_match": 0
+    },
+    "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+    "definitions": [
+      "breaker_block",
+      "last_opposing_candle",
+      "loose_order_block",
+      "mitigation_block",
+      "propulsion_block",
+      "rejection_block",
+      "strict_order_block",
+      "supply_demand_origin"
+    ],
+    "zones": {
+      "breaker_block": 116221,
+      "last_opposing_candle": 69318,
+      "loose_order_block": 118104,
+      "mitigation_block": 59517,
+      "propulsion_block": 1893,
+      "rejection_block": 9425,
+      "strict_order_block": 1330,
+      "supply_demand_origin": 92455
+    }
+  },
+  "manifest_2024": {
+    "causality_checks": {
+      "base_zone_without_match": 0,
+      "candidate_cardinality_errors": 0,
+      "evidence_before_zone": 0,
+      "match_before_candidate": 0,
+      "match_before_evidence": 0,
+      "missing_lifecycle_summary": 0,
+      "non_read_only_dependency": 0,
+      "transition_before_zone": 0,
+      "zone_before_match": 0
+    },
+    "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+    "definitions": [
+      "breaker_block",
+      "last_opposing_candle",
+      "loose_order_block",
+      "mitigation_block",
+      "propulsion_block",
+      "rejection_block",
+      "strict_order_block",
+      "supply_demand_origin"
+    ],
+    "zones": {
+      "breaker_block": 113416,
+      "last_opposing_candle": 68501,
+      "loose_order_block": 116718,
+      "mitigation_block": 58150,
+      "propulsion_block": 1991,
+      "rejection_block": 9710,
+      "strict_order_block": 1348,
+      "supply_demand_origin": 90747
+    }
+  },
+  "passed": true
+}
