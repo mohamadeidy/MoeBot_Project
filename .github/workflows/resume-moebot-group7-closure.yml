@@ -1,0 +1,202 @@
+name: Resume and Close MoeBot Group 7
+
+"on":
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/resume-moebot-group7-closure.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  GROUP7_ROOT: MoeBot_Trading_System/Group_7
+  UPSTREAM_REGISTRY: MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json
+  SOURCE_RUN_ID: "30051363581"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  resume-and-close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system and Python requirements
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+          pip install -r "$GROUP7_ROOT/requirements.txt"
+      - name: Download latest completed annual evidence artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf "$RUNNER_TEMP/group7_manifests"
+          mkdir -p "$RUNNER_TEMP/group7_manifests/group7-manifest-2023" "$RUNNER_TEMP/group7_manifests/group7-manifest-2024"
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name group7-manifest-2023 \
+            --dir "$RUNNER_TEMP/group7_manifests/group7-manifest-2023"
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name group7-manifest-2024 \
+            --dir "$RUNNER_TEMP/group7_manifests/group7-manifest-2024"
+          find "$RUNNER_TEMP/group7_manifests" -type f -maxdepth 4 -print
+      - name: Build cross-year validation and permanent registry
+        run: |
+          rm -rf "$RUNNER_TEMP/group7_registry"
+          mkdir -p "$RUNNER_TEMP/group7_registry"
+          python "$GROUP7_ROOT/code/build_group7_registry.py" \
+            --manifests-dir "$RUNNER_TEMP/group7_manifests" \
+            --output-dir "$RUNNER_TEMP/group7_registry"
+          mkdir -p "$GROUP7_ROOT/registry" "$GROUP7_ROOT/reports"
+          cp "$RUNNER_TEMP/group7_registry/GROUP7_DATABASE_REGISTRY.json" "$GROUP7_ROOT/registry/"
+          cp "$RUNNER_TEMP/group7_registry/10_CROSS_YEAR_VALIDATION.json" "$GROUP7_ROOT/reports/"
+          cp "$RUNNER_TEMP/group7_registry/STATUS.json" "$GROUP7_ROOT/STATUS.json"
+          find "$RUNNER_TEMP/group7_manifests" -name 'GROUP7_YEAR_*.json' -exec cp {} "$GROUP7_ROOT/reports/" \;
+          find "$RUNNER_TEMP/group7_manifests" -name 'GROUP7_YEAR_*.md' -exec cp {} "$GROUP7_ROOT/reports/" \;
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_7')
+          reg=json.loads((root/'registry/GROUP7_DATABASE_REGISTRY.json').read_text())
+          cross=json.loads((root/'reports/10_CROSS_YEAR_VALIDATION.json').read_text())
+          if reg['status'] != 'published_pending_clean_room' or not cross['passed']:
+              raise SystemExit('Cross-year registry gate failed')
+          print('PASS: cross-year validation and registry')
+          PY
+      - name: Commit annual registry and reports
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP7_ROOT/registry" "$GROUP7_ROOT/reports" "$GROUP7_ROOT/STATUS.json"
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish MoeBot Group 7 annual registry"
+            git pull --rebase origin main
+            git push origin main
+          fi
+      - name: Clean-room verify 2023 from public Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          YEAR: "2023"
+        run: |
+          rm -rf "$RUNNER_TEMP/g7_cleanroom_2023"
+          mkdir -p "$RUNNER_TEMP/g7_cleanroom_2023/evidence"
+          python MoeBot_Trading_System/Data_Vault/download_and_restore_databases.py \
+            --registry "$UPSTREAM_REGISTRY" --year 2023 \
+            --download-dir "$RUNNER_TEMP/g7_cleanroom_2023/upstream_downloads" \
+            --output-dir "$RUNNER_TEMP/g7_cleanroom_2023/upstream"
+          python "$GROUP7_ROOT/code/download_and_restore_group7.py" \
+            --registry "$GROUP7_ROOT/registry/GROUP7_DATABASE_REGISTRY.json" --year 2023 \
+            --download-dir "$RUNNER_TEMP/g7_cleanroom_2023/group7_downloads" \
+            --output-dir "$RUNNER_TEMP/g7_cleanroom_2023/group7"
+          python "$GROUP7_ROOT/code/group7_independent_audit.py" \
+            --db "$RUNNER_TEMP/g7_cleanroom_2023/group7/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite" \
+            --source "$RUNNER_TEMP/g7_cleanroom_2023/upstream/source_2023_rebuilt_dukascopy_v1.sqlite" \
+            --group6 "$RUNNER_TEMP/g7_cleanroom_2023/upstream/MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite" \
+            --json-out "$RUNNER_TEMP/g7_cleanroom_2023/evidence/AUDIT_2023.json"
+          python - <<'PY'
+          import hashlib,json,os,sqlite3
+          from pathlib import Path
+          y=os.environ['YEAR']; root=Path(os.environ['RUNNER_TEMP'])/f'g7_cleanroom_{y}'
+          reg=json.loads(Path('MoeBot_Trading_System/Group_7/registry/GROUP7_DATABASE_REGISTRY.json').read_text())
+          entry=reg['years'][y]; db=root/'group7'/entry['database_filename']
+          h=hashlib.sha256()
+          with db.open('rb') as f:
+              while c:=f.read(8*1024*1024): h.update(c)
+          con=sqlite3.connect(f'file:{db}?mode=ro',uri=True)
+          quick=con.execute('PRAGMA quick_check').fetchone()[0]
+          integrity=con.execute('PRAGMA integrity_check').fetchone()[0]
+          fk=len(con.execute('PRAGMA foreign_key_check').fetchall());con.close()
+          audit=json.loads((root/'evidence'/f'AUDIT_{y}.json').read_text())
+          if db.stat().st_size!=entry['database_size_bytes'] or h.hexdigest()!=entry['database_sha256'] or quick!='ok' or integrity!='ok' or fk or not audit['passed']:
+              raise SystemExit(f'Clean-room verification failed for {y}')
+          out={'filename':db.name,'size_bytes':db.stat().st_size,'sha256':h.hexdigest(),'quick_check':quick,'integrity_check':integrity,'foreign_key_errors':fk,'independent_audit':True}
+          Path(os.environ['RUNNER_TEMP'],f'CLEAN_{y}.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          PY
+          rm -rf "$RUNNER_TEMP/g7_cleanroom_2023/upstream" "$RUNNER_TEMP/g7_cleanroom_2023/upstream_downloads" "$RUNNER_TEMP/g7_cleanroom_2023/group7" "$RUNNER_TEMP/g7_cleanroom_2023/group7_downloads"
+      - name: Clean-room verify frozen 2024 OOS from public Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          YEAR: "2024"
+        run: |
+          rm -rf "$RUNNER_TEMP/g7_cleanroom_2024"
+          mkdir -p "$RUNNER_TEMP/g7_cleanroom_2024/evidence"
+          python MoeBot_Trading_System/Data_Vault/download_and_restore_databases.py \
+            --registry "$UPSTREAM_REGISTRY" --year 2024 \
+            --download-dir "$RUNNER_TEMP/g7_cleanroom_2024/upstream_downloads" \
+            --output-dir "$RUNNER_TEMP/g7_cleanroom_2024/upstream"
+          python "$GROUP7_ROOT/code/download_and_restore_group7.py" \
+            --registry "$GROUP7_ROOT/registry/GROUP7_DATABASE_REGISTRY.json" --year 2024 \
+            --download-dir "$RUNNER_TEMP/g7_cleanroom_2024/group7_downloads" \
+            --output-dir "$RUNNER_TEMP/g7_cleanroom_2024/group7"
+          python "$GROUP7_ROOT/code/group7_independent_audit.py" \
+            --db "$RUNNER_TEMP/g7_cleanroom_2024/group7/MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite" \
+            --source "$RUNNER_TEMP/g7_cleanroom_2024/upstream/source_2024_canonical_rebuilt_dukascopy_v1.sqlite" \
+            --group6 "$RUNNER_TEMP/g7_cleanroom_2024/upstream/MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite" \
+            --json-out "$RUNNER_TEMP/g7_cleanroom_2024/evidence/AUDIT_2024.json"
+          python - <<'PY'
+          import hashlib,json,os,sqlite3
+          from pathlib import Path
+          y=os.environ['YEAR']; root=Path(os.environ['RUNNER_TEMP'])/f'g7_cleanroom_{y}'
+          reg=json.loads(Path('MoeBot_Trading_System/Group_7/registry/GROUP7_DATABASE_REGISTRY.json').read_text())
+          entry=reg['years'][y]; db=root/'group7'/entry['database_filename']
+          h=hashlib.sha256()
+          with db.open('rb') as f:
+              while c:=f.read(8*1024*1024): h.update(c)
+          con=sqlite3.connect(f'file:{db}?mode=ro',uri=True)
+          quick=con.execute('PRAGMA quick_check').fetchone()[0]
+          integrity=con.execute('PRAGMA integrity_check').fetchone()[0]
+          fk=len(con.execute('PRAGMA foreign_key_check').fetchall());con.close()
+          audit=json.loads((root/'evidence'/f'AUDIT_{y}.json').read_text())
+          if db.stat().st_size!=entry['database_size_bytes'] or h.hexdigest()!=entry['database_sha256'] or quick!='ok' or integrity!='ok' or fk or not audit['passed']:
+              raise SystemExit(f'Clean-room verification failed for {y}')
+          out={'filename':db.name,'size_bytes':db.stat().st_size,'sha256':h.hexdigest(),'quick_check':quick,'integrity_check':integrity,'foreign_key_errors':fk,'independent_audit':True}
+          Path(os.environ['RUNNER_TEMP'],f'CLEAN_{y}.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          PY
+          rm -rf "$RUNNER_TEMP/g7_cleanroom_2024/upstream" "$RUNNER_TEMP/g7_cleanroom_2024/upstream_downloads" "$RUNNER_TEMP/g7_cleanroom_2024/group7" "$RUNNER_TEMP/g7_cleanroom_2024/group7_downloads"
+      - name: Produce official clean-room closure evidence and future-group handoff
+        run: |
+          python - <<'PY'
+          import datetime as dt,json,os
+          from pathlib import Path
+          years={y:json.loads(Path(os.environ['RUNNER_TEMP'],f'CLEAN_{y}.json').read_text()) for y in ('2023','2024')}
+          report={'format_version':1,'status':'pass','verified_at_utc':dt.datetime.now(dt.timezone.utc).isoformat(),'method':'public Release download, part and stream SHA-256, zstd --long=31 decompression, extracted SHA-256/size, SQLite quick/integrity/foreign-key checks, and independent causal audit; years processed sequentially to preserve disk safety','source_run_id':30051363581,'years':years}
+          out=Path('MoeBot_Trading_System/Group_7/registry/CLEAN_ROOM_VERIFICATION.json')
+          out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          PY
+          python "$GROUP7_ROOT/code/finalize_group7_closure.py" \
+            --registry "$GROUP7_ROOT/registry/GROUP7_DATABASE_REGISTRY.json" \
+            --clean-room-report "$GROUP7_ROOT/registry/CLEAN_ROOM_VERIFICATION.json" \
+            --output-dir "$GROUP7_ROOT"
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_7')
+          status=json.loads((root/'STATUS.json').read_text())
+          handoff=json.loads((root/'NEXT_GROUP_DEPENDENCY_MANIFEST.json').read_text())
+          registry=json.loads((root/'registry/GROUP7_DATABASE_REGISTRY.json').read_text())
+          if status.get('officially_closed') is not True or status.get('group8_authorized') is not True:
+              raise SystemExit('Official closure flags missing')
+          if registry.get('status') != 'published_verified_officially_closed':
+              raise SystemExit('Registry closure state missing')
+          for rel,identity in handoff['repository_files'].items():
+              p=root/rel; h=hashlib.sha256(p.read_bytes()).hexdigest()
+              if p.stat().st_size!=identity['size_bytes'] or h!=identity['sha256']:
+                  raise SystemExit(f'Handoff identity mismatch: {rel}')
+          print('PASS: future-group dependency handoff identities')
+          PY
+      - name: Commit exact official closure
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP7_ROOT/registry" "$GROUP7_ROOT/STATUS.json" "$GROUP7_ROOT/NEXT_GROUP_DEPENDENCY_MANIFEST.json" "$GROUP7_ROOT/11_FINAL_VERDICT.md"
+          git commit -m "Group 7 officially closed"
+          git pull --rebase origin main
+          git push origin main
