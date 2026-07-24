@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Dependency intake trigger: closure tag verified before execution.
 from __future__ import annotations
 
 import argparse
