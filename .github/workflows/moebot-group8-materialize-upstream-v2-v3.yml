@@ -1,0 +1,266 @@
+name: MoeBot Group 8 Materialize Annual Upstream v2-v3 Equivalence
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_UPSTREAM_MATERIALIZATION_V2_V3.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  DATA_VAULT_ROOT: MoeBot_Trading_System/Data_Vault
+  BUNDLE_V2: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v2
+  BUNDLE_V3: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3
+  RELEASE_TAG: moebot-sqlite-rebuild-v1
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  materialize-year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+          python -m pip install --disable-pip-version-check --no-cache-dir numpy
+
+      - name: Restore runtime bundles v2 and corrected v3
+        run: |
+          python "$BUNDLE_V2/restore_bundle.py" --extract-to "$RUNNER_TEMP/runtime-v2"
+          python "$BUNDLE_V3/restore_bundle.py" --output "$RUNNER_TEMP/runtime-v3.tar.zst" --extract-to "$RUNNER_TEMP/runtime-v3"
+
+      - name: Restore canonical source and published Group 6
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \
+            --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/dv-download" \
+            --output-dir "$RUNNER_TEMP/dv"
+
+      - name: Resolve annual filenames
+        id: names
+        shell: bash
+        run: |
+          if [ "${{ matrix.year }}" = "2024" ]; then
+            echo "source=source_2024_canonical_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=source_2023_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          fi
+          echo "g6=MoeBot_Group6_XAUUSD_${{ matrix.year }}_v0.6.4_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+
+      - name: Run historical v2 pipeline and fingerprint it
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence-${{ matrix.year }}"
+          python "$DATA_VAULT_ROOT/rebuild/run_frozen_pipeline.py" \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/dv/${{ steps.names.outputs.source }}" \
+            --runtime-root "$RUNNER_TEMP/runtime-v2" \
+            --work-dir "$RUNNER_TEMP/v2/intermediate" \
+            --group6-output "$RUNNER_TEMP/v2/group6.sqlite" \
+            --report "$RUNNER_TEMP/v2/pipeline_report.json"
+          python "$GROUP8_ROOT/code/group8_runtime_output_fingerprint.py" \
+            --pipeline-report "$RUNNER_TEMP/v2/pipeline_report.json" \
+            --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_fingerprint.json"
+          python "$GROUP8_ROOT/code/group8_g6_semantic_equivalence.py" \
+            --candidate "$RUNNER_TEMP/v2/group6.sqlite" \
+            --published "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}" \
+            --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.json"
+          cp "$RUNNER_TEMP/v2/pipeline_report.json" "$RUNNER_TEMP/evidence-${{ matrix.year }}/pipeline_v2.json"
+
+      - name: Remove historical v2 databases before v3 build
+        run: rm -rf "$RUNNER_TEMP/v2" "$RUNNER_TEMP/runtime-v2"
+
+      - name: Run corrected v3 pipeline and fingerprint it
+        run: |
+          python "$DATA_VAULT_ROOT/rebuild/run_frozen_pipeline.py" \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/dv/${{ steps.names.outputs.source }}" \
+            --runtime-root "$RUNNER_TEMP/runtime-v3" \
+            --work-dir "$RUNNER_TEMP/v3/intermediate" \
+            --group6-output "$RUNNER_TEMP/v3/group6.sqlite" \
+            --report "$RUNNER_TEMP/v3/pipeline_report.json"
+          python "$GROUP8_ROOT/code/group8_runtime_output_fingerprint.py" \
+            --pipeline-report "$RUNNER_TEMP/v3/pipeline_report.json" \
+            --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v3_fingerprint.json"
+          python "$GROUP8_ROOT/code/group8_compare_runtime_fingerprints.py" \
+            --v2 "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_fingerprint.json" \
+            --v3 "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v3_fingerprint.json" \
+            --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_v3_equivalence.json"
+          python "$GROUP8_ROOT/code/group8_g6_semantic_equivalence.py" \
+            --candidate "$RUNNER_TEMP/v3/group6.sqlite" \
+            --published "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}" \
+            --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json"
+          cp "$RUNNER_TEMP/v3/pipeline_report.json" "$RUNNER_TEMP/evidence-${{ matrix.year }}/pipeline_v3.json"
+
+      - name: Remove Group 6 copies before packaging Groups 2-5
+        run: |
+          rm -f "$RUNNER_TEMP/v3/group6.sqlite" "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}"
+          rm -rf "$RUNNER_TEMP/dv-download" "$RUNNER_TEMP/runtime-v3"
+
+      - name: Package corrected v3 Group 2-5 annual dependencies
+        run: |
+          python "$GROUP8_ROOT/code/group8_package_g2_g5_upstream.py" \
+            --year "${{ matrix.year }}" \
+            --pipeline-report "$RUNNER_TEMP/v3/pipeline_report.json" \
+            --g6-equivalence "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json" \
+            --output-dir "$RUNNER_TEMP/release-${{ matrix.year }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-tag "$RELEASE_TAG"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_v3_equivalence.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_Runtime_v2_v3_Equivalence_${{ matrix.year }}.json"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_G6_v2_vs_Published_${{ matrix.year }}.json"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_G6_v3_vs_Published_${{ matrix.year }}.json"
+
+      - name: Additively publish SHA-pinned Group 2-5 assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets,isImmutable > "$RUNNER_TEMP/release_state.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          state=json.loads((Path(os.environ['RUNNER_TEMP'])/'release_state.json').read_text())
+          existing={a['name'] for a in state.get('assets',[])}
+          root=Path(os.environ['RUNNER_TEMP'])/'release-${{ matrix.year }}'
+          missing=sorted(p.name for p in root.iterdir() if p.is_file() and p.name not in existing)
+          print(json.dumps({'immutable':state.get('isImmutable'),'missing':missing},indent=2))
+          if missing and state.get('isImmutable'): raise SystemExit('Data Vault release immutable; cannot add required G2-G5 assets')
+          PY
+          ASSETS=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          for f in "$RUNNER_TEMP/release-${{ matrix.year }}/"*; do
+            n=$(basename "$f")
+            if grep -Fxq "$n" <<< "$ASSETS"; then
+              echo "Existing asset retained: $n"
+            else
+              gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "$f"
+            fi
+          done
+
+      - name: Preserve compact evidence
+        run: |
+          mkdir -p "$RUNNER_TEMP/materialization-${{ matrix.year }}"
+          cp "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_Upstream_G2-G5_${{ matrix.year }}_manifest.json" "$RUNNER_TEMP/materialization-${{ matrix.year }}/"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/"*.json "$RUNNER_TEMP/materialization-${{ matrix.year }}/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-upstream-v2-v3-materialization-${{ matrix.year }}
+          path: ${{ runner.temp }}/materialization-${{ matrix.year }}
+          retention-days: 60
+
+      - name: Cleanup annual runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/v3" "$RUNNER_TEMP/release-${{ matrix.year }}" "$RUNNER_TEMP/dv" "$RUNNER_TEMP/runtime-v3.tar.zst" || true
+
+  clean-room-year:
+    needs: materialize-year
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Install zstd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-upstream-v2-v3-materialization-${{ matrix.year }}
+          path: ${{ runner.temp }}/materialization
+      - name: Public clean-room verify Groups 2-5 and capture exact schemas
+        run: |
+          python "$GROUP8_ROOT/code/group8_verify_g2_g5_upstream_pack.py" \
+            --manifest "$RUNNER_TEMP/materialization/MoeBot_Group8_Upstream_G2-G5_${{ matrix.year }}_manifest.json" \
+            --work-dir "$RUNNER_TEMP/cleanroom-${{ matrix.year }}" \
+            --output "$RUNNER_TEMP/GROUP8_UPSTREAM_CLEAN_ROOM_${{ matrix.year }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-upstream-v2-v3-clean-room-${{ matrix.year }}
+          path: ${{ runner.temp }}/GROUP8_UPSTREAM_CLEAN_ROOM_${{ matrix.year }}.json
+          retention-days: 90
+
+  finalize-registry:
+    needs: [materialize-year, clean-room-year]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group8-upstream-v2-v3-materialization-*
+          path: ${{ runner.temp }}/materialization
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group8-upstream-v2-v3-clean-room-*
+          path: ${{ runner.temp }}/cleanroom
+      - name: Build permanent Group 8 annual upstream registry
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          repo=Path('.');rt=Path(os.environ['RUNNER_TEMP'])
+          dv=json.loads((repo/'MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json').read_text())
+          g7=json.loads((repo/'MoeBot_Trading_System/Group_7/registry/DATA_RELEASE_RECOVERY_AMENDMENT_v1.json').read_text())
+          bundle=json.loads((repo/'MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3/BUNDLE_MANIFEST.json').read_text())
+          years={}
+          for year in ('2023','2024'):
+            m=next((rt/'materialization').rglob(f'MoeBot_Group8_Upstream_G2-G5_{year}_manifest.json'))
+            c=next((rt/'cleanroom').rglob(f'GROUP8_UPSTREAM_CLEAN_ROOM_{year}.json'))
+            eq=next((rt/'materialization').rglob('runtime_v2_v3_equivalence.json')) if False else None
+            # Resolve by content year because artifact directories are implementation details.
+            candidates=list((rt/'materialization').rglob('runtime_v2_v3_equivalence.json'))
+            eqs=[p for p in candidates if json.loads(p.read_text()).get('year')==int(year)]
+            g6v2s=[p for p in (rt/'materialization').rglob('g6_v2_vs_published.json') if json.loads(p.read_text()).get('candidate',{}).get('filename')=='group6.sqlite']
+            g6v3s=[p for p in (rt/'materialization').rglob('g6_v3_vs_published.json') if json.loads(p.read_text()).get('candidate',{}).get('filename')=='group6.sqlite']
+            # Narrow g6 reports by published filename containing year.
+            g6v2s=[p for p in g6v2s if year in json.loads(p.read_text())['published']['filename']]
+            g6v3s=[p for p in g6v3s if year in json.loads(p.read_text())['published']['filename']]
+            if len(eqs)!=1 or len(g6v2s)!=1 or len(g6v3s)!=1: raise SystemExit(f'equivalence evidence resolution failed {year}')
+            md=json.loads(m.read_text());cd=json.loads(c.read_text());eqd=json.loads(eqs[0].read_text());g2=json.loads(g6v2s[0].read_text());g3=json.loads(g6v3s[0].read_text())
+            if not (md.get('status')=='PASS_PACKAGED' and cd.get('status')=='PASS' and eqd.get('status')=='PASS' and g2.get('status')=='PASS' and g3.get('status')=='PASS'): raise SystemExit(f'annual upstream gate failed {year}')
+            if md['manifest_hash']!=cd['source_manifest_hash']: raise SystemExit(f'manifest cleanroom hash mismatch {year}')
+            dvy=dv['years'][year]['databases'];gy=g7['years'][year]['candidate_verification']
+            years[year]={'source':dvy['source'],'groups2_5_manifest':md,'groups2_5_clean_room':cd,'runtime_v2_v3_equivalence':eqd,'group6_v2_vs_published':g2,'group6_v3_vs_published':g3,'group6':dvy['group6'],'group7':{'release_anchor_tag':g7['recovery_release_anchor_tag'],'release_anchor_commit_sha':g7['recovery_release_anchor_commit_sha'],'database_filename':gy['filename'],'database_size_bytes':gy['size_bytes'],'database_sha256':gy['sha256'],'compressed_filename':gy['compressed_filename'],'compressed_size_bytes':gy['compressed_size_bytes'],'compressed_sha256':gy['compressed_sha256'],'url':f"https://github.com/{dv['public_repository']}/releases/download/{g7['recovery_release_anchor_tag']}/{gy['compressed_filename']}"}}
+          report={'format_version':2,'status':'PASS','group':8,'lineage':'dukascopy_rebuild_v1','runtime_bundle_v3':{'bundle_sha256':bundle['bundle_sha256'],'bundle_size_bytes':bundle['bundle_size_bytes'],'runtime_engines':bundle['runtime_engines']},'group7_recovery_amendment_status':g7['status'],'group7_source_closure_tag':g7['source_closure_tag'],'group7_source_closure_commit_sha':g7['source_closure_commit_sha'],'years':years}
+          report['registry_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
+          out=repo/'MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json';out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':'PASS','registry_hash':report['registry_hash']},indent=2))
+          PY
+      - name: Commit registry to PR branch
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          cp "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$RUNNER_TEMP/registry.json"
+          git reset --hard HEAD
+          git clean -fd
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          cp "$RUNNER_TEMP/registry.json" "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json"
+          git commit -m "Freeze Group 8 annual upstream dependency registry v2-v3 verified [skip actions]"
+          git push origin "HEAD:$HEAD_BRANCH"
