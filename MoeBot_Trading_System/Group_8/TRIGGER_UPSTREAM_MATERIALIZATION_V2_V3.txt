@@ -1,0 +1,1 @@
+Materialize annual Group 2-5 dependencies only after direct v2-v3 stable-ID and semantic equivalence proof, plus v2/v3 Group 6 semantic equivalence to the published Data Vault Group 6. Publish additively and clean-room verify 2023 and 2024.
