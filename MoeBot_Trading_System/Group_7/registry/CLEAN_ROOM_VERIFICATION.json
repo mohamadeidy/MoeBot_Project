@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "method": "public Release download, part and stream SHA-256, zstd --long=31 decompression, extracted SHA-256/size, SQLite quick/integrity/foreign-key checks, and independent causal audit; years processed sequentially to preserve disk safety",
+  "source_run_id": 30051363581,
+  "status": "pass",
+  "verified_at_utc": "2026-07-24T01:34:34.925468+00:00",
+  "years": {
+    "2023": {
+      "filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+      "foreign_key_errors": 0,
+      "independent_audit": true,
+      "integrity_check": "ok",
+      "quick_check": "ok",
+      "sha256": "bcd550cca8a9131efa17d3cd4323aa47467172222756edc9c765bfacc5468af7",
+      "size_bytes": 8115417088
+    },
+    "2024": {
+      "filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+      "foreign_key_errors": 0,
+      "independent_audit": true,
+      "integrity_check": "ok",
+      "quick_check": "ok",
+      "sha256": "727ce8ca1b68881dc5c8e22836c5642614559cf7868a981aca83f055ed222436",
+      "size_bytes": 7921500160
+    }
+  }
+}

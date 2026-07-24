@@ -1,0 +1,172 @@
+{
+  "clean_room_verification": "registry/CLEAN_ROOM_VERIFICATION.json",
+  "closed_at_utc": "2026-07-24T01:34:34.968317+00:00",
+  "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+  "cross_year_validation": "reports/10_CROSS_YEAR_VALIDATION.json",
+  "database_registry": "registry/GROUP7_DATABASE_REGISTRY.json",
+  "engine_version": "0.7.5",
+  "format_version": 2,
+  "future_group_rules": [
+    "consume Group 7 read-only",
+    "verify every repository file and database against this manifest before use",
+    "preserve candidate, match, and zone lifecycle separation",
+    "never backdate a zone to the displacement origin",
+    "do not reinterpret descriptive blocks as trade signals",
+    "preserve the frozen v0.7.5 config and dukascopy_rebuild_v1 lineage"
+  ],
+  "group": 7,
+  "group8_authorized": true,
+  "lineage": "dukascopy_rebuild_v1",
+  "officially_closed": true,
+  "public_repository": "mohamadeidy/MoeBot_Project",
+  "release_tag": "moebot-group7-v0.7.5",
+  "repository_files": {
+    "00_DESIGN_LOCK.md": {
+      "path": "00_DESIGN_LOCK.md",
+      "sha256": "212e51710192b5059cbf7b4028c6753d0bee4f1f9e59f64f7e8fc2750e313fa7",
+      "size_bytes": 10199
+    },
+    "ANNUAL_DEPENDENCY_REQUIREMENTS.json": {
+      "path": "ANNUAL_DEPENDENCY_REQUIREMENTS.json",
+      "sha256": "ce35cf043c3d0928deac16a7d9d0561d8abbc00c500b4c7be547fc121dae7d11",
+      "size_bytes": 1082
+    },
+    "FROZEN_CONFIG_REGISTRY.json": {
+      "path": "FROZEN_CONFIG_REGISTRY.json",
+      "sha256": "f8347d8cf49d83a11afe96eccb74e142aafed2a8561c15865b0d81c1737825c5",
+      "size_bytes": 2571
+    },
+    "code/build_group7_registry.py": {
+      "path": "code/build_group7_registry.py",
+      "sha256": "6164596a4adaba1eb86b64a944c460ec9bd25e0c0875631e61399839137a5356",
+      "size_bytes": 4884
+    },
+    "code/download_and_restore_group7.py": {
+      "path": "code/download_and_restore_group7.py",
+      "sha256": "f16d22fdfc7477f20ce2c63646e08b16eecd089c7bf2adcfafbd09a93ef133fd",
+      "size_bytes": 8859
+    },
+    "code/finalize_group7_closure.py": {
+      "path": "code/finalize_group7_closure.py",
+      "sha256": "14e5b27bd6c0451a907ec6cd6fe432f8f87e16cfdb67db5013737404da3cd1f6",
+      "size_bytes": 6469
+    },
+    "code/group7_independent_audit.py": {
+      "path": "code/group7_independent_audit.py",
+      "sha256": "3aae274d25fd3b2362b7a9b4c7ae4d799b56d463d5d7f173dd50c200162b4354",
+      "size_bytes": 16784
+    },
+    "code/group7_performance_smoke.py": {
+      "path": "code/group7_performance_smoke.py",
+      "sha256": "dad5c3a22573cc5716bc444f95c1e163b57dedafba4c47e04fcf497164a32249",
+      "size_bytes": 2277
+    },
+    "code/group7_real_visual_audit.py": {
+      "path": "code/group7_real_visual_audit.py",
+      "sha256": "4f85f362c8a00ed7f1dfc8b40b8893c7b9d0b2358782fc1bf7af62feebdc5167",
+      "size_bytes": 8441
+    },
+    "code/group7_test_suite.py": {
+      "path": "code/group7_test_suite.py",
+      "sha256": "9a0c54b8821e0af80c2a696e06be36716e509f893e861a5ec53be1c6a17f5fb9",
+      "size_bytes": 32341
+    },
+    "code/group7_year_pipeline.py": {
+      "path": "code/group7_year_pipeline.py",
+      "sha256": "a65d52813e4f2a8988801f2357b105894ce9b343ed6be4c7e94c6dd82b66256f",
+      "size_bytes": 9877
+    },
+    "code/moebot_group7_engine.py": {
+      "path": "code/moebot_group7_engine.py",
+      "sha256": "898148a579532d970283b461ea446bd34045ca9dc43b53a4a59a015a5700f173",
+      "size_bytes": 81156
+    },
+    "code/package_group7_database.py": {
+      "path": "code/package_group7_database.py",
+      "sha256": "9ebdc2645220ff554eb21dccd55bdc95d6b36a563cfa0937dfe83e4652eec71c",
+      "size_bytes": 2990
+    },
+    "registry/CLEAN_ROOM_VERIFICATION.json": {
+      "path": "registry/CLEAN_ROOM_VERIFICATION.json",
+      "sha256": "1839bdfc1609099ec7170fc677e9a0724c77674f9c6fe7e3d30b3ed13110082b",
+      "size_bytes": 1077
+    },
+    "registry/GROUP7_DATABASE_REGISTRY.json": {
+      "path": "registry/GROUP7_DATABASE_REGISTRY.json",
+      "sha256": "b2816dee32c15e646a99dbeab98c66e459e42111618e768459f3d24df3ee6253",
+      "size_bytes": 12530
+    },
+    "reports/10_CROSS_YEAR_VALIDATION.json": {
+      "path": "reports/10_CROSS_YEAR_VALIDATION.json",
+      "sha256": "c72fbbb7a713ab4205cd58482b9c1c6976264c6d73f018e2dba6a3cc467129fb",
+      "size_bytes": 2311
+    },
+    "reports/GROUP7_YEAR_2023.json": {
+      "path": "reports/GROUP7_YEAR_2023.json",
+      "sha256": "11bb0bcfc75b49fd81392833c8fb27fcb330c828bdb98a6e9237d7f90f520c80",
+      "size_bytes": 15734
+    },
+    "reports/GROUP7_YEAR_2023.md": {
+      "path": "reports/GROUP7_YEAR_2023.md",
+      "sha256": "7accd92b2d14af01ba5b5d4c5e1b68ab14f27ea2bd6c8e3913021e66051b1418",
+      "size_bytes": 437
+    },
+    "reports/GROUP7_YEAR_2024.json": {
+      "path": "reports/GROUP7_YEAR_2024.json",
+      "sha256": "c5fe11050beec5ad11e285a10f1dae53f24821d1bd5f723202463d7e1bbd2324",
+      "size_bytes": 15810
+    },
+    "reports/GROUP7_YEAR_2024.md": {
+      "path": "reports/GROUP7_YEAR_2024.md",
+      "sha256": "97b4e7ec09cdf64cff181139c8a9182d1ff7a1311e0929eaa36c0c4712bfa5c7",
+      "size_bytes": 437
+    },
+    "requirements.txt": {
+      "path": "requirements.txt",
+      "sha256": "c89217e7e8c66409895e12284df8a3f921f16a46bdd0168e13771b451d1d5a82",
+      "size_bytes": 11
+    }
+  },
+  "schema_version": "7.5.0",
+  "status": "frozen_read_only_dependency",
+  "years": {
+    "2023": {
+      "annual_report_json": "reports/GROUP7_YEAR_2023.json",
+      "annual_report_markdown": "reports/GROUP7_YEAR_2023.md",
+      "compressed_filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst",
+      "compressed_sha256": "64920a85644a37796d312ff280866c44d711eab0586d1346683d279f2228abab",
+      "compressed_size_bytes": 1159188423,
+      "database_filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+      "database_sha256": "bcd550cca8a9131efa17d3cd4323aa47467172222756edc9c765bfacc5468af7",
+      "database_size_bytes": 8115417088,
+      "parts": [
+        {
+          "filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+          "sha256": "64920a85644a37796d312ff280866c44d711eab0586d1346683d279f2228abab",
+          "size_bytes": 1159188423,
+          "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+        }
+      ],
+      "verification_filename": "GROUP7_YEAR_2023.json"
+    },
+    "2024": {
+      "annual_report_json": "reports/GROUP7_YEAR_2024.json",
+      "annual_report_markdown": "reports/GROUP7_YEAR_2024.md",
+      "compressed_filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst",
+      "compressed_sha256": "9e94befd9a6be350e00e85f7e55ad95b967c9335912ab7760c0073775d8244a0",
+      "compressed_size_bytes": 1127479211,
+      "database_filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+      "database_sha256": "727ce8ca1b68881dc5c8e22836c5642614559cf7868a981aca83f055ed222436",
+      "database_size_bytes": 7921500160,
+      "parts": [
+        {
+          "filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+          "sha256": "9e94befd9a6be350e00e85f7e55ad95b967c9335912ab7760c0073775d8244a0",
+          "size_bytes": 1127479211,
+          "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000"
+        }
+      ],
+      "verification_filename": "GROUP7_YEAR_2024.json"
+    }
+  }
+}
