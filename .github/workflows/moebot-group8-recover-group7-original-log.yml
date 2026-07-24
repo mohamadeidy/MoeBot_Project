@@ -1,0 +1,65 @@
+name: MoeBot Group 8 Recover Group7 Original Job Log
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  ORIGINAL_JOB_ID: "89354007627"
+
+jobs:
+  recover-log:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download exact original Group 7 2023 job log
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$ORIGINAL_JOB_ID/logs" > "$RUNNER_TEMP/original-2023-job.log"
+          test -s "$RUNNER_TEMP/original-2023-job.log"
+          wc -c "$RUNNER_TEMP/original-2023-job.log"
+      - name: Extract timing landmarks
+        run: |
+          python - <<'PY'
+          import re, os
+          from pathlib import Path
+          src=Path(os.environ['RUNNER_TEMP'])/'original-2023-job.log'
+          out=Path(os.environ['RUNNER_TEMP'])/'timing-landmarks.txt'
+          lines=src.read_text(encoding='utf-8',errors='replace').splitlines()
+          needles=(
+            'Build and audit frozen Group 7 annual database',
+            'Package and split Group 7 database',
+            'Upload annual database parts and evidence',
+            'first_build', 'second_build', 'elapsed_seconds',
+            'idempotent', 'independent', 'audit', 'GROUP7_YEAR_2023',
+          )
+          selected=[]
+          for i,line in enumerate(lines):
+              low=line.lower()
+              if any(n.lower() in low for n in needles):
+                  lo=max(0,i-3); hi=min(len(lines),i+4)
+                  selected.append(f'--- around line {i+1} ---')
+                  selected.extend(lines[lo:hi])
+          # Also record every Actions step group boundary with timestamp.
+          selected.append('--- step boundaries ---')
+          for line in lines:
+              if '##[group]Run ' in line or '##[endgroup]' in line or '##[error]' in line:
+                  selected.append(line)
+          out.write_text('\n'.join(selected)+'\n',encoding='utf-8')
+          print(out.read_text(encoding='utf-8')[-20000:])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-original-2023-job-log
+          path: |
+            ${{ runner.temp }}/original-2023-job.log
+            ${{ runner.temp }}/timing-landmarks.txt
+          retention-days: 30
