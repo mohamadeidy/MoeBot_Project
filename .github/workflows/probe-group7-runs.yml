@@ -21,11 +21,10 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Record latest Group 7 workflow runs
+      - name: Record latest Group 7 workflow runs and failed logs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Probe sequence 3: refresh active annual packaging timestamps.
           mkdir -p MoeBot_Trading_System/Group_7/ops
           gh run list \
             --repo "$GITHUB_REPOSITORY" \
@@ -37,22 +36,23 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --json databaseId,status,conclusion,createdAt,updatedAt,jobs,url,headSha \
             > MoeBot_Trading_System/Group_7/ops/ACTIVE_RUN_DETAIL.json
+          gh run view 30049335689 \
+            --repo "$GITHUB_REPOSITORY" \
+            --log-failed \
+            > MoeBot_Trading_System/Group_7/ops/FAILED_RUN_LOG.txt || true
           gh run list \
             --repo "$GITHUB_REPOSITORY" \
             --workflow test-group7-cleanroom-hardening.yml \
             --limit 10 \
             --json databaseId,status,conclusion,headSha,headBranch,createdAt,updatedAt,url,event,displayTitle \
             > MoeBot_Trading_System/Group_7/ops/CLEANROOM_HARDENING_TEST_RUNS.json
-          cat MoeBot_Trading_System/Group_7/ops/LATEST_WORKFLOW_RUNS.json
-          cat MoeBot_Trading_System/Group_7/ops/ACTIVE_RUN_DETAIL.json
-          cat MoeBot_Trading_System/Group_7/ops/CLEANROOM_HARDENING_TEST_RUNS.json
       - name: Commit probe result
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add MoeBot_Trading_System/Group_7/ops/LATEST_WORKFLOW_RUNS.json MoeBot_Trading_System/Group_7/ops/ACTIVE_RUN_DETAIL.json MoeBot_Trading_System/Group_7/ops/CLEANROOM_HARDENING_TEST_RUNS.json
+          git add MoeBot_Trading_System/Group_7/ops/LATEST_WORKFLOW_RUNS.json MoeBot_Trading_System/Group_7/ops/ACTIVE_RUN_DETAIL.json MoeBot_Trading_System/Group_7/ops/FAILED_RUN_LOG.txt MoeBot_Trading_System/Group_7/ops/CLEANROOM_HARDENING_TEST_RUNS.json
           if ! git diff --cached --quiet; then
-            git commit -m "Record latest Group 7 workflow runs"
+            git commit -m "Record Group 7 failed workflow log"
             git pull --rebase origin main
             git push origin main
           fi
