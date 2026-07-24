@@ -1,0 +1,65 @@
+name: MoeBot Group 8 Compare Group7 Run Timings
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  ORIGINAL_JOB_ID: "89354007627"
+  CLOBBER_JOB_ID: "89425729068"
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download both exact job logs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$ORIGINAL_JOB_ID/logs" > "$RUNNER_TEMP/original.log"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$CLOBBER_JOB_ID/logs" > "$RUNNER_TEMP/clobber.log"
+      - name: Compare timing landmarks and reported identities
+        run: |
+          python - <<'PY' | tee "$RUNNER_TEMP/comparison.json"
+          import json, os, re
+          from pathlib import Path
+          def parse(name):
+              lines=(Path(os.environ['RUNNER_TEMP'])/f'{name}.log').read_text(encoding='utf-8',errors='replace').splitlines()
+              def first_ts(fragment):
+                  for line in lines:
+                      if fragment in line:
+                          return line.split('Z',1)[0].strip()+ 'Z'
+                  return None
+              text='\n'.join(lines)
+              db_sha=re.findall(r'"sha256": "([0-9a-f]{64})"',text)
+              db_size=re.findall(r'"size_bytes": (\d+)',text)
+              total_elapsed=re.findall(r'^.*?"elapsed_seconds": ([0-9.]+),?$',text,re.M)
+              # The first elapsed after database block is pipeline total; the next relevant is first_build.
+              return {
+                'build_step_start':first_ts('##[group]Run mkdir -p "$RUNNER_TEMP/g7_build/2023"'),
+                'package_step_start':first_ts('##[group]Run DB=$(find "$RUNNER_TEMP/g7_build/2023"'),
+                'release_upload_start':first_ts('##[group]Run gh release upload "$RELEASE_TAG"'),
+                'sha_candidates':db_sha[:20],
+                'size_candidates':db_size[:20],
+                'elapsed_candidates':total_elapsed[:20],
+                'line_count':len(lines),
+              }
+          out={'original':parse('original'),'clobber':parse('clobber')}
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-run6-vs-run7-timing-comparison
+          path: |
+            ${{ runner.temp }}/comparison.json
+            ${{ runner.temp }}/original.log
+            ${{ runner.temp }}/clobber.log
+          retention-days: 30
