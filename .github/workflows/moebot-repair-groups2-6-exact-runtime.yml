@@ -1,0 +1,187 @@
+name: MoeBot Repair Exact Groups 2-6 Runtime
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || 'main' }}
+          fetch-depth: 0
+
+      - name: Restore and verify exact frozen runtime sources
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+          import base64, glob, hashlib, json, os, shutil, subprocess, tarfile, tempfile
+          from pathlib import Path
+
+          root = Path.cwd()
+          out = root / "MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3/runtime"
+          if out.exists():
+              shutil.rmtree(out)
+          out.mkdir(parents=True, exist_ok=True)
+
+          specs = {
+              "group2": {
+                  "archive_dir": root / "MoeBot_Trading_System/Group_2/archive",
+                  "prefix": "Group_2_REQUIRED_FILES.tar.gz.b64.part-",
+                  "filename": "moebot_group2_engine_v0_2_1.py",
+                  "sha256": "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926",
+              },
+              "group3": {
+                  "archive_dir": root / "MoeBot_Trading_System/Group_3/archive",
+                  "prefix": "Group_3_REQUIRED_FILES.tar.gz.b64.part-",
+                  "filename": "moebot_group3_structure_engine_v0_1_1.py",
+                  "sha256": "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512",
+              },
+              "group4": {
+                  "archive_dir": root / "MoeBot_Trading_System/Group_4/archive",
+                  "prefix": "Group_4_REQUIRED_FILES.tar.gz.b64.part-",
+                  "filename": "moebot_group4_zones_engine_v0_1_6.py",
+                  "sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+              },
+              "group5": {
+                  "archive_dir": root / "MoeBot_Trading_System/Group_5/archive",
+                  "prefix": "Group_5_REQUIRED_FILES.tar.gz.b64.part-",
+                  "filename": "moebot_group5_liquidity_engine_v0_1_6.py",
+                  "sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+              },
+              "group6": {
+                  "archive_dir": root / "MoeBot_Trading_System/Group_6/archive",
+                  "prefix": "Group_6_REQUIRED_FILES.tar.gz.b64.part-",
+                  "filename": "moebot_group6_engine.py",
+                  "sha256": "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877",
+              },
+          }
+
+          def sha256(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def decode_parts(parts: list[Path]) -> bytes:
+              payloads = [p.read_bytes().strip() for p in parts]
+              try:
+                  return base64.b64decode(b"".join(payloads), validate=True)
+              except Exception:
+                  return b"".join(base64.b64decode(p, validate=True) for p in payloads)
+
+          manifest = {
+              "format_version": 3,
+              "status": "exact_frozen_runtime_verified",
+              "purpose": "canonical downstream runtime source handoff for Groups 2-6",
+              "sources": {},
+          }
+
+          with tempfile.TemporaryDirectory() as td:
+              temp = Path(td)
+              for group, spec in specs.items():
+                  parts = sorted(spec["archive_dir"].glob(spec["prefix"] + "*"))
+                  if not parts:
+                      raise SystemExit(f"{group}: REQUIRED_FILES archive parts missing")
+                  archive_bytes = decode_parts(parts)
+                  archive = temp / f"{group}.tar.gz"
+                  archive.write_bytes(archive_bytes)
+                  extract_dir = temp / f"{group}_extract"
+                  extract_dir.mkdir()
+                  with tarfile.open(archive, "r:gz") as tf:
+                      tf.extractall(extract_dir)
+                  matches = list(extract_dir.rglob(spec["filename"]))
+                  if len(matches) != 1:
+                      raise SystemExit(f"{group}: expected exactly one {spec['filename']}, got {len(matches)}")
+                  src = matches[0]
+                  data = src.read_bytes()
+                  actual = sha256(data)
+                  if actual != spec["sha256"]:
+                      raise SystemExit(f"{group}: SHA mismatch expected={spec['sha256']} actual={actual} path={src}")
+                  dest = out / group / "code" / spec["filename"]
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(data)
+                  subprocess.run(["python", "-m", "py_compile", str(dest)], check=True)
+                  manifest["sources"][group] = {
+                      "filename": spec["filename"],
+                      "size_bytes": len(data),
+                      "sha256": actual,
+                      "archive_parts": [str(p.relative_to(root)) for p in parts],
+                      "archive_sha256": sha256(archive_bytes),
+                      "python_compile": "PASS",
+                  }
+                  print(f"PASS {group}: {spec['filename']} size={len(data)} sha256={actual}")
+
+          mpath = root / "MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3/RUNTIME_MANIFEST.json"
+          mpath.parent.mkdir(parents=True, exist_ok=True)
+          mpath.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+      - name: Write canonical verifier and README
+        run: |
+          cat > MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3/verify_runtime.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+          import hashlib, json, sys
+          from pathlib import Path
+
+          root = Path(__file__).resolve().parent
+          manifest = json.loads((root / "RUNTIME_MANIFEST.json").read_text(encoding="utf-8"))
+          failures = []
+          for group, meta in manifest["sources"].items():
+              path = root / "runtime" / group / "code" / meta["filename"]
+              if not path.is_file():
+                  failures.append(f"{group}: missing {path}")
+                  continue
+              data = path.read_bytes()
+              actual = hashlib.sha256(data).hexdigest()
+              if actual != meta["sha256"] or len(data) != meta["size_bytes"]:
+                  failures.append(f"{group}: identity mismatch")
+              else:
+                  print(f"PASS {group}: size={len(data)} sha256={actual}")
+          if failures:
+              print("\n".join(failures), file=sys.stderr)
+              raise SystemExit(1)
+          print("PASS: exact frozen Groups 2-6 runtime v3 verified")
+          PY
+          chmod +x MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3/verify_runtime.py
+          cat > MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3/README.md <<'EOF'
+          # MoeBot Groups 2-6 Exact Frozen Runtime v3
+
+          This is the canonical downstream source handoff for Groups 2 through 6.
+
+          The runtime files are restored from the Group-specific `REQUIRED_FILES` archives and accepted only when every engine matches its frozen SHA-256 identity. This v3 handoff supersedes the earlier aggregate runtime bundles for downstream dependency intake because those bundles were found to contain non-canonical Group 4/5 source bytes.
+
+          Verify at any time with:
+
+          ```bash
+          python MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3/verify_runtime.py
+          ```
+
+          Do not modify these files in place. A later Group must consume them read-only and bind its dependency manifest to `RUNTIME_MANIFEST.json`.
+          EOF
+          python MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3/verify_runtime.py
+
+      - name: Upload repaired canonical runtime evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: groups2-6-exact-runtime-v3
+          path: MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3
+          retention-days: 7
+
+      - name: Commit canonical runtime to PR branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add MoeBot_Trading_System/archive/groups_2_6_exact_runtime_v3
+          if ! git diff --cached --quiet; then
+            git commit -m "Restore exact frozen Groups 2-6 runtime v3 [skip actions]"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
