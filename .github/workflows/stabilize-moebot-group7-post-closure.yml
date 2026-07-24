@@ -1,0 +1,101 @@
+name: Stabilize MoeBot Group 7 Post Closure
+
+"on":
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/stabilize-moebot-group7-post-closure.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP7_ROOT: MoeBot_Trading_System/Group_7
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Re-finalize stable registry and handoff
+        run: |
+          python "$GROUP7_ROOT/code/finalize_group7_closure.py" \
+            --registry "$GROUP7_ROOT/registry/GROUP7_DATABASE_REGISTRY.json" \
+            --clean-room-report "$GROUP7_ROOT/registry/CLEAN_ROOM_VERIFICATION.json" \
+            --output-dir "$GROUP7_ROOT"
+      - name: Build post-closure verification record
+        run: |
+          python - <<'PY'
+          import datetime as dt, hashlib, json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_7')
+          status=json.loads((root/'STATUS.json').read_text())
+          registry=json.loads((root/'registry/GROUP7_DATABASE_REGISTRY.json').read_text())
+          clean=json.loads((root/'registry/CLEAN_ROOM_VERIFICATION.json').read_text())
+          handoff=json.loads((root/'NEXT_GROUP_DEPENDENCY_MANIFEST.json').read_text())
+          assert status['officially_closed'] and status['group8_authorized']
+          assert registry['status']=='published_verified_officially_closed'
+          assert registry['cross_year']['passed']
+          assert clean['status']=='pass'
+          assert handoff['officially_closed'] and handoff['group8_authorized']
+          checked={}
+          for rel,ident in handoff['repository_files'].items():
+              p=root/rel
+              h=hashlib.sha256(p.read_bytes()).hexdigest()
+              if p.stat().st_size!=ident['size_bytes'] or h!=ident['sha256']:
+                  raise SystemExit(f'Identity mismatch: {rel}')
+              checked[rel]={'size_bytes':p.stat().st_size,'sha256':h}
+          report={
+            'format_version':1,
+            'status':'pass',
+            'verified_at_utc':dt.datetime.now(dt.timezone.utc).isoformat(),
+            'closure_commit_required':'Group 7 officially closed',
+            'registry_status':registry['status'],
+            'cross_year_passed':registry['cross_year']['passed'],
+            'clean_room_status':clean['status'],
+            'officially_closed':status['officially_closed'],
+            'group8_authorized':status['group8_authorized'],
+            'repository_files':checked,
+            'years':{
+              y:{'database_filename':e['database_filename'],'database_size_bytes':e['database_size_bytes'],'database_sha256':e['database_sha256'],'parts':e['parts']}
+              for y,e in registry['years'].items()
+            }
+          }
+          (root/'registry/POST_CLOSURE_VERIFICATION.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print('PASS: stabilized post-closure registry and handoff')
+          PY
+      - name: Commit stable post-closure state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP7_ROOT/registry" "$GROUP7_ROOT/STATUS.json" "$GROUP7_ROOT/NEXT_GROUP_DEPENDENCY_MANIFEST.json" "$GROUP7_ROOT/11_FINAL_VERDICT.md"
+          if ! git diff --cached --quiet; then
+            git commit -m "Stabilize Group 7 post-closure registry and handoff"
+            git pull --rebase origin main
+            git push origin main
+          fi
+      - name: Assert stable state on main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_7')
+          s=json.loads((r/'STATUS.json').read_text())
+          g=json.loads((r/'registry/GROUP7_DATABASE_REGISTRY.json').read_text())
+          p=json.loads((r/'registry/POST_CLOSURE_VERIFICATION.json').read_text())
+          assert s['status']=='OFFICIALLY_CLOSED' and s['officially_closed'] and s['group8_authorized']
+          assert g['status']=='published_verified_officially_closed' and g['cross_year']['passed']
+          assert p['status']=='pass'
+          print('PASS: stable Group 7 closure is present on main')
+          PY
