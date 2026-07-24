@@ -40,6 +40,8 @@ jobs:
             "$RUNNER_TEMP/runtime-v2/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py" \
             "$RUNNER_TEMP/runtime-v2/runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py" \
             "$RUNNER_TEMP/runtime-v2/runtime/group6/code/moebot_group6_engine.py"
+          find "$RUNNER_TEMP/runtime-v2/runtime" -type d -name __pycache__ -prune -exec rm -rf {} +
+          find "$RUNNER_TEMP/runtime-v2/runtime" -type f -name '*.pyc' -delete
 
       - name: Build deterministic v3 archive and chunks
         run: |
