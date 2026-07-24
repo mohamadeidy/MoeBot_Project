@@ -12,11 +12,10 @@ permissions:
 
 env:
   GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  GROUP7_ROOT: MoeBot_Trading_System/Group_7
   BUNDLE_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3
   CLOSURE_TAG: moebot-group7-v0.7.5-closure
   CLOSURE_SHA: c9a481d5d8f40bc80d833ef1d135fe56578b5fe2
-  GROUP7_2023_URL: https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000
-  GROUP7_2023_COMPRESSED_SHA: 64920a85644a37796d312ff280866c44d711eab0586d1346683d279f2228abab
   GROUP7_2023_DB_SHA: bcd550cca8a9131efa17d3cd4323aa47467172222756edc9c765bfacc5468af7
   GROUP7_2023_DB_SIZE: "8115417088"
   PYTHONUNBUFFERED: "1"
@@ -24,7 +23,7 @@ env:
 jobs:
   dependency-intake:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,15 +77,18 @@ jobs:
           path.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
           PY
 
-      - name: Download and verify real Group 7 2023 database
+      - name: Restore official Group 7 2023 database and inventory real schema
         run: |
           set -o pipefail
-          COMPRESSED="$RUNNER_TEMP/group7_2023.sqlite.zst"
-          DATABASE="$RUNNER_TEMP/group7_2023.sqlite"
-          curl -L --fail --retry 5 --retry-all-errors "$GROUP7_2023_URL" -o "$COMPRESSED"
-          echo "$GROUP7_2023_COMPRESSED_SHA  $COMPRESSED" | sha256sum -c -
-          zstd -d -f "$COMPRESSED" -o "$DATABASE"
-          rm -f "$COMPRESSED"
+          rm -rf "$RUNNER_TEMP/group7-group8-intake"
+          mkdir -p "$RUNNER_TEMP/group7-group8-intake"
+          python "$GROUP7_ROOT/code/download_and_restore_group7.py" \
+            --registry "$GROUP7_ROOT/registry/GROUP7_DATABASE_REGISTRY.json" \
+            --year 2023 \
+            --download-dir "$RUNNER_TEMP/group7-group8-intake/downloads" \
+            --output-dir "$RUNNER_TEMP/group7-group8-intake/databases" \
+            | tee "$GROUP8_ROOT/reports/03_GROUP7_2023_OFFICIAL_RESTORE.log"
+          DATABASE="$RUNNER_TEMP/group7-group8-intake/databases/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite"
           python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
             --database "$DATABASE" \
             --expected-sha256 "$GROUP7_2023_DB_SHA" \
@@ -94,7 +96,7 @@ jobs:
             --year 2023 \
             --output "$GROUP8_ROOT/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json" \
             2>&1 | tee "$GROUP8_ROOT/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.log"
-          rm -f "$DATABASE"
+          rm -rf "$RUNNER_TEMP/group7-group8-intake"
 
       - name: Finalize dependency intake status
         run: |
@@ -140,6 +142,7 @@ jobs:
             00_BUNDLE_DIAGNOSTIC.json \
             01_STATIC_SCHEMA_INVENTORY.log \
             02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json \
+            03_GROUP7_2023_OFFICIAL_RESTORE.log \
             03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json \
             03_REAL_SQLITE_SCHEMA_INVENTORY_2023.log; do
             if [ -f "$GROUP8_ROOT/reports/$f" ]; then cp "$GROUP8_ROOT/reports/$f" "$RUNNER_TEMP/group8-dependency-evidence/reports/$f"; fi
