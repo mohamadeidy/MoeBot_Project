@@ -15,10 +15,8 @@ CANONICAL_ENGINES = {
     "runtime/groups2_5/code/moebot_group3_structure_engine_v0_1_1.py": (23933, "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512"),
     "runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py": (57168, "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad"),
     "runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py": (59657, "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc"),
-    "runtime/group6/code/moebot_group6_engine.py": (64524, "1a60e9943e91af656df462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad"),
+    "runtime/group6/code/moebot_group6_engine.py": (64524, "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877"),
 }
-# Correct canonical Group 6 identity (kept explicit to avoid accepting manifest drift).
-CANONICAL_ENGINES["runtime/group6/code/moebot_group6_engine.py"] = (64524, "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -43,6 +41,17 @@ def main() -> int:
     manifest = json.loads((root / "BUNDLE_MANIFEST.json").read_text(encoding="utf-8"))
     if manifest.get("format_version") != 3 or manifest.get("status") != "frozen_verified_runtime":
         raise RuntimeError("invalid v3 manifest status/version")
+
+    manifest_engines = manifest.get("runtime_engines", {})
+    for group_key, row in manifest_engines.items():
+        path = row.get("path")
+        if path not in CANONICAL_ENGINES:
+            raise RuntimeError(f"unexpected runtime engine in manifest: {group_key} {path}")
+        expected_size, expected_sha = CANONICAL_ENGINES[path]
+        if int(row.get("size_bytes", -1)) != expected_size or row.get("sha256") != expected_sha:
+            raise RuntimeError(f"manifest engine identity drift: {group_key}")
+    if len(manifest_engines) != len(CANONICAL_ENGINES):
+        raise RuntimeError("manifest does not declare exactly five canonical engines")
 
     chunks_dir = root / "chunks"
     rows = manifest["chunks"]
