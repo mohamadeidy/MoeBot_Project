@@ -1,0 +1,82 @@
+name: MoeBot Group 8 Diagnose Group7 Asset
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  URL: https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000
+  EXPECTED_COMPRESSED_SHA: 64920a85644a37796d312ff280866c44d711eab0586d1346683d279f2228abab
+  EXPECTED_COMPRESSED_SIZE: "1159188423"
+  EXPECTED_DB_SHA: bcd550cca8a9131efa17d3cd4323aa47467172222756edc9c765bfacc5468af7
+  EXPECTED_DB_SIZE: "8115417088"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Install zstd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Download current release transport without trusting its compressed identity
+        run: |
+          FILE="$RUNNER_TEMP/group7-current.sqlite.zst"
+          curl -L --fail --retry 5 --retry-all-errors --output "$FILE" "$URL"
+          ACTUAL_SIZE=$(stat -c%s "$FILE")
+          ACTUAL_SHA=$(sha256sum "$FILE" | awk '{print $1}')
+          printf 'expected_compressed_size=%s\nactual_compressed_size=%s\nexpected_compressed_sha=%s\nactual_compressed_sha=%s\n' \
+            "$EXPECTED_COMPRESSED_SIZE" "$ACTUAL_SIZE" "$EXPECTED_COMPRESSED_SHA" "$ACTUAL_SHA" \
+            | tee "$RUNNER_TEMP/transport.txt"
+      - name: Decompress current transport and verify canonical SQLite identity
+        run: |
+          set -o pipefail
+          zstd -d --long=31 -f "$RUNNER_TEMP/group7-current.sqlite.zst" -o "$RUNNER_TEMP/group7-current.sqlite"
+          python - <<'PY' | tee "$RUNNER_TEMP/database.json"
+          import hashlib, json, os, sqlite3
+          from pathlib import Path
+          db=Path(os.environ['RUNNER_TEMP'])/'group7-current.sqlite'
+          h=hashlib.sha256()
+          with db.open('rb') as f:
+              while b:=f.read(8*1024*1024): h.update(b)
+          con=sqlite3.connect(f'file:{db}?mode=ro',uri=True)
+          quick=con.execute('PRAGMA quick_check').fetchone()[0]
+          integrity=con.execute('PRAGMA integrity_check').fetchone()[0]
+          fk=len(con.execute('PRAGMA foreign_key_check').fetchall())
+          con.close()
+          actual={'size_bytes':db.stat().st_size,'sha256':h.hexdigest(),'quick_check':quick,'integrity_check':integrity,'foreign_key_errors':fk}
+          expected={'size_bytes':int(os.environ['EXPECTED_DB_SIZE']),'sha256':os.environ['EXPECTED_DB_SHA']}
+          result={'actual':actual,'expected':expected,'canonical_database_identity_pass':actual['size_bytes']==expected['size_bytes'] and actual['sha256']==expected['sha256'] and quick=='ok' and integrity=='ok' and fk==0}
+          print(json.dumps(result,indent=2,sort_keys=True))
+          PY
+      - name: Attempt canonical recompression and compare historical compressed identity
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/group7-current.sqlite" ]; then
+            zstd -q -19 --long=31 -f "$RUNNER_TEMP/group7-current.sqlite" -o "$RUNNER_TEMP/recompressed.sqlite.zst"
+            printf 'recompressed_size=%s\nrecompressed_sha=%s\n' \
+              "$(stat -c%s "$RUNNER_TEMP/recompressed.sqlite.zst")" \
+              "$(sha256sum "$RUNNER_TEMP/recompressed.sqlite.zst" | awk '{print $1}')" \
+              | tee "$RUNNER_TEMP/recompression.txt"
+          fi
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group7-2023-release-transport-diagnostic
+          path: |
+            ${{ runner.temp }}/transport.txt
+            ${{ runner.temp }}/database.json
+            ${{ runner.temp }}/recompression.txt
+          if-no-files-found: warn
+          retention-days: 30
