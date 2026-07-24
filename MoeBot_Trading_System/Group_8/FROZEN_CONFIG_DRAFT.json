@@ -1,0 +1,42 @@
+{
+  "calibration_basis": "causal descriptive constants only; no PnL, MFE, MAE, future-return or profitability calibration",
+  "causality": {
+    "closed_bars_only": true,
+    "availability_policy": "maximum mandatory upstream availability",
+    "creation_immutable": true,
+    "lifecycle_append_only": true,
+    "no_backdating": true,
+    "no_lookahead": true
+  },
+  "config_status": "DRAFT_NOT_FROZEN",
+  "engine_version": "0.8.0-draft.1",
+  "feature_parameters": {
+    "atr_method": "wilder_rma",
+    "atr_period": 14,
+    "atr_warmup_bars": 14,
+    "feature_round_digits": 8,
+    "minimum_price_increment_policy": "verified point or tick size; exact stored equality fallback",
+    "proximity_atr_fraction": 0.05,
+    "proximity_minimum_increments": 1,
+    "small_noise_atr_fraction": 0.001
+  },
+  "pattern_thresholds": {
+    "atr_buffer_breakout_fraction": 0.1,
+    "doji_broad_body_to_range_max": 0.2,
+    "doji_strict_body_to_range_max": 0.1,
+    "pin_body_to_range_max": 0.3,
+    "pin_dominant_wick_to_range_min": 0.6,
+    "pin_opposite_wick_to_range_max": 0.15,
+    "rejection_close_outer_fraction": 0.25,
+    "rejection_wick_to_range_min": 0.5
+  },
+  "school_policy": {
+    "global_confluence_score": false,
+    "preferred_block_definition": false,
+    "preferred_school": false,
+    "school_interpretations_independent": true,
+    "shared_and_conflicting_evidence_separate": true
+  },
+  "schema_version": "8.0.0-draft.1",
+  "trading_outputs_prohibited": true
+}
