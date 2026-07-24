@@ -1,0 +1,202 @@
+{
+  "bundle_filename": "MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar.zst",
+  "bundle_sha256": "f7e00ba541bcccb9f0773929d8fdee2a40eb09142e1833bfcb32f4fc3909ba1a",
+  "bundle_size_bytes": 199404,
+  "chunk_count": 25,
+  "chunk_encoding": "independent_base64_objects",
+  "chunks": [
+    {
+      "decoded_sha256": "af517650ff06d1681a744bd1e3af93662e80b7cbf27c3362478f13dc95b55c24",
+      "decoded_size_bytes": 8192,
+      "name": "part_000.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "774956fcdcee4c3f8b4906d87f57a4eb53aa616c15690e43067f04111abd7a23",
+      "decoded_size_bytes": 8192,
+      "name": "part_001.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "0d409b4adbf2b2490d70c56be1c4328882f690a49009973b1c104b8b7419df53",
+      "decoded_size_bytes": 8192,
+      "name": "part_002.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "ecdd6eb68052b415fed1e2085b45ab98c2323b593a47cf8272f410e95b80bf13",
+      "decoded_size_bytes": 8192,
+      "name": "part_003.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "59eab667fa27867004f11c711547f9dae876f3ba0d1e2330f7b5821b0d1e53b8",
+      "decoded_size_bytes": 8192,
+      "name": "part_004.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "8391a1e43a1c21ab521ba54be636fbe9369d45a59b34a5e52e8bd42c12fa05e8",
+      "decoded_size_bytes": 8192,
+      "name": "part_005.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "40e6c7dcadde7eb74f8e6547aa7e88ee690d06e537bea5af96f930278b6b2742",
+      "decoded_size_bytes": 8192,
+      "name": "part_006.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "e5d6585a9e8eebcaed9b19c9608194bef98fe8323e7d45af19f61a4d52a644cd",
+      "decoded_size_bytes": 8192,
+      "name": "part_007.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "17b1e1962e5be1c3a94d88f94c7243ade0eb4db7724e961679e1c4a0b4f0fdfd",
+      "decoded_size_bytes": 8192,
+      "name": "part_008.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "afd169a1adcf70b0d7431c04a1948ee1039fe56245f00d4a41aa7696e472c105",
+      "decoded_size_bytes": 8192,
+      "name": "part_009.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "a6bb828a593bb3f10adea99233d1571625c118532b04f8d5e58702679dda9f1e",
+      "decoded_size_bytes": 8192,
+      "name": "part_010.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "6926e5350db3f19be4ad0f3184c39e0a91973c826b1fd0fd036d79179d1c0278",
+      "decoded_size_bytes": 8192,
+      "name": "part_011.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "cdca0a9bcdb3df1b998a996e6197fd5689b12a9569d191bcaba2b0a8a271b2a6",
+      "decoded_size_bytes": 8192,
+      "name": "part_012.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "b3eb8ddf0d0e881adec15ce88edb1764f544e1e759ee8c10cbff63fca0fd4da3",
+      "decoded_size_bytes": 8192,
+      "name": "part_013.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "2d5b38e670e5479f7ce7b30e0b99e33b777755e8166ec6fa70b2ea4ac5764618",
+      "decoded_size_bytes": 8192,
+      "name": "part_014.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "3e23710dbdafee551e48479f708a9e412b58a414d4b9f634c31dc1552a6ee7e2",
+      "decoded_size_bytes": 8192,
+      "name": "part_015.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "e29bdbef8017347163b15c597c8bb32ebd8727e1375ebf7157ed5c0ce2631a32",
+      "decoded_size_bytes": 8192,
+      "name": "part_016.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "64a56d561f8f540b4dca1c609271dbefbc9ab2768eabee502f9503094c397e41",
+      "decoded_size_bytes": 8192,
+      "name": "part_017.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "6fbd5e09c99eb1212b5b3ed374cbed1a46621da5120c8811a9e037bc7443130a",
+      "decoded_size_bytes": 8192,
+      "name": "part_018.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "322263e78d596e84a2b4e34f09443fdbea55c625641b5c1b3a6afc23aa6fee5d",
+      "decoded_size_bytes": 8192,
+      "name": "part_019.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "3945743f40ad4e5094482b7466db46599f7d3565fbfffe3f1a0b78e0d1c9ff56",
+      "decoded_size_bytes": 8192,
+      "name": "part_020.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "524e781660de38adf5326d053607fd2c13f96cd91cd1787733571f57d584890b",
+      "decoded_size_bytes": 8192,
+      "name": "part_021.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "e7bdddc71133cb18608c57ab7715fc5ada3ad604cac5e77dc8fd144b9ad728ee",
+      "decoded_size_bytes": 8192,
+      "name": "part_022.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "0f43b16bebb2201fd17efd9fa8905808e5232f045ec3bb25bc36240af2e7f66e",
+      "decoded_size_bytes": 8192,
+      "name": "part_023.b64",
+      "text_size_bytes": 10925
+    },
+    {
+      "decoded_sha256": "b2708d1f9bc604d95e0fb3abd7c13d1f91a78cd2adb11b0c8f0a45d04a3bbe36",
+      "decoded_size_bytes": 2796,
+      "name": "part_024.b64",
+      "text_size_bytes": 3729
+    }
+  ],
+  "format_version": 3,
+  "provenance": {
+    "base_bundle_generation": "v2",
+    "group4_official_sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+    "group4_official_size_bytes": 57168,
+    "group5_official_sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+    "group5_official_size_bytes": 59657,
+    "reason": "Correct G4/G5 source-byte mismatch detected by Group 8 dependency intake"
+  },
+  "runtime_engines": {
+    "group2": {
+      "path": "runtime/groups2_5/code/moebot_group2_engine_v0_2_1.py",
+      "sha256": "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926",
+      "size_bytes": 35853
+    },
+    "group3": {
+      "path": "runtime/groups2_5/code/moebot_group3_structure_engine_v0_1_1.py",
+      "sha256": "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512",
+      "size_bytes": 23933
+    },
+    "group4": {
+      "path": "runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py",
+      "sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+      "size_bytes": 57168
+    },
+    "group5": {
+      "path": "runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py",
+      "sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+      "size_bytes": 59657
+    },
+    "group6": {
+      "path": "runtime/group6/code/moebot_group6_engine.py",
+      "sha256": "1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877",
+      "size_bytes": 64524
+    }
+  },
+  "status": "frozen_verified_runtime",
+  "verification_policy": {
+    "all_five_engines_must_match": true,
+    "archive_sha_required": true,
+    "source_sha_required": true,
+    "source_size_required": true
+  }
+}
