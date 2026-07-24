@@ -7,6 +7,7 @@ name: MoeBot Group 8 Dependency Intake
     paths:
       - "MoeBot_Trading_System/Group_8/code/group8_dependency_intake.py"
       - "MoeBot_Trading_System/Group_8/code/group8_real_schema_intake.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_bundle_diagnostic.py"
       - "MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/**"
       - ".github/workflows/moebot-group8-dependency-intake.yml"
   pull_request:
@@ -51,6 +52,20 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
+
+      - name: Diagnose frozen Groups 2-6 runtime bundle
+        run: |
+          python "$GROUP8_ROOT/code/group8_bundle_diagnostic.py" \
+            --bundle-root "$BUNDLE_ROOT" \
+            --output "$GROUP8_ROOT/reports/00_BUNDLE_DIAGNOSTIC.json"
+
+      - name: Upload bundle diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-bundle-diagnostic
+          path: ${{ env.GROUP8_ROOT }}/reports/00_BUNDLE_DIAGNOSTIC.json
+          retention-days: 7
 
       - name: Restore exact Groups 2-6 runtime and inventory static schemas
         run: |
@@ -107,13 +122,16 @@ jobs:
           PY
 
       - name: Upload dependency evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: group8-dependency-intake
           path: |
+            ${{ env.GROUP8_ROOT }}/reports/00_BUNDLE_DIAGNOSTIC.json
             ${{ env.GROUP8_ROOT }}/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json
             ${{ env.GROUP8_ROOT }}/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json
             ${{ env.GROUP8_ROOT }}/STATUS.json
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Commit verified dependency intake
@@ -122,6 +140,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
+            "$GROUP8_ROOT/reports/00_BUNDLE_DIAGNOSTIC.json" \
             "$GROUP8_ROOT/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json" \
             "$GROUP8_ROOT/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json" \
             "$GROUP8_ROOT/STATUS.json"
