@@ -1,0 +1,1 @@
+Recover Group 7 data release after proven post-closure clobber. Preserve source closure tag moebot-group7-v0.7.5-closure at c9a481d5d8f40bc80d833ef1d135fe56578b5fe2; publish only audited immutable recovery assets.
