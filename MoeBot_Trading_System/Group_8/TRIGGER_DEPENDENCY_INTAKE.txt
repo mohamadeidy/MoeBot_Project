@@ -1,2 +1,1 @@
-Group 8 dependency intake PR trigger after verified Group 7 closure.
-Retry 4: explicitly fetch archival commit before restoring part_002.
+retry 5
