@@ -86,18 +86,35 @@ jobs:
             "$RUNNER_TEMP/runtime-v3-verify/runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py" \
             "$RUNNER_TEMP/runtime-v3-verify/runtime/group6/code/moebot_group6_engine.py"
 
+      - name: Preserve generated v3 before branch switch
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/generated-v3"
+          mkdir -p "$RUNNER_TEMP/generated-v3"
+          cp -a "$V3_ROOT/." "$RUNNER_TEMP/generated-v3/"
+
+      - name: Upload v3 verification artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moebot-frozen-runtime-bundle-v3-verification
+          path: |
+            ${{ runner.temp }}/generated-v3
+            ${{ runner.temp }}/verified-v3.tar.zst
+          retention-days: 7
+
       - name: Commit verified v3 to PR branch
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && success()
         env:
           HEAD_BRANCH: ${{ github.head_ref }}
         run: |
-          GENERATED="$RUNNER_TEMP/generated-v3"
-          rm -rf "$GENERATED" && mkdir -p "$GENERATED"
-          cp -a "$V3_ROOT/." "$GENERATED/"
+          git reset --hard HEAD
+          git clean -fd
           git fetch origin "$HEAD_BRANCH"
           git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
-          rm -rf "$V3_ROOT" && mkdir -p "$V3_ROOT"
-          cp -a "$GENERATED/." "$V3_ROOT/"
+          rm -rf "$V3_ROOT"
+          mkdir -p "$V3_ROOT"
+          cp -a "$RUNNER_TEMP/generated-v3/." "$V3_ROOT/"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$V3_ROOT"
@@ -105,13 +122,3 @@ jobs:
             git commit -m "Freeze corrected Groups 2-6 runtime bundle v3 [skip actions]"
             git push origin "HEAD:$HEAD_BRANCH"
           fi
-
-      - name: Upload v3 verification artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: moebot-frozen-runtime-bundle-v3-verification
-          path: |
-            ${{ env.V3_ROOT }}/BUNDLE_MANIFEST.json
-            ${{ env.V3_ROOT }}/chunks
-            ${{ runner.temp }}/verified-v3.tar.zst
-          retention-days: 7
