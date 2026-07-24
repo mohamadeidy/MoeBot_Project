@@ -1,0 +1,1 @@
+Publish audited Group 7 recovery assets on the already-existing immutable closure tag, verify both annual databases by public clean-room re-download, and commit the final recovery amendment for Group 8 dependency use.
