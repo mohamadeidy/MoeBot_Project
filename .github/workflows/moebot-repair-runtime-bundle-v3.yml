@@ -1,0 +1,128 @@
+name: MoeBot Repair Frozen Runtime Bundle v3
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  V2_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v2
+  V3_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3
+
+jobs:
+  repair-and-freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+          fetch-depth: 0
+
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Restore v2 then recover exact canonical G2-G6 sources
+        run: |
+          rm -rf "$RUNNER_TEMP/runtime-v2"
+          python "$V2_ROOT/restore_bundle.py" --extract-to "$RUNNER_TEMP/runtime-v2"
+          python "$V3_ROOT/recover_exact_sources_from_v2.py" --runtime-root "$RUNNER_TEMP/runtime-v2/runtime"
+          python -m py_compile \
+            "$RUNNER_TEMP/runtime-v2/runtime/groups2_5/code/moebot_group2_engine_v0_2_1.py" \
+            "$RUNNER_TEMP/runtime-v2/runtime/groups2_5/code/moebot_group3_structure_engine_v0_1_1.py" \
+            "$RUNNER_TEMP/runtime-v2/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py" \
+            "$RUNNER_TEMP/runtime-v2/runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py" \
+            "$RUNNER_TEMP/runtime-v2/runtime/group6/code/moebot_group6_engine.py"
+
+      - name: Build deterministic v3 archive and chunks
+        run: |
+          rm -rf "$V3_ROOT/chunks"
+          mkdir -p "$V3_ROOT/chunks"
+          cd "$RUNNER_TEMP/runtime-v2"
+          TZ=UTC tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf "$RUNNER_TEMP/MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar" runtime
+          zstd -q -19 -f "$RUNNER_TEMP/MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar" -o "$RUNNER_TEMP/MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar.zst"
+          cd "$GITHUB_WORKSPACE"
+          python - <<'PY'
+          import base64, hashlib, json, math
+          from pathlib import Path
+          root = Path("MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3")
+          bundle = Path(__import__('os').environ['RUNNER_TEMP']) / "MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar.zst"
+          data = bundle.read_bytes()
+          chunk_size = 8192
+          rows=[]
+          for i in range(math.ceil(len(data)/chunk_size)):
+              payload=data[i*chunk_size:(i+1)*chunk_size]
+              name=f"part_{i:03d}.b64"
+              text=base64.b64encode(payload).decode('ascii')+'\n'
+              (root/'chunks'/name).write_text(text, encoding='ascii')
+              rows.append({'name':name,'decoded_size_bytes':len(payload),'decoded_sha256':hashlib.sha256(payload).hexdigest(),'text_size_bytes':len(text.encode('ascii'))})
+          manifest={
+              'format_version':3,
+              'status':'frozen_verified_runtime',
+              'bundle_filename':'MoeBot_Groups2-6_Frozen_Runtime_Sources_v3.tar.zst',
+              'bundle_size_bytes':len(data),
+              'bundle_sha256':hashlib.sha256(data).hexdigest(),
+              'chunk_encoding':'independent_base64_objects',
+              'chunk_count':len(rows),
+              'chunks':rows,
+              'provenance':{
+                  'base_bundle_generation':'v2',
+                  'reason':'Correct G4/G5 source-byte mismatch detected by Group 8 dependency intake',
+                  'group4_official_size_bytes':57168,
+                  'group4_official_sha256':'744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad',
+                  'group5_official_size_bytes':59657,
+                  'group5_official_sha256':'97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc'
+              },
+              'runtime_engines':{
+                  'group2':{'path':'runtime/groups2_5/code/moebot_group2_engine_v0_2_1.py','size_bytes':35853,'sha256':'3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926'},
+                  'group3':{'path':'runtime/groups2_5/code/moebot_group3_structure_engine_v0_1_1.py','size_bytes':23933,'sha256':'8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512'},
+                  'group4':{'path':'runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py','size_bytes':57168,'sha256':'744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad'},
+                  'group5':{'path':'runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py','size_bytes':59657,'sha256':'97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc'},
+                  'group6':{'path':'runtime/group6/code/moebot_group6_engine.py','size_bytes':64524,'sha256':'1a60e9943e91af656dfb9d698ae9b15aac185b173fceb60c5d72bb4b2114f877'}
+              },
+              'verification_policy':{'archive_sha_required':True,'source_sha_required':True,'source_size_required':True,'all_five_engines_must_match':True}
+          }
+          (root/'BUNDLE_MANIFEST.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps({'bundle_size_bytes':len(data),'bundle_sha256':manifest['bundle_sha256'],'chunk_count':len(rows)},indent=2))
+          PY
+
+      - name: Independent restore verification of generated v3
+        run: |
+          rm -rf "$RUNNER_TEMP/runtime-v3-verify"
+          python "$V3_ROOT/restore_bundle.py" \
+            --output "$RUNNER_TEMP/verified-v3.tar.zst" \
+            --extract-to "$RUNNER_TEMP/runtime-v3-verify"
+          python -m py_compile \
+            "$RUNNER_TEMP/runtime-v3-verify/runtime/groups2_5/code/moebot_group2_engine_v0_2_1.py" \
+            "$RUNNER_TEMP/runtime-v3-verify/runtime/groups2_5/code/moebot_group3_structure_engine_v0_1_1.py" \
+            "$RUNNER_TEMP/runtime-v3-verify/runtime/groups2_5/code/moebot_group4_zones_engine_v0_1_6.py" \
+            "$RUNNER_TEMP/runtime-v3-verify/runtime/groups2_5/code/moebot_group5_liquidity_engine_v0_1_6.py" \
+            "$RUNNER_TEMP/runtime-v3-verify/runtime/group6/code/moebot_group6_engine.py"
+
+      - name: Commit verified v3 to PR branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$V3_ROOT/BUNDLE_MANIFEST.json" "$V3_ROOT/chunks"
+          if ! git diff --cached --quiet; then
+            git commit -m "Freeze corrected Groups 2-6 runtime bundle v3 [skip actions]"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
+
+      - name: Upload v3 verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moebot-frozen-runtime-bundle-v3-verification
+          path: |
+            ${{ env.V3_ROOT }}/BUNDLE_MANIFEST.json
+            ${{ env.V3_ROOT }}/chunks
+            ${{ runner.temp }}/verified-v3.tar.zst
+          retention-days: 7
