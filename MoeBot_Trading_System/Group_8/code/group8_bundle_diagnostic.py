@@ -9,7 +9,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-EXPECTED = "174f776cd8d0e8a56b253a98a18027a61351834cc490dd1bfb6b0eb8d63c56cf"
+EXPECTED = "d12deaadb90f7c7a30337246eb144e55399bdad1e4e2e065fb95723c3ae2d436"
+EXPECTED_SIZE = 63561
 
 
 def digest(data: bytes) -> str:
@@ -23,7 +24,9 @@ def main() -> int:
     a = p.parse_args()
     chunks = sorted((a.bundle_root / "chunks").glob("part_*.b64"))
     result: dict[str, object] = {
+        "bundle_generation": "v2",
         "expected_sha256": EXPECTED,
+        "expected_size_bytes": EXPECTED_SIZE,
         "chunks": [{"name": x.name, "size_bytes": x.stat().st_size, "sha256": hashlib.sha256(x.read_bytes()).hexdigest()} for x in chunks],
     }
     payloads = [x.read_bytes().strip() for x in chunks]
@@ -41,8 +44,10 @@ def main() -> int:
         decoded_candidates.append(("independent", data))
     except Exception as exc:
         variants["independent"] = {"decode": "fail", "error": repr(exc)}
+    matches: list[str] = []
     for name, data in decoded_candidates:
-        if digest(data) == EXPECTED:
+        if len(data) == EXPECTED_SIZE and digest(data) == EXPECTED:
+            matches.append(name)
             with tempfile.TemporaryDirectory() as td:
                 archive = Path(td) / "bundle.tar.zst"
                 archive.write_bytes(data)
@@ -51,12 +56,12 @@ def main() -> int:
                 variants[name]["tar_list_first_lines"] = proc.stdout.splitlines()[:30]  # type: ignore[index]
                 variants[name]["tar_list_stderr"] = proc.stderr[-2000:]  # type: ignore[index]
     result["variants"] = variants
-    result["matching_variants"] = [name for name, data in decoded_candidates if digest(data) == EXPECTED]
-    result["status"] = "pass" if result["matching_variants"] else "fail"
+    result["matching_variants"] = matches
+    result["status"] = "pass" if matches else "fail"
     a.output.parent.mkdir(parents=True, exist_ok=True)
     a.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2, sort_keys=True))
-    return 0
+    return 0 if matches else 1
 
 
 if __name__ == "__main__":
