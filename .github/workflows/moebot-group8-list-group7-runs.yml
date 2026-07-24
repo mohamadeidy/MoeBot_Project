@@ -1,0 +1,38 @@
+name: MoeBot Group 8 List Group7 Annual Runs
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  list-runs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: List Group 7 annual workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/workflows/build-moebot-group7.yml/runs?per_page=100" > "$RUNNER_TEMP/runs.json"
+          python - <<'PY' | tee "$RUNNER_TEMP/runs-summary.json"
+          import json, os
+          from pathlib import Path
+          data=json.loads((Path(os.environ['RUNNER_TEMP'])/'runs.json').read_text())
+          rows=[]
+          for r in data.get('workflow_runs',[]):
+              rows.append({k:r.get(k) for k in ('id','run_number','event','status','conclusion','head_sha','created_at','run_started_at','updated_at','name','display_title','html_url')})
+          print(json.dumps(rows,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-annual-run-history
+          path: |
+            ${{ runner.temp }}/runs-summary.json
+          retention-days: 30
