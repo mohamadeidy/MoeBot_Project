@@ -1,0 +1,46 @@
+name: MoeBot Group 8 G6 Equivalence Failure Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_G6_EQUIVALENCE_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  FAILED_JOB_ID: "89612060576"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download exact failed 2024 materialization log
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$FAILED_JOB_ID/logs" > "$RUNNER_TEMP/failed.log"
+          test -s "$RUNNER_TEMP/failed.log"
+      - name: Extract semantic equivalence failure context
+        run: |
+          python - <<'PY' | tee "$RUNNER_TEMP/context.txt"
+          import os
+          from pathlib import Path
+          lines=(Path(os.environ['RUNNER_TEMP'])/'failed.log').read_text(encoding='utf-8',errors='replace').splitlines()
+          pats=('semantic_table_mismatch','dataset_or_config_semantic_mismatch','"status": "FAIL"','"failures"','report_hash','Prove v3 pipeline Group 6 semantic equivalence','Traceback','RuntimeError','##[error]')
+          out=[]
+          for i,line in enumerate(lines):
+              if any(p.lower() in line.lower() for p in pats):
+                  out.append(f'--- around line {i+1} ---')
+                  out.extend(lines[max(0,i-12):min(len(lines),i+25)])
+          print('\n'.join(out))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-g6-equivalence-2024-failure-context
+          path: ${{ runner.temp }}/context.txt
+          retention-days: 30
