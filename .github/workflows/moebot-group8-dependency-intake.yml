@@ -9,6 +9,11 @@ name: MoeBot Group 8 Dependency Intake
       - "MoeBot_Trading_System/Group_8/code/group8_real_schema_intake.py"
       - "MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/**"
       - ".github/workflows/moebot-group8-dependency-intake.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
   workflow_dispatch:
 
 permissions:
@@ -101,7 +106,18 @@ jobs:
           status_path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n")
           PY
 
+      - name: Upload dependency evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-dependency-intake
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json
+            ${{ env.GROUP8_ROOT }}/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 7
+
       - name: Commit verified dependency intake
+        if: github.event_name != 'pull_request'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
