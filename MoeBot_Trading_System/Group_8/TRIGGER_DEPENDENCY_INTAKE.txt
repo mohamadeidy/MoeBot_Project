@@ -1,2 +1,2 @@
 Group 8 dependency intake PR trigger after verified Group 7 closure.
-Retry 2: bundle diagnostics enabled.
+Retry 3: recover archival part_002 before bundle verification.
