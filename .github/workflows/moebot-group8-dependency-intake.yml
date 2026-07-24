@@ -53,6 +53,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
 
+      - name: Restore missing archival runtime chunk
+        run: |
+          CHUNKS_DIR="$BUNDLE_ROOT/chunks"
+          mkdir -p "$CHUNKS_DIR"
+          git show b58a79cff032d98dd7c60104b997ee7a1da7001a:"$CHUNKS_DIR/part_002.b64" > "$CHUNKS_DIR/part_002.b64"
+          test -s "$CHUNKS_DIR/part_002.b64"
+          echo "1cb9c17f544abf4e1643fce32d7a24b5f81a71cf4605646663a5b331a3893d38  $CHUNKS_DIR/part_002.b64" | sha256sum -c -
+
       - name: Diagnose frozen Groups 2-6 runtime bundle
         run: |
           python "$GROUP8_ROOT/code/group8_bundle_diagnostic.py" \
@@ -101,7 +109,8 @@ jobs:
           root = Path("MoeBot_Trading_System/Group_8")
           static = json.loads((root / "reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json").read_text())
           real = json.loads((root / "reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json").read_text())
-          if static["status"] != "pass" or real["status"] != "pass":
+          diagnostic = json.loads((root / "reports/00_BUNDLE_DIAGNOSTIC.json").read_text())
+          if diagnostic["status"] != "pass" or static["status"] != "pass" or real["status"] != "pass":
               raise SystemExit("dependency intake failed")
           status_path = root / "STATUS.json"
           status = json.loads(status_path.read_text())
@@ -112,6 +121,7 @@ jobs:
               "data_release_sha256": "PASS",
               "repository_dependency_sha256": "PASS",
               "sqlite_integrity": "PASS",
+              "frozen_runtime_bundle_identity": "PASS",
               "frozen_runtime_schema_inventory": "PASS",
               "real_sqlite_schema_inventory": "PASS",
               "verdict": "PASS"
