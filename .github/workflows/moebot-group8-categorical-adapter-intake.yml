@@ -1,0 +1,164 @@
+name: MoeBot Group 8 Categorical Adapter Intake
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_CATEGORICAL_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  DATA_VAULT_ROOT: MoeBot_Trading_System/Data_Vault
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  intake-year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Install zstd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Resolve annual manifest and Group7 identity
+        id: ids
+        run: |
+          mkdir -p "$RUNNER_TEMP/intake"
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          year='${{ matrix.year }}'
+          r=json.loads(Path('MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json').read_text())
+          if r.get('status')!='PASS': raise SystemExit('upstream registry not PASS')
+          y=r['years'][year]
+          Path('${{ runner.temp }}/intake/g2g5_manifest.json').write_text(json.dumps(y['groups2_5_manifest'],indent=2,sort_keys=True)+'\n')
+          g7=y['group7']
+          print(f"g7_url={g7['url']}")
+          print(f"g7_comp_size={g7['compressed_size_bytes']}")
+          print(f"g7_comp_sha={g7['compressed_sha256']}")
+          print(f"g7_db={g7['database_filename']}")
+          print(f"g7_db_size={g7['database_size_bytes']}")
+          print(f"g7_db_sha={g7['database_sha256']}")
+          PY
+      - name: Restore source and Group6
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/dvdownload" --output-dir "$RUNNER_TEMP/dv"
+      - name: Extract source and Group6 categorical values
+        run: |
+          SOURCE=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          y=json.loads(Path('MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json').read_text())['years']['${{ matrix.year }}']['databases'];print(y['source']['database_filename'])
+          PY
+          )
+          G6=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          y=json.loads(Path('MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json').read_text())['years']['${{ matrix.year }}']['databases'];print(y['group6']['database_filename'])
+          PY
+          )
+          python "$GROUP8_ROOT/code/group8_categorical_intake.py" --database "$RUNNER_TEMP/dv/$SOURCE" --group source --year "${{ matrix.year }}" --output "$RUNNER_TEMP/intake/source.json"
+          python "$GROUP8_ROOT/code/group8_categorical_intake.py" --database "$RUNNER_TEMP/dv/$G6" --group group6 --year "${{ matrix.year }}" --output "$RUNNER_TEMP/intake/group6.json"
+          rm -rf "$RUNNER_TEMP/dv" "$RUNNER_TEMP/dvdownload"
+      - name: Restore and inspect Groups2-5 sequentially
+        run: |
+          for g in group2 group3 group4 group5; do
+            rm -rf "$RUNNER_TEMP/one" && mkdir -p "$RUNNER_TEMP/one"
+            python "$GROUP8_ROOT/code/group8_restore_one_g2_g5_dependency.py" --manifest "$RUNNER_TEMP/intake/g2g5_manifest.json" --group "$g" --output-dir "$RUNNER_TEMP/one" > "$RUNNER_TEMP/intake/restore-$g.json"
+            DB=$(python - <<PY
+          import json
+          print(json.load(open('$RUNNER_TEMP/intake/restore-$g.json'))['database'])
+          PY
+            )
+            python "$GROUP8_ROOT/code/group8_categorical_intake.py" --database "$DB" --group "$g" --year "${{ matrix.year }}" --output "$RUNNER_TEMP/intake/$g.json"
+            rm -rf "$RUNNER_TEMP/one"
+          done
+      - name: Restore and inspect Group7
+        run: |
+          curl -L --fail --retry 5 --retry-all-errors "${{ steps.ids.outputs.g7_url }}" -o "$RUNNER_TEMP/g7.zst"
+          test "$(stat -c%s "$RUNNER_TEMP/g7.zst")" = "${{ steps.ids.outputs.g7_comp_size }}"
+          test "$(sha256sum "$RUNNER_TEMP/g7.zst" | awk '{print $1}')" = "${{ steps.ids.outputs.g7_comp_sha }}"
+          zstd -d --long=31 -f "$RUNNER_TEMP/g7.zst" -o "$RUNNER_TEMP/${{ steps.ids.outputs.g7_db }}"
+          test "$(stat -c%s "$RUNNER_TEMP/${{ steps.ids.outputs.g7_db }}")" = "${{ steps.ids.outputs.g7_db_size }}"
+          test "$(sha256sum "$RUNNER_TEMP/${{ steps.ids.outputs.g7_db }}" | awk '{print $1}')" = "${{ steps.ids.outputs.g7_db_sha }}"
+          python "$GROUP8_ROOT/code/group8_categorical_intake.py" --database "$RUNNER_TEMP/${{ steps.ids.outputs.g7_db }}" --group group7 --year "${{ matrix.year }}" --output "$RUNNER_TEMP/intake/group7.json"
+          rm -f "$RUNNER_TEMP/g7.zst" "$RUNNER_TEMP/${{ steps.ids.outputs.g7_db }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-categorical-${{ matrix.year }}
+          path: |
+            ${{ runner.temp }}/intake/source.json
+            ${{ runner.temp }}/intake/group2.json
+            ${{ runner.temp }}/intake/group3.json
+            ${{ runner.temp }}/intake/group4.json
+            ${{ runner.temp }}/intake/group5.json
+            ${{ runner.temp }}/intake/group6.json
+            ${{ runner.temp }}/intake/group7.json
+          retention-days: 90
+
+  finalize:
+    needs: intake-year
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group8-categorical-*
+          path: ${{ runner.temp }}/cat
+      - name: Build cross-year categorical dictionary
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'cat'; years={}
+          for year in ('2023','2024'):
+            ys={}
+            for group in ('source','group2','group3','group4','group5','group6','group7'):
+              matches=[]
+              for p in root.rglob(f'{group}.json'):
+                d=json.loads(p.read_text())
+                if str(d.get('year'))==year: matches.append((p,d))
+              if len(matches)!=1: raise SystemExit(f'categorical evidence resolution {year}/{group}: {len(matches)}')
+              if matches[0][1].get('status')!='PASS': raise SystemExit(f'categorical intake failed {year}/{group}')
+              ys[group]=matches[0][1]
+            years[year]=ys
+          cross={}
+          for group in years['2023']:
+            cross[group]={}
+            for table,fields in years['2023'][group]['categorical_values'].items():
+              cross[group][table]={}
+              for field,row23 in fields.items():
+                v23=row23['values'];v24=years['2024'][group]['categorical_values'][table][field]['values']
+                key=lambda x:json.dumps(x,sort_keys=True,separators=(',',':'))
+                s23={key(x):x for x in v23};s24={key(x):x for x in v24}
+                cross[group][table][field]={'values_2023':v23,'values_2024':v24,'union':[({**s23,**s24})[k] for k in sorted(set(s23)|set(s24))],'intersection':[s23[k] for k in sorted(set(s23)&set(s24))],'unknown_value_policy':'preserve raw value and mark interpretation ambiguous/unclassified; never coerce to a known category'}
+          out={'format_version':1,'status':'PASS','years':years,'cross_year':cross}
+          out['dictionary_hash']=hashlib.sha256(json.dumps(out,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
+          p=Path('MoeBot_Trading_System/Group_8/UPSTREAM_CATEGORICAL_DICTIONARY.json');p.write_text(json.dumps(out,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':'PASS','dictionary_hash':out['dictionary_hash']},indent=2))
+          PY
+      - name: Commit dictionary to PR branch
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          cp "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json" "$RUNNER_TEMP/dict.json"
+          git reset --hard HEAD && git clean -fd && git fetch origin "$HEAD_BRANCH" && git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          cp "$RUNNER_TEMP/dict.json" "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json"
+          git config user.name "github-actions[bot]";git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json";git commit -m "Capture Group 8 cross-year categorical adapter dictionary [skip actions]";git push origin "HEAD:$HEAD_BRANCH"
