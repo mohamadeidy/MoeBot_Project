@@ -1,0 +1,24 @@
+{
+  "annual_execution_authorized": false,
+  "config_id": null,
+  "dependency_intake": {
+    "closure_reference": "BLOCKED_CLOSURE_TAG_MISSING",
+    "data_release_sha256": "PASS",
+    "repository_dependency_sha256": "PASS",
+    "sqlite_integrity": "PASS",
+    "upstream_contract_draft": "IN_PROGRESS",
+    "verdict": "BLOCKED"
+  },
+  "design_frozen": false,
+  "engine_build_authorized": false,
+  "group": 8,
+  "lineage": "dukascopy_rebuild_v1",
+  "name": "Price Action & Trading Schools Intelligence",
+  "officially_closed": false,
+  "proposed_engine_version": "0.8.0-draft.1",
+  "proposed_schema_version": "8.0.0-draft.1",
+  "required_group7_closure_commit_sha": "80cc64c45ba613c2ef4a6cc7766ef9d139f7d5fb",
+  "required_group7_closure_tag": "moebot-group7-v0.7.5-closure",
+  "required_group7_data_release_tag": "moebot-group7-v0.7.5",
+  "status": "DESIGN_DRAFT_DEPENDENCY_INTAKE_BLOCKED"
+}
