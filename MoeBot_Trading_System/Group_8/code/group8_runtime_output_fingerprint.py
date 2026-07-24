@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Any
 from group8_compare_runtime_v2_v3_outputs import G25_RULES, G6_EXCLUDES
 
-def canon(v:Any)->str: return json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False)
+def norm(v:Any)->Any:
+    if isinstance(v,(bytes,bytearray,memoryview)): return {'__bytes_hex__':bytes(v).hex()}
+    if isinstance(v,list): return [norm(x) for x in v]
+    if isinstance(v,tuple): return [norm(x) for x in v]
+    if isinstance(v,dict): return {str(k):norm(x) for k,x in v.items()}
+    return v
+def canon(v:Any)->str: return json.dumps(norm(v),sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False)
 def digest(v:Any)->str: return hashlib.sha256(canon(v).encode()).hexdigest()
 def con(path:Path):
     c=sqlite3.connect(f'file:{path.resolve()}?mode=ro',uri=True); c.row_factory=sqlite3.Row; return c
