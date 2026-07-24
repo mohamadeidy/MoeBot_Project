@@ -1,0 +1,39 @@
+name: MoeBot Group 8 Source History Locator
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  locate-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Locate exact frozen source blobs in Git history
+        run: |
+          rm -rf "$RUNNER_TEMP/exact-frozen-sources"
+          python MoeBot_Trading_System/Group_8/code/group8_source_history_locator.py \
+            --output MoeBot_Trading_System/Group_8/reports/01_SOURCE_HISTORY_LOCATOR.json \
+            --materialize-dir "$RUNNER_TEMP/exact-frozen-sources"
+
+      - name: Upload locator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-source-history-locator
+          path: |
+            MoeBot_Trading_System/Group_8/reports/01_SOURCE_HISTORY_LOCATOR.json
+            ${{ runner.temp }}/exact-frozen-sources
+          if-no-files-found: warn
+          retention-days: 7
