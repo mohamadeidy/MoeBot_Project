@@ -1,0 +1,26 @@
+finalize-registry	Build cross-year validation and permanent registry	﻿2026-07-24T00:28:08.4562001Z ##[group]Run mkdir -p "$RUNNER_TEMP/group7_registry"
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4563580Z ^[[36;1mmkdir -p "$RUNNER_TEMP/group7_registry"^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4565138Z ^[[36;1mpython "$GROUP7_ROOT/code/build_group7_registry.py" \^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4567368Z ^[[36;1m  --manifests-dir "$RUNNER_TEMP/group7_manifests" \^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4569207Z ^[[36;1m  --output-dir "$RUNNER_TEMP/group7_registry"^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4570783Z ^[[36;1mmkdir -p "$GROUP7_ROOT/registry" "$GROUP7_ROOT/reports"^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4572891Z ^[[36;1mcp "$RUNNER_TEMP/group7_registry/GROUP7_DATABASE_REGISTRY.json" "$GROUP7_ROOT/registry/"^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4575348Z ^[[36;1mcp "$RUNNER_TEMP/group7_registry/10_CROSS_YEAR_VALIDATION.json" "$GROUP7_ROOT/reports/"^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4577646Z ^[[36;1mcp "$RUNNER_TEMP/group7_registry/STATUS.json" "$GROUP7_ROOT/STATUS.json"^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4580248Z ^[[36;1mfind "$RUNNER_TEMP/group7_manifests" -name 'GROUP7_YEAR_*.json' -exec cp {} "$GROUP7_ROOT/reports/" \;^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4583031Z ^[[36;1mfind "$RUNNER_TEMP/group7_manifests" -name 'GROUP7_YEAR_*.md' -exec cp {} "$GROUP7_ROOT/reports/" \;^[[0m
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4679832Z shell: /usr/bin/bash -e {0}
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4680898Z env:
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4681803Z   GROUP7_ROOT: MoeBot_Trading_System/Group_7
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4683551Z   UPSTREAM_REGISTRY: MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4685288Z   RELEASE_TAG: moebot-group7-v0.7.5
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4686382Z   PYTHONUNBUFFERED: 1
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4687544Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4689535Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4691257Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4692793Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4694329Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4695920Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.4697253Z ##[endgroup]
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.5575847Z Expected one Group 7 manifest for 2023, found []
+finalize-registry	Build cross-year validation and permanent registry	2026-07-24T00:28:08.5643713Z ##[error]Process completed with exit code 1.
