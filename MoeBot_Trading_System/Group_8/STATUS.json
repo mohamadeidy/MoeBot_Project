@@ -2,12 +2,22 @@
   "annual_execution_authorized": false,
   "config_id": null,
   "dependency_intake": {
-    "closure_reference": "BLOCKED_CLOSURE_TAG_MISSING",
+    "closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
+    "closure_reference": "PASS",
+    "closure_tag": "moebot-group7-v0.7.5-closure",
     "data_release_sha256": "PASS",
+    "frozen_runtime_bundle_identity": "PASS",
+    "frozen_runtime_schema_inventory": "PENDING_WORKFLOW_EXECUTION",
+    "real_sqlite_schema_inventory": "PENDING_WORKFLOW_EXECUTION",
     "repository_dependency_sha256": "PASS",
     "sqlite_integrity": "PASS",
-    "upstream_contract_draft": "IN_PROGRESS",
-    "verdict": "BLOCKED"
+    "upstream_contract_draft": "READY_FOR_SCHEMA_BINDING",
+    "verdict": "BLOCKED_WORKFLOW_NOT_EXECUTED",
+    "workflow": ".github/workflows/moebot-group8-dependency-intake.yml",
+    "workflow_trigger_attempts": [
+      "direct_push",
+      "merged_pull_request_18"
+    ]
   },
   "design_frozen": false,
   "engine_build_authorized": false,
@@ -20,5 +30,5 @@
   "required_group7_closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
   "required_group7_closure_tag": "moebot-group7-v0.7.5-closure",
   "required_group7_data_release_tag": "moebot-group7-v0.7.5",
-  "status": "DESIGN_DRAFT_DEPENDENCY_INTAKE_BLOCKED"
+  "status": "DEPENDENCY_INTAKE_WORKFLOW_MANUAL_TRIGGER_REQUIRED"
 }
