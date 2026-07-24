@@ -17,19 +17,34 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def payload_text(path: Path) -> bytes:
+    lines: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            lines.append(stripped)
+    if not lines:
+        raise RuntimeError(f"No Base64 payload in {path}")
+    return "".join(lines).encode("ascii")
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--bundle-root", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     a = p.parse_args()
     chunks = sorted((a.bundle_root / "chunks").glob("part_*.b64"))
+    expected_names = [f"part_{i:03d}.b64" for i in range(len(chunks))]
+    actual_names = [x.name for x in chunks]
     result: dict[str, object] = {
         "bundle_generation": "v2",
         "expected_sha256": EXPECTED,
         "expected_size_bytes": EXPECTED_SIZE,
+        "chunk_count": len(chunks),
+        "chunk_sequence_pass": actual_names == expected_names,
         "chunks": [{"name": x.name, "size_bytes": x.stat().st_size, "sha256": hashlib.sha256(x.read_bytes()).hexdigest()} for x in chunks],
     }
-    payloads = [x.read_bytes().strip() for x in chunks]
+    payloads = [payload_text(x) for x in chunks]
     variants: dict[str, object] = {}
     decoded_candidates: list[tuple[str, bytes]] = []
     try:
@@ -55,13 +70,14 @@ def main() -> int:
                 variants[name]["tar_list_returncode"] = proc.returncode  # type: ignore[index]
                 variants[name]["tar_list_first_lines"] = proc.stdout.splitlines()[:30]  # type: ignore[index]
                 variants[name]["tar_list_stderr"] = proc.stderr[-2000:]  # type: ignore[index]
+                variants[name]["tar_list_pass"] = proc.returncode == 0  # type: ignore[index]
     result["variants"] = variants
     result["matching_variants"] = matches
-    result["status"] = "pass" if matches else "fail"
+    result["status"] = "pass" if result["chunk_sequence_pass"] and matches and all(variants[n].get("tar_list_pass") for n in matches) else "fail"  # type: ignore[union-attr]
     a.output.parent.mkdir(parents=True, exist_ok=True)
     a.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2, sort_keys=True))
-    return 0 if matches else 1
+    return 0 if result["status"] == "pass" else 1
 
 
 if __name__ == "__main__":
