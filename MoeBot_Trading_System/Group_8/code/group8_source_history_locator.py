@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import traceback
 from pathlib import Path
 
 TARGETS = {
@@ -15,18 +16,17 @@ TARGETS = {
 }
 
 
-def git(*args: str, text: bool = False):
-    return subprocess.run(["git", *args], check=True, capture_output=True, text=text).stdout
+def git_text(*args: str) -> str:
+    proc = subprocess.run(["git", *args], check=True, capture_output=True)
+    return proc.stdout.decode("utf-8", errors="surrogateescape")
 
 
-def main() -> int:
-    import argparse
-    p = argparse.ArgumentParser()
-    p.add_argument("--output", required=True, type=Path)
-    p.add_argument("--materialize-dir", type=Path)
-    args = p.parse_args()
+def git_bytes(*args: str) -> bytes:
+    return subprocess.run(["git", *args], check=True, capture_output=True).stdout
 
-    raw = git("rev-list", "--all", "--objects", text=True)
+
+def execute(materialize_dir: Path | None) -> dict[str, object]:
+    raw = git_text("rev-list", "--all", "--objects")
     candidates: dict[str, list[dict[str, object]]] = {name: [] for name in TARGETS}
     seen: set[tuple[str, str]] = set()
     for line in raw.splitlines():
@@ -39,11 +39,11 @@ def main() -> int:
             continue
         seen.add((name, obj))
         try:
-            kind = git("cat-file", "-t", obj, text=True).strip()
-            if kind != "blob":
+            if git_text("cat-file", "-t", obj).strip() != "blob":
                 continue
-            data = git("cat-file", "blob", obj)
-        except subprocess.CalledProcessError:
+            data = git_bytes("cat-file", "blob", obj)
+        except subprocess.CalledProcessError as exc:
+            candidates[name].append({"git_object": obj, "path": path, "read_error": repr(exc), "match": False})
             continue
         sha = hashlib.sha256(data).hexdigest()
         candidates[name].append({
@@ -57,27 +57,47 @@ def main() -> int:
 
     matches: dict[str, dict[str, object] | None] = {}
     for name, rows in candidates.items():
-        rows.sort(key=lambda r: (not bool(r["match"]), str(r["path"]), str(r["git_blob_sha"])))
-        matches[name] = next((r for r in rows if r["match"]), None)
+        rows.sort(key=lambda r: (not bool(r.get("match")), str(r.get("path", "")), str(r.get("git_blob_sha", ""))))
+        matches[name] = next((r for r in rows if r.get("match")), None)
 
-    if args.materialize_dir:
-        args.materialize_dir.mkdir(parents=True, exist_ok=True)
+    if materialize_dir:
+        materialize_dir.mkdir(parents=True, exist_ok=True)
         for name, row in matches.items():
-            if row:
-                data = git("cat-file", "blob", str(row["git_blob_sha"]))
-                (args.materialize_dir / name).write_bytes(data)
+            if row and row.get("git_blob_sha"):
+                data = git_bytes("cat-file", "blob", str(row["git_blob_sha"]))
+                (materialize_dir / name).write_bytes(data)
 
-    report = {
-        "format_version": 1,
+    return {
+        "format_version": 2,
         "targets": TARGETS,
         "candidates": candidates,
         "matches": matches,
         "all_exact_matches_found": all(matches.values()),
     }
+
+
+def main() -> int:
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("--output", required=True, type=Path)
+    p.add_argument("--materialize-dir", type=Path)
+    args = p.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"all_exact_matches_found": report["all_exact_matches_found"], "match_paths": {k: (v or {}).get("path") for k, v in matches.items()}}, indent=2))
-    return 0 if report["all_exact_matches_found"] else 1
+    try:
+        report = execute(args.materialize_dir)
+        rc = 0 if report["all_exact_matches_found"] else 1
+    except Exception as exc:  # noqa: BLE001
+        report = {
+            "format_version": 2,
+            "targets": TARGETS,
+            "all_exact_matches_found": False,
+            "fatal_error": repr(exc),
+            "traceback": traceback.format_exc(),
+        }
+        rc = 2
+    args.output.write_text(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=True) + "\n", encoding="utf-8")
+    print(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=True))
+    return rc
 
 
 if __name__ == "__main__":
