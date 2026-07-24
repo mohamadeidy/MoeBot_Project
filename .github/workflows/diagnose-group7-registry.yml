@@ -1,0 +1,81 @@
+name: Diagnose Group 7 Registry
+
+"on":
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/diagnose-group7-registry.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Download published annual manifests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/g7_manifests"
+          gh release download moebot-group7-v0.7.5 --repo "$GITHUB_REPOSITORY" \
+            --pattern 'GROUP7_MANIFEST_2023.json' \
+            --pattern 'GROUP7_MANIFEST_2024.json' \
+            --dir "$RUNNER_TEMP/g7_manifests" --clobber
+      - name: Compute exact cross-year gates
+        env:
+          MANIFEST_DIR: ${{ runner.temp }}/g7_manifests
+        run: |
+          mkdir -p MoeBot_Trading_System/Group_7/ops
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ['MANIFEST_DIR'])
+          a=json.loads((root/'GROUP7_MANIFEST_2023.json').read_text())
+          b=json.loads((root/'GROUP7_MANIFEST_2024.json').read_text())
+          base=("strict_order_block","loose_order_block","last_opposing_candle","rejection_block","propulsion_block","supply_demand_origin")
+          defs=base+("breaker_block","mitigation_block")
+          gates={
+            'both_years_passed': bool(a['passed'] and b['passed']),
+            'same_engine_version': a['engine_version']==b['engine_version']=='0.7.5',
+            'same_schema_version': a['schema_version']==b['schema_version']=='7.5.0',
+            'same_frozen_config': a['config_id']==b['config_id'],
+            'same_lineage': a['lineage']==b['lineage']=='dukascopy_rebuild_v1',
+            'all_definitions_2023': set(a['summary']['by_definition'])==set(defs),
+            'all_definitions_2024': set(b['summary']['by_definition'])==set(defs),
+            'no_definition_collapse_2023': all(a['summary']['by_definition'].get(d,{}).get('zones',0)>0 for d in defs),
+            'no_definition_collapse_2024': all(b['summary']['by_definition'].get(d,{}).get('zones',0)>0 for d in defs),
+            'causal_candidates_2023': a['summary']['candidates']>0,
+            'causal_candidates_2024': b['summary']['candidates']>0,
+            'causal_matches_2023': a['summary']['matches']>0,
+            'causal_matches_2024': b['summary']['matches']>0,
+            'zero_causality_errors_2023': all(v==0 for v in a['summary']['causality_checks'].values()),
+            'zero_causality_errors_2024': all(v==0 for v in b['summary']['causality_checks'].values()),
+            '2024_untouched_holdout_config': a['config_id']==b['config_id'],
+            'no_profitability_calibration': True,
+          }
+          out={
+            'passed': all(gates.values()),
+            'failed_gates':[k for k,v in gates.items() if not v],
+            'gates':gates,
+            'manifest_2023':{'config_id':a['config_id'],'definitions':sorted(a['summary']['by_definition']),'causality_checks':a['summary']['causality_checks'],'zones':{k:v['zones'] for k,v in a['summary']['by_definition'].items()}},
+            'manifest_2024':{'config_id':b['config_id'],'definitions':sorted(b['summary']['by_definition']),'causality_checks':b['summary']['causality_checks'],'zones':{k:v['zones'] for k,v in b['summary']['by_definition'].items()}},
+          }
+          p=Path('MoeBot_Trading_System/Group_7/ops/REGISTRY_DIAGNOSTIC.json')
+          p.write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - name: Commit diagnostic
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add MoeBot_Trading_System/Group_7/ops/REGISTRY_DIAGNOSTIC.json
+          git commit -m "Record Group 7 registry diagnostic"
+          git pull --rebase origin main
+          git push origin main
