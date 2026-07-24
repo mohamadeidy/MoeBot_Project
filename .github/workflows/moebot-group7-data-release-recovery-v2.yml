@@ -1,0 +1,459 @@
+name: MoeBot Group 7 Data Release Recovery v2
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_7/registry/TRIGGER_DATA_RELEASE_RECOVERY_V2.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  GROUP7_ROOT: MoeBot_Trading_System/Group_7
+  DATA_VAULT_ROOT: MoeBot_Trading_System/Data_Vault
+  CLOSURE_SHA: c9a481d5d8f40bc80d833ef1d135fe56578b5fe2
+  CLOSURE_TAG: moebot-group7-v0.7.5-closure
+  ORIGINAL_DATA_TAG: moebot-group7-v0.7.5
+  RECOVERY_TAG: moebot-group7-v0.7.5-data-recovery1
+  RUN6_SHA: 876da3ab24537796eb2c775d2e72f22bad7ee05b
+  RUN7_SHA: 74d4478c7aa2bf84f943f1c6e3ef756b90e835c7
+  RUN6_2023_ARTIFACT: "8583236008"
+  RUN6_2024_ARTIFACT: "8583364213"
+  RUN7_2023_ARTIFACT: "8592581995"
+  RUN7_2024_ARTIFACT: "8592455126"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  prove-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify immutable closure and unchanged build-critical source
+        run: |
+          git fetch --tags --force origin
+          test "$(git rev-parse "${CLOSURE_TAG}^{commit}")" = "$CLOSURE_SHA"
+          CRITICAL=(
+            "$GROUP7_ROOT/code/moebot_group7_engine.py"
+            "$GROUP7_ROOT/code/group7_year_pipeline.py"
+            "$GROUP7_ROOT/code/group7_independent_audit.py"
+            "$GROUP7_ROOT/code/group7_real_visual_audit.py"
+            "$GROUP7_ROOT/FROZEN_CONFIG_REGISTRY.json"
+            "$GROUP7_ROOT/ANNUAL_DEPENDENCY_REQUIREMENTS.json"
+            "$GROUP7_ROOT/requirements.txt"
+          )
+          git diff --exit-code "$RUN6_SHA" "$RUN7_SHA" -- "${CRITICAL[@]}"
+
+      - name: Download canonical and clobber-run annual evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo apt-get update >/dev/null
+          sudo apt-get install -y unzip >/dev/null
+          mkdir -p "$RUNNER_TEMP/history"
+          for spec in \
+            "run6_2023:$RUN6_2023_ARTIFACT" \
+            "run6_2024:$RUN6_2024_ARTIFACT" \
+            "run7_2023:$RUN7_2023_ARTIFACT" \
+            "run7_2024:$RUN7_2024_ARTIFACT"; do
+            name="${spec%%:*}"; id="${spec##*:}"
+            mkdir -p "$RUNNER_TEMP/history/$name"
+            gh api "/repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > "$RUNNER_TEMP/history/$name.zip"
+            unzip -q "$RUNNER_TEMP/history/$name.zip" -d "$RUNNER_TEMP/history/$name"
+          done
+
+      - name: Prove semantic equivalence for 2023 and 2024
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          python - <<'PY'
+          import copy, hashlib, json, os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'history'
+          def report(folder,year):
+              xs=list((root/folder).rglob(f'GROUP7_YEAR_{year}.json'))
+              if not xs: raise SystemExit(f'missing {folder} report {year}')
+              return json.loads(xs[0].read_text())
+          def normalized(d):
+              x=copy.deepcopy(d)
+              x.pop('elapsed_seconds',None)
+              x.get('first_build',{}).pop('elapsed_seconds',None)
+              if 'database' in x: x['database']={'filename':x['database']['filename']}
+              x.get('independent_audit',{}).pop('database',None)
+              for side in x.get('verified_dependencies',{}).values(): side.pop('path',None)
+              return x
+          years={}
+          for year in (2023,2024):
+              a=report(f'run6_{year}',year); b=report(f'run7_{year}',year)
+              na=normalized(a); nb=normalized(b)
+              ca=json.dumps(na,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False)
+              cb=json.dumps(nb,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False)
+              same=ca==cb
+              years[str(year)]={
+                'semantic_equal':same,
+                'normalized_semantic_sha256_run6':hashlib.sha256(ca.encode()).hexdigest(),
+                'normalized_semantic_sha256_run7':hashlib.sha256(cb.encode()).hexdigest(),
+                'run6_database':a['database'],'run7_database':b['database'],
+                'run6_elapsed_seconds':a['elapsed_seconds'],'run7_elapsed_seconds':b['elapsed_seconds'],
+                'run6_first_build_elapsed_seconds':a['first_build']['elapsed_seconds'],
+                'run7_first_build_elapsed_seconds':b['first_build']['elapsed_seconds'],
+                'config_id':a['summary']['config_id'],'dataset_id':a['summary']['dataset_id'],
+                'gates':a['gates'],'summary':a['summary']}
+              if not same: raise SystemExit(f'semantic mismatch {year}')
+          out={
+            'format_version':1,'status':'PASS',
+            'method':'Historical run6 vs run7 annual reports compared after excluding only whole-file byte identity, wall-clock runtime fields, and runner-local paths',
+            'canonical_run':{'run_id':30051363581,'head_sha':os.environ['RUN6_SHA']},
+            'clobber_run':{'run_id':30075651603,'head_sha':os.environ['RUN7_SHA']},
+            'build_critical_source_diff':'PASS_NO_DIFF','years':years}
+          p=Path(os.environ['RUNNER_TEMP'])/'evidence/GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json'
+          p.write_text(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(p.read_text())
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-recovery-semantic-proof
+          path: ${{ runner.temp }}/evidence/GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json
+          retention-days: 90
+
+  verify-candidate-year:
+    needs: prove-equivalence
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install verification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+          pip install -r "$GROUP7_ROOT/requirements.txt"
+      - name: Resolve immutable candidate identity
+        id: id
+        shell: bash
+        run: |
+          if [ "${{ matrix.year }}" = "2023" ]; then
+            echo 'part=MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000' >> "$GITHUB_OUTPUT"
+            echo 'compressed_size=1157679007' >> "$GITHUB_OUTPUT"
+            echo 'compressed_sha=b075e201d801c73d7bd23148ba265ffece9be46fde38e1e2030cf8b5b591f856' >> "$GITHUB_OUTPUT"
+            echo 'db=MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite' >> "$GITHUB_OUTPUT"
+            echo 'db_size=8116060160' >> "$GITHUB_OUTPUT"
+            echo 'db_sha=1cff8019c37a0034ba30c1c787a43b669fd34e4de62244de6d74883e8c68d274' >> "$GITHUB_OUTPUT"
+            echo 'source=source_2023_rebuilt_dukascopy_v1.sqlite' >> "$GITHUB_OUTPUT"
+            echo 'group6=MoeBot_Group6_XAUUSD_2023_v0.6.4_rebuilt_dukascopy_v1.sqlite' >> "$GITHUB_OUTPUT"
+          else
+            echo 'part=MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000' >> "$GITHUB_OUTPUT"
+            echo 'compressed_size=1128136245' >> "$GITHUB_OUTPUT"
+            echo 'compressed_sha=790f6bdcb0ef8da7581910846e1476bc8d3b23e363cd5c21efa94adc8c33b690' >> "$GITHUB_OUTPUT"
+            echo 'db=MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite' >> "$GITHUB_OUTPUT"
+            echo 'db_size=7921762304' >> "$GITHUB_OUTPUT"
+            echo 'db_sha=551c7cf370dbf1aa4114044a3e6056f02785f05918d7edc09113c0f1017d3623' >> "$GITHUB_OUTPUT"
+            echo 'source=source_2024_canonical_rebuilt_dukascopy_v1.sqlite' >> "$GITHUB_OUTPUT"
+            echo 'group6=MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Materialize exact closure audit source
+        run: |
+          mkdir -p "$RUNNER_TEMP/closure"
+          git archive "$CLOSURE_SHA" "$GROUP7_ROOT" | tar -x -C "$RUNNER_TEMP/closure"
+      - name: Download and verify current semantically equivalent candidate
+        run: |
+          mkdir -p "$RUNNER_TEMP/candidate"
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$ORIGINAL_DATA_TAG/${{ steps.id.outputs.part }}"
+          curl -L --fail --retry 5 --retry-all-errors "$URL" -o "$RUNNER_TEMP/candidate/${{ steps.id.outputs.part }}"
+          test "$(stat -c%s "$RUNNER_TEMP/candidate/${{ steps.id.outputs.part }}")" = "${{ steps.id.outputs.compressed_size }}"
+          test "$(sha256sum "$RUNNER_TEMP/candidate/${{ steps.id.outputs.part }}" | awk '{print $1}')" = "${{ steps.id.outputs.compressed_sha }}"
+          zstd -d --long=31 -f "$RUNNER_TEMP/candidate/${{ steps.id.outputs.part }}" -o "$RUNNER_TEMP/candidate/${{ steps.id.outputs.db }}"
+          test "$(stat -c%s "$RUNNER_TEMP/candidate/${{ steps.id.outputs.db }}")" = "${{ steps.id.outputs.db_size }}"
+          test "$(sha256sum "$RUNNER_TEMP/candidate/${{ steps.id.outputs.db }}" | awk '{print $1}')" = "${{ steps.id.outputs.db_sha }}"
+      - name: Verify SQLite integrity
+        run: |
+          python - <<'PY'
+          import json, os, sqlite3
+          from pathlib import Path
+          db=Path(os.environ['RUNNER_TEMP'])/'candidate'/'${{ steps.id.outputs.db }}'
+          con=sqlite3.connect(f'file:{db}?mode=ro',uri=True)
+          quick=con.execute('PRAGMA quick_check').fetchone()[0]
+          integrity=con.execute('PRAGMA integrity_check').fetchone()[0]
+          fk=len(con.execute('PRAGMA foreign_key_check').fetchall())
+          con.close()
+          out={'year':${{ matrix.year }},'filename':db.name,'size_bytes':db.stat().st_size,'sha256':'${{ steps.id.outputs.db_sha }}','compressed_filename':'${{ steps.id.outputs.part }}','compressed_size_bytes':int('${{ steps.id.outputs.compressed_size }}'),'compressed_sha256':'${{ steps.id.outputs.compressed_sha }}','quick_check':quick,'integrity_check':integrity,'foreign_key_errors':fk,'pass':quick=='ok' and integrity=='ok' and fk==0}
+          if not out['pass']: raise SystemExit('SQLite integrity failed')
+          p=Path(os.environ['RUNNER_TEMP'])/'candidate-verification.json'; p.write_text(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(p.read_text())
+          PY
+      - name: Restore exact canonical upstream year
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \
+            --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/upstream-downloads" \
+            --output-dir "$RUNNER_TEMP/upstream"
+      - name: Run independent causal audit using exact closure source
+        run: |
+          CLOSURE_G7="$RUNNER_TEMP/closure/$GROUP7_ROOT"
+          python "$CLOSURE_G7/code/group7_independent_audit.py" \
+            --db "$RUNNER_TEMP/candidate/${{ steps.id.outputs.db }}" \
+            --source "$RUNNER_TEMP/upstream/${{ steps.id.outputs.source }}" \
+            --group6 "$RUNNER_TEMP/upstream/${{ steps.id.outputs.group6 }}" \
+            --json-out "$RUNNER_TEMP/audit-${{ matrix.year }}.json"
+          python - <<'PY'
+          import json
+          d=json.load(open('${{ runner.temp }}/audit-${{ matrix.year }}.json'))
+          if d.get('passed') is not True or d.get('summary',{}).get('fail') != 0:
+              raise SystemExit('independent audit failed')
+          PY
+      - name: Remove decompressed large databases before artifact upload
+        run: |
+          rm -f "$RUNNER_TEMP/candidate/${{ steps.id.outputs.db }}"
+          rm -rf "$RUNNER_TEMP/upstream" "$RUNNER_TEMP/upstream-downloads" "$RUNNER_TEMP/closure"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-recovery-candidate-${{ matrix.year }}
+          path: |
+            ${{ runner.temp }}/candidate/${{ steps.id.outputs.part }}
+            ${{ runner.temp }}/candidate-verification.json
+            ${{ runner.temp }}/audit-${{ matrix.year }}.json
+          compression-level: 0
+          retention-days: 30
+
+  publish-recovery:
+    needs: [prove-equivalence, verify-candidate-year]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group7-recovery-candidate-*
+          path: ${{ runner.temp }}/candidates
+      - uses: actions/download-artifact@v4
+        with:
+          name: group7-recovery-semantic-proof
+          path: ${{ runner.temp }}/semantic
+      - name: Build pre-publication recovery amendment
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          rt=Path(os.environ['RUNNER_TEMP'])
+          candidates={}
+          for y in ('2023','2024'):
+              v=list((rt/'candidates').rglob(f'group7-recovery-candidate-{y}/candidate-verification.json'))
+              if not v: v=list((rt/'candidates').rglob('candidate-verification.json'))
+              matches=[]
+              for p in v:
+                  d=json.loads(p.read_text())
+                  if str(d.get('year'))==y: matches.append((p,d))
+              if len(matches)!=1: raise SystemExit(f'candidate evidence resolution failed {y}: {matches}')
+              candidates[y]=matches[0][1]
+          report={
+            'format_version':1,'status':'PASS_RECOVERY_AMENDMENT','group':7,'engine_version':'0.7.5','schema_version':'7.5.0',
+            'source_closure_tag':os.environ['CLOSURE_TAG'],'source_closure_commit_sha':os.environ['CLOSURE_SHA'],
+            'historical_data_release_tag':os.environ['ORIGINAL_DATA_TAG'],'historical_data_release_status':'CLOBBERED_AFTER_VERIFIED_CLOSURE_DO_NOT_USE_FOR_NEW_DEPENDENCIES',
+            'historical_canonical_run':{'run_id':30051363581,'head_sha':os.environ['RUN6_SHA']},
+            'clobber_run':{'run_id':30075651603,'head_sha':os.environ['RUN7_SHA'],'cause':'post-closure tooling commit retriggered the annual workflow whose Release upload used --clobber'},
+            'recovery_data_release_tag':os.environ['RECOVERY_TAG'],'recovery_tag_target_commit_sha':os.environ['CLOSURE_SHA'],
+            'semantic_equivalence_report':'GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json',
+            'policy':[
+              'Historical run6 whole-file identities remain immutable historical closure evidence and are not rewritten.',
+              'New downstream consumers must use the recovery tag after verifying this amendment, source closure, exact recovery asset identities, SQLite integrity, and independent audit evidence.',
+              'The recovery tag is immutable and must never be uploaded with --clobber.',
+              'Run7 assets are accepted only as semantic-equivalent reruns produced by byte-identical build-critical Group7 source and identical frozen upstream data; differences from run6 are limited to whole-file byte identity, wall-clock runtime fields, and runner-local paths.'
+            ],'years':candidates}
+          p=rt/'DATA_RELEASE_RECOVERY_AMENDMENT_v1.json'; p.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n'); print(p.read_text())
+          PY
+      - name: Create or validate immutable recovery Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --tags --force origin
+          if gh release view "$RECOVERY_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$RECOVERY_TAG:refs/tags/$RECOVERY_TAG"
+            test "$(git rev-parse "${RECOVERY_TAG}^{commit}")" = "$CLOSURE_SHA"
+          else
+            gh release create "$RECOVERY_TAG" --repo "$GITHUB_REPOSITORY" --target "$CLOSURE_SHA" \
+              --title "MoeBot Group 7 v0.7.5 Data Recovery 1" \
+              --notes "Audited immutable data-release recovery after the historical data tag was overwritten by a post-closure rerun. Source closure remains $CLOSURE_TAG at $CLOSURE_SHA."
+          fi
+      - name: Upload only missing immutable recovery assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSETS=$(gh release view "$RECOVERY_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          FILES=(
+            "$(find "$RUNNER_TEMP/candidates" -name 'MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000' -print -quit)"
+            "$(find "$RUNNER_TEMP/candidates" -name 'MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000' -print -quit)"
+            "$RUNNER_TEMP/semantic/GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json"
+            "$RUNNER_TEMP/DATA_RELEASE_RECOVERY_AMENDMENT_v1.json"
+          )
+          for file in "${FILES[@]}"; do
+            test -s "$file"
+            name=$(basename "$file")
+            if grep -Fxq "$name" <<< "$ASSETS"; then
+              echo "Immutable asset already present: $name"
+            else
+              gh release upload "$RECOVERY_TAG" --repo "$GITHUB_REPOSITORY" "$file"
+            fi
+          done
+
+  verify-published-year:
+    needs: publish-recovery
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Install zstd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Resolve published identity
+        id: id
+        shell: bash
+        run: |
+          if [ "${{ matrix.year }}" = "2023" ]; then
+            echo 'part=MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000' >> "$GITHUB_OUTPUT"
+            echo 'compressed_size=1157679007' >> "$GITHUB_OUTPUT"
+            echo 'compressed_sha=b075e201d801c73d7bd23148ba265ffece9be46fde38e1e2030cf8b5b591f856' >> "$GITHUB_OUTPUT"
+            echo 'db_size=8116060160' >> "$GITHUB_OUTPUT"
+            echo 'db_sha=1cff8019c37a0034ba30c1c787a43b669fd34e4de62244de6d74883e8c68d274' >> "$GITHUB_OUTPUT"
+          else
+            echo 'part=MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000' >> "$GITHUB_OUTPUT"
+            echo 'compressed_size=1128136245' >> "$GITHUB_OUTPUT"
+            echo 'compressed_sha=790f6bdcb0ef8da7581910846e1476bc8d3b23e363cd5c21efa94adc8c33b690' >> "$GITHUB_OUTPUT"
+            echo 'db_size=7921762304' >> "$GITHUB_OUTPUT"
+            echo 'db_sha=551c7cf370dbf1aa4114044a3e6056f02785f05918d7edc09113c0f1017d3623' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Clean-room download and verify published asset
+        run: |
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$RECOVERY_TAG/${{ steps.id.outputs.part }}"
+          curl -L --fail --retry 5 --retry-all-errors "$URL" -o "$RUNNER_TEMP/published.zst"
+          test "$(stat -c%s "$RUNNER_TEMP/published.zst")" = "${{ steps.id.outputs.compressed_size }}"
+          test "$(sha256sum "$RUNNER_TEMP/published.zst" | awk '{print $1}')" = "${{ steps.id.outputs.compressed_sha }}"
+          zstd -d --long=31 -f "$RUNNER_TEMP/published.zst" -o "$RUNNER_TEMP/published.sqlite"
+          test "$(stat -c%s "$RUNNER_TEMP/published.sqlite")" = "${{ steps.id.outputs.db_size }}"
+          test "$(sha256sum "$RUNNER_TEMP/published.sqlite" | awk '{print $1}')" = "${{ steps.id.outputs.db_sha }}"
+      - name: Verify published SQLite integrity and write evidence
+        run: |
+          python - <<'PY'
+          import json, os, sqlite3
+          from pathlib import Path
+          db=Path(os.environ['RUNNER_TEMP'])/'published.sqlite'
+          con=sqlite3.connect(f'file:{db}?mode=ro',uri=True)
+          q=con.execute('PRAGMA quick_check').fetchone()[0]; i=con.execute('PRAGMA integrity_check').fetchone()[0]; fk=len(con.execute('PRAGMA foreign_key_check').fetchall()); con.close()
+          out={'format_version':1,'status':'PASS' if q=='ok' and i=='ok' and fk==0 else 'FAIL','release_tag':os.environ['RECOVERY_TAG'],'source_closure_commit_sha':os.environ['CLOSURE_SHA'],'year':${{ matrix.year }},'compressed_sha256':'${{ steps.id.outputs.compressed_sha }}','database_sha256':'${{ steps.id.outputs.db_sha }}','quick_check':q,'integrity_check':i,'foreign_key_errors':fk}
+          if out['status']!='PASS': raise SystemExit('published SQLite verification failed')
+          p=Path(os.environ['RUNNER_TEMP'])/'published-verification-${{ matrix.year }}.json'; p.write_text(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(p.read_text())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-recovery-published-${{ matrix.year }}
+          path: ${{ runner.temp }}/published-verification-${{ matrix.year }}.json
+          retention-days: 90
+
+  finalize-recovery:
+    needs: [prove-equivalence, verify-candidate-year, publish-recovery, verify-published-year]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group7-recovery-*
+          path: ${{ runner.temp }}/all-evidence
+      - name: Assemble final repository evidence
+        run: |
+          mkdir -p "$RUNNER_TEMP/final"
+          find "$RUNNER_TEMP/all-evidence" -name 'GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json' -exec cp {} "$RUNNER_TEMP/final/" \;
+          for y in 2023 2024; do
+            V=$(find "$RUNNER_TEMP/all-evidence" -path "*group7-recovery-candidate-$y*" -name 'candidate-verification.json' -print -quit)
+            A=$(find "$RUNNER_TEMP/all-evidence" -path "*group7-recovery-candidate-$y*" -name "audit-$y.json" -print -quit)
+            P=$(find "$RUNNER_TEMP/all-evidence" -name "published-verification-$y.json" -print -quit)
+            test -s "$V" && test -s "$A" && test -s "$P"
+            cp "$V" "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_DATABASE_VERIFICATION_$y.json"
+            cp "$A" "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_AUDIT_$y.json"
+            cp "$P" "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_PUBLISHED_VERIFICATION_$y.json"
+          done
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'final'
+          sem=json.loads((root/'GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json').read_text())
+          years={}
+          for y in ('2023','2024'):
+              v=json.loads((root/f'GROUP7_DATA_RECOVERY_DATABASE_VERIFICATION_{y}.json').read_text())
+              a=json.loads((root/f'GROUP7_DATA_RECOVERY_AUDIT_{y}.json').read_text())
+              p=json.loads((root/f'GROUP7_DATA_RECOVERY_PUBLISHED_VERIFICATION_{y}.json').read_text())
+              if not (v.get('pass') and a.get('passed') and p.get('status')=='PASS' and sem['years'][y]['semantic_equal']): raise SystemExit(f'final recovery evidence failed {y}')
+              years[y]={'database':v,'independent_audit_pass':a['passed'],'published_verification':p,'semantic_equivalence':sem['years'][y]}
+          amendment={
+            'format_version':1,'status':'PASS_RECOVERY_AMENDMENT','group':7,'engine_version':'0.7.5','schema_version':'7.5.0',
+            'source_closure_tag':os.environ['CLOSURE_TAG'],'source_closure_commit_sha':os.environ['CLOSURE_SHA'],
+            'historical_data_release_tag':os.environ['ORIGINAL_DATA_TAG'],'historical_data_release_status':'CLOBBERED_AFTER_VERIFIED_CLOSURE_DO_NOT_USE_FOR_NEW_DEPENDENCIES',
+            'historical_canonical_run':{'run_id':30051363581,'head_sha':os.environ['RUN6_SHA']},
+            'clobber_run':{'run_id':30075651603,'head_sha':os.environ['RUN7_SHA'],'cause':'post-closure tooling commit retriggered annual workflow with Release --clobber'},
+            'recovery_data_release_tag':os.environ['RECOVERY_TAG'],'recovery_tag_target_commit_sha':os.environ['CLOSURE_SHA'],
+            'semantic_equivalence_report':'reports/GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json',
+            'policy':[
+              'Historical run6 byte identities remain historical closure evidence and are not rewritten.',
+              'New downstream dependencies must use recovery_data_release_tag and verify this amendment, source closure, recovery SHA/size, SQLite integrity, and audits.',
+              'Recovery release is immutable; no clobber is allowed.',
+              'Run7 data is accepted only after proof of byte-identical build-critical source, identical frozen upstream, semantic-equivalent annual reports, independent closure-source audits, and clean-room re-download verification.'
+            ],'years':years}
+          (root/'DATA_RELEASE_RECOVERY_AMENDMENT_v1.json').write_text(json.dumps(amendment,indent=2,sort_keys=True)+'\n')
+          print((root/'DATA_RELEASE_RECOVERY_AMENDMENT_v1.json').read_text())
+          PY
+      - name: Upload final amendment to recovery Release if absent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSETS=$(gh release view "$RECOVERY_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          for file in "$RUNNER_TEMP/final"/*.json; do
+            name=$(basename "$file")
+            if grep -Fxq "$name" <<< "$ASSETS"; then echo "Already present: $name"; else gh release upload "$RECOVERY_TAG" --repo "$GITHUB_REPOSITORY" "$file"; fi
+          done
+      - name: Commit verified recovery amendment to PR branch
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          mkdir -p "$GROUP7_ROOT/registry" "$GROUP7_ROOT/reports"
+          cp "$RUNNER_TEMP/final/DATA_RELEASE_RECOVERY_AMENDMENT_v1.json" "$GROUP7_ROOT/registry/"
+          cp "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_SEMANTIC_EQUIVALENCE.json" "$GROUP7_ROOT/reports/"
+          cp "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_DATABASE_VERIFICATION_2023.json" "$GROUP7_ROOT/reports/"
+          cp "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_DATABASE_VERIFICATION_2024.json" "$GROUP7_ROOT/reports/"
+          cp "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_AUDIT_2023.json" "$GROUP7_ROOT/reports/"
+          cp "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_AUDIT_2024.json" "$GROUP7_ROOT/reports/"
+          cp "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_PUBLISHED_VERIFICATION_2023.json" "$GROUP7_ROOT/registry/"
+          cp "$RUNNER_TEMP/final/GROUP7_DATA_RECOVERY_PUBLISHED_VERIFICATION_2024.json" "$GROUP7_ROOT/registry/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP7_ROOT/registry" "$GROUP7_ROOT/reports"
+          git commit -m "Amend Group 7 data release after post-closure clobber [skip actions]"
+          git push origin "HEAD:$HEAD_BRANCH"
