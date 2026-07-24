@@ -1,1 +1,1 @@
-Group 8 execution v0.8.0 — enumerate Group 7 annual workflow run history.
+Group 8 execution v0.8.0 — compare canonical run6 versus clobber run7 timings.
