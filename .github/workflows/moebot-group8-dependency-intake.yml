@@ -6,6 +6,7 @@ name: MoeBot Group 8 Dependency Intake
       - main
     paths:
       - "MoeBot_Trading_System/Group_8/code/group8_dependency_intake.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_real_schema_intake.py"
       - "MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle/**"
       - ".github/workflows/moebot-group8-dependency-intake.yml"
   workflow_dispatch:
@@ -16,22 +17,37 @@ permissions:
 env:
   GROUP8_ROOT: MoeBot_Trading_System/Group_8
   BUNDLE_ROOT: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle
+  CLOSURE_TAG: moebot-group7-v0.7.5-closure
+  CLOSURE_SHA: c9a481d5d8f40bc80d833ef1d135fe56578b5fe2
+  GROUP7_2023_URL: https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000
+  GROUP7_2023_COMPRESSED_SHA: 64920a85644a37796d312ff280866c44d711eab0586d1346683d279f2228abab
+  GROUP7_2023_DB_SHA: bcd550cca8a9131efa17d3cd4323aa47467172222756edc9c765bfacc5468af7
+  GROUP7_2023_DB_SIZE: "8115417088"
   PYTHONUNBUFFERED: "1"
 
 jobs:
   dependency-intake:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Verify immutable Group 7 closure reference
+        run: |
+          git fetch --tags --force origin
+          ACTUAL="$(git rev-parse "${CLOSURE_TAG}^{commit}")"
+          test "$ACTUAL" = "$CLOSURE_SHA"
+          git diff --quiet "$CLOSURE_SHA" "$CLOSURE_TAG"
+
       - name: Install archive tools
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-      - name: Restore frozen runtime bundle and inventory schemas
+
+      - name: Restore exact Groups 2-6 runtime and inventory static schemas
         run: |
           rm -rf "$RUNNER_TEMP/moebot-groups2-6"
           python "$BUNDLE_ROOT/restore_bundle.py" \
@@ -40,13 +56,61 @@ jobs:
           python "$GROUP8_ROOT/code/group8_dependency_intake.py" \
             --restored-root "$RUNNER_TEMP/moebot-groups2-6" \
             --output "$GROUP8_ROOT/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json"
-      - name: Commit dependency inventory
+
+      - name: Download and verify real Group 7 2023 database
+        run: |
+          COMPRESSED="$RUNNER_TEMP/group7_2023.sqlite.zst"
+          DATABASE="$RUNNER_TEMP/group7_2023.sqlite"
+          curl -L --fail --retry 5 --retry-all-errors "$GROUP7_2023_URL" -o "$COMPRESSED"
+          echo "$GROUP7_2023_COMPRESSED_SHA  $COMPRESSED" | sha256sum -c -
+          zstd -d -f "$COMPRESSED" -o "$DATABASE"
+          rm -f "$COMPRESSED"
+          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
+            --database "$DATABASE" \
+            --expected-sha256 "$GROUP7_2023_DB_SHA" \
+            --expected-size "$GROUP7_2023_DB_SIZE" \
+            --year 2023 \
+            --output "$GROUP8_ROOT/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json"
+          rm -f "$DATABASE"
+
+      - name: Finalize dependency intake status
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("MoeBot_Trading_System/Group_8")
+          static = json.loads((root / "reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json").read_text())
+          real = json.loads((root / "reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json").read_text())
+          if static["status"] != "pass" or real["status"] != "pass":
+              raise SystemExit("dependency intake failed")
+          status_path = root / "STATUS.json"
+          status = json.loads(status_path.read_text())
+          status["dependency_intake"] = {
+              "closure_reference": "PASS",
+              "closure_tag": "moebot-group7-v0.7.5-closure",
+              "closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
+              "data_release_sha256": "PASS",
+              "repository_dependency_sha256": "PASS",
+              "sqlite_integrity": "PASS",
+              "frozen_runtime_schema_inventory": "PASS",
+              "real_sqlite_schema_inventory": "PASS",
+              "verdict": "PASS"
+          }
+          status["engine_build_authorized"] = True
+          status["status"] = "DEPENDENCY_INTAKE_PASS_DESIGN_FREEZE_PENDING"
+          status_path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n")
+          PY
+
+      - name: Commit verified dependency intake
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$GROUP8_ROOT/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json"
+          git add \
+            "$GROUP8_ROOT/reports/02_FROZEN_RUNTIME_SCHEMA_INVENTORY.json" \
+            "$GROUP8_ROOT/reports/03_REAL_SQLITE_SCHEMA_INVENTORY_2023.json" \
+            "$GROUP8_ROOT/STATUS.json"
           if ! git diff --cached --quiet; then
-            git commit -m "Inventory Group 8 frozen upstream schemas [skip actions]"
+            git commit -m "Verify Group 8 dependency intake [skip actions]"
             git pull --rebase origin main
             git push origin main
           fi
