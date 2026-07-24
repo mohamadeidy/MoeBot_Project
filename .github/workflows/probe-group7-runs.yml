@@ -26,33 +26,41 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p MoeBot_Trading_System/Group_7/ops
-          gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow build-moebot-group7.yml \
-            --limit 10 \
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow build-moebot-group7.yml --limit 10 \
             --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle \
             > MoeBot_Trading_System/Group_7/ops/LATEST_WORKFLOW_RUNS.json
-          gh run view 30049335689 \
-            --repo "$GITHUB_REPOSITORY" \
+          gh run view 30049335689 --repo "$GITHUB_REPOSITORY" \
             --json databaseId,status,conclusion,createdAt,updatedAt,jobs,url,headSha \
             > MoeBot_Trading_System/Group_7/ops/ACTIVE_RUN_DETAIL.json
-          gh run view 30049335689 \
-            --repo "$GITHUB_REPOSITORY" \
-            --log-failed \
+          gh run view 30049335689 --repo "$GITHUB_REPOSITORY" --log-failed \
             > MoeBot_Trading_System/Group_7/ops/FAILED_RUN_LOG.txt || true
-          gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow test-group7-cleanroom-hardening.yml \
-            --limit 10 \
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow resume-moebot-group7-closure.yml --limit 5 \
+            --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle \
+            > MoeBot_Trading_System/Group_7/ops/RESUME_CLOSURE_RUNS.json
+          RESUME_ID=$(python - <<'PY'
+          import json
+          p='MoeBot_Trading_System/Group_7/ops/RESUME_CLOSURE_RUNS.json'
+          rows=json.load(open(p))
+          print(rows[0]['databaseId'] if rows else '')
+          PY
+          )
+          if [ -n "$RESUME_ID" ]; then
+            gh run view "$RESUME_ID" --repo "$GITHUB_REPOSITORY" \
+              --json databaseId,status,conclusion,createdAt,updatedAt,jobs,url,headSha \
+              > MoeBot_Trading_System/Group_7/ops/RESUME_CLOSURE_DETAIL.json
+            gh run view "$RESUME_ID" --repo "$GITHUB_REPOSITORY" --log-failed \
+              > MoeBot_Trading_System/Group_7/ops/RESUME_CLOSURE_FAILED_LOG.txt || true
+          fi
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow test-group7-cleanroom-hardening.yml --limit 10 \
             --json databaseId,status,conclusion,headSha,headBranch,createdAt,updatedAt,url,event,displayTitle \
             > MoeBot_Trading_System/Group_7/ops/CLEANROOM_HARDENING_TEST_RUNS.json
       - name: Commit probe result
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add MoeBot_Trading_System/Group_7/ops/LATEST_WORKFLOW_RUNS.json MoeBot_Trading_System/Group_7/ops/ACTIVE_RUN_DETAIL.json MoeBot_Trading_System/Group_7/ops/FAILED_RUN_LOG.txt MoeBot_Trading_System/Group_7/ops/CLEANROOM_HARDENING_TEST_RUNS.json
+          git add MoeBot_Trading_System/Group_7/ops
           if ! git diff --cached --quiet; then
-            git commit -m "Record Group 7 failed workflow log"
+            git commit -m "Record Group 7 closure workflow state"
             git pull --rebase origin main
             git push origin main
           fi
