@@ -57,6 +57,8 @@ jobs:
         run: |
           CHUNKS_DIR="$BUNDLE_ROOT/chunks"
           mkdir -p "$CHUNKS_DIR"
+          git fetch --no-tags origin b58a79cff032d98dd7c60104b997ee7a1da7001a
+          git cat-file -e b58a79cff032d98dd7c60104b997ee7a1da7001a^{commit}
           git show b58a79cff032d98dd7c60104b997ee7a1da7001a:"$CHUNKS_DIR/part_002.b64" > "$CHUNKS_DIR/part_002.b64"
           test -s "$CHUNKS_DIR/part_002.b64"
           echo "1cb9c17f544abf4e1643fce32d7a24b5f81a71cf4605646663a5b331a3893d38  $CHUNKS_DIR/part_002.b64" | sha256sum -c -
