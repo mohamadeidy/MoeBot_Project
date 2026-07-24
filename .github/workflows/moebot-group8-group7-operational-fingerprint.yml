@@ -1,0 +1,64 @@
+name: MoeBot Group 8 Group7 Operational Fingerprint
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DEPENDENCY_INTAKE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  URL: https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group7-v0.7.5/MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000
+
+jobs:
+  fingerprint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Install zstd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Restore current release database
+        run: |
+          curl -L --fail --retry 5 --retry-all-errors -o "$RUNNER_TEMP/current.zst" "$URL"
+          zstd -d --long=31 -f "$RUNNER_TEMP/current.zst" -o "$RUNNER_TEMP/current.sqlite"
+          rm -f "$RUNNER_TEMP/current.zst"
+      - name: Fingerprint operational and semantic metadata
+        run: |
+          python - <<'PY' | tee "$RUNNER_TEMP/fingerprint.json"
+          import json, os, sqlite3
+          from pathlib import Path
+          db=Path(os.environ['RUNNER_TEMP'])/'current.sqlite'
+          con=sqlite3.connect(f'file:{db}?mode=ro',uri=True)
+          con.row_factory=sqlite3.Row
+          def rows(sql): return [dict(r) for r in con.execute(sql)]
+          tables=[r['name'] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+          counts={t:con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in tables}
+          report={
+            'database_size_bytes':db.stat().st_size,
+            'pragma':{
+              'page_size':con.execute('PRAGMA page_size').fetchone()[0],
+              'page_count':con.execute('PRAGMA page_count').fetchone()[0],
+              'freelist_count':con.execute('PRAGMA freelist_count').fetchone()[0],
+              'schema_version':con.execute('PRAGMA schema_version').fetchone()[0],
+              'user_version':con.execute('PRAGMA user_version').fetchone()[0]},
+            'metadata':rows('SELECT key,value FROM metadata ORDER BY key') if 'metadata' in tables else [],
+            'config_registry_times':rows('SELECT config_id,created_at FROM config_registry ORDER BY config_id') if 'config_registry' in tables else [],
+            'dataset_registry_times':rows('SELECT dataset_id,created_at FROM dataset_registry ORDER BY dataset_id') if 'dataset_registry' in tables else [],
+            'checkpoint_times':rows('SELECT timeframe,stage,status,last_bar_id,last_time,updated_at FROM processing_checkpoints ORDER BY timeframe,stage') if 'processing_checkpoints' in tables else [],
+            'audit_time_summary':rows('SELECT checked_at,COUNT(*) AS n FROM group7_audit_evidence GROUP BY checked_at ORDER BY checked_at') if 'group7_audit_evidence' in tables else [],
+            'audit_ids_sample':rows('SELECT audit_id,check_name,checked_at,audit_hash FROM group7_audit_evidence ORDER BY checked_at,check_name LIMIT 100') if 'group7_audit_evidence' in tables else [],
+            'table_counts':counts,
+          }
+          con.close()
+          print(json.dumps(report,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group7-2023-current-operational-fingerprint
+          path: ${{ runner.temp }}/fingerprint.json
+          retention-days: 30
