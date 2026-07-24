@@ -1,0 +1,192 @@
+{
+  "checks": {
+    "base_zone_has_match": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "breaker_parent_contract": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "candidate_cardinality": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "candidate_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "config_hash_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "dataset_hash_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "definition_registry_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "definitions_not_merged": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "dependency_id_hash_readonly": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "duplicate_transition_ordinals": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "evaluation_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "evidence_causality": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "evidence_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "foreign_keys": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "group6_file_present": {
+      "details": "/home/runner/work/_temp/upstream/MoeBot_Group6_XAUUSD_2024_v0.6.4_rebuilt_dukascopy_v1.sqlite",
+      "errors": 0,
+      "status": "PASS"
+    },
+    "group6_fingerprint": {
+      "details": {
+        "actual": "4c212ab7516a95b0f0a6e05257529be56188a3bbd48dd1f2f9f621b6ce08cdef",
+        "expected": "4c212ab7516a95b0f0a6e05257529be56188a3bbd48dd1f2f9f621b6ce08cdef"
+      },
+      "errors": 0,
+      "status": "PASS"
+    },
+    "immutable_summary_coverage": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "invalid_bounds": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "match_after_candidate": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "match_after_evidence": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "match_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "mitigation_parent_contract": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "no_trade_schema": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "relation_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "source_file_present": {
+      "details": "/home/runner/work/_temp/upstream/source_2024_canonical_rebuilt_dukascopy_v1.sqlite",
+      "errors": 0,
+      "status": "PASS"
+    },
+    "source_fingerprint": {
+      "details": {
+        "actual": "4d18ff7ca052ae9d744acf3b8d2537929495b920110748bbdd4dc0c0c49ab792",
+        "expected": "4d18ff7ca052ae9d744acf3b8d2537929495b920110748bbdd4dc0c0c49ab792"
+      },
+      "errors": 0,
+      "status": "PASS"
+    },
+    "sqlite_integrity": {
+      "details": "ok",
+      "errors": 0,
+      "status": "PASS"
+    },
+    "summary_hash_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "transition_causality": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "transition_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "two_close_candidate_presence": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "visit_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "zone_after_match": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "zone_full_reconstruction": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "zone_time_order": {
+      "details": null,
+      "errors": 0,
+      "status": "PASS"
+    }
+  },
+  "database": "/home/runner/work/_temp/candidate/MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+  "passed": true,
+  "summary": {
+    "fail": 0,
+    "pass": 35,
+    "total": 35
+  }
+}

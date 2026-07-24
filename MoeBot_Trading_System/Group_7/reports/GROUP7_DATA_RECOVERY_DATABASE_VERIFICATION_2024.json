@@ -1,0 +1,13 @@
+{
+  "compressed_filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+  "compressed_sha256": "790f6bdcb0ef8da7581910846e1476bc8d3b23e363cd5c21efa94adc8c33b690",
+  "compressed_size_bytes": 1128136245,
+  "filename": "MoeBot_Group7_XAUUSD_2024_v0.7.5_rebuilt_dukascopy_v1.sqlite",
+  "foreign_key_errors": 0,
+  "integrity_check": "ok",
+  "pass": true,
+  "quick_check": "ok",
+  "sha256": "551c7cf370dbf1aa4114044a3e6056f02785f05918d7edc09113c0f1017d3623",
+  "size_bytes": 7921762304,
+  "year": 2024
+}

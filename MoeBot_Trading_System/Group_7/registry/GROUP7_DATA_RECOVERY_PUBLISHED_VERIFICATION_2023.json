@@ -1,0 +1,15 @@
+{
+  "compressed_filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_rebuilt_dukascopy_v1.sqlite.zst.part-000",
+  "compressed_sha256": "b075e201d801c73d7bd23148ba265ffece9be46fde38e1e2030cf8b5b591f856",
+  "compressed_size_bytes": 1157679007,
+  "database_sha256": "1cff8019c37a0034ba30c1c787a43b669fd34e4de62244de6d74883e8c68d274",
+  "database_size_bytes": 8116060160,
+  "foreign_key_errors": 0,
+  "format_version": 1,
+  "integrity_check": "ok",
+  "quick_check": "ok",
+  "release_anchor_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
+  "release_anchor_tag": "moebot-group7-v0.7.5-closure",
+  "status": "PASS",
+  "year": 2023
+}
