@@ -17,6 +17,8 @@ permissions:
 env:
   GROUP7_ROOT: MoeBot_Trading_System/Group_7
   PYTHONUNBUFFERED: "1"
+  EXPECTED_CLOSURE_TAG: moebot-group7-v0.7.5-closure
+  EXPECTED_CLOSURE_COMMIT_SHA: c9a481d5d8f40bc80d833ef1d135fe56578b5fe2
 
 jobs:
   verify-final-state:
@@ -42,24 +44,67 @@ jobs:
           closed = status.get('officially_closed') is True and status.get('group8_authorized') is True
           print('closed=' + ('true' if closed else 'false'))
           PY
+      - name: Set and verify closure freeze reference
+        if: steps.closure.outputs.closed == 'true'
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path('MoeBot_Trading_System/Group_7')
+          closure_tag = os.environ['EXPECTED_CLOSURE_TAG']
+          closure_sha = os.environ['EXPECTED_CLOSURE_COMMIT_SHA']
+          handoff_path = root / 'NEXT_GROUP_DEPENDENCY_MANIFEST.json'
+          status_path = root / 'STATUS.json'
+          handoff = json.loads(handoff_path.read_text())
+          status = json.loads(status_path.read_text())
+          handoff['data_release_tag'] = 'moebot-group7-v0.7.5'
+          handoff['closure_tag'] = closure_tag
+          handoff['closure_commit_sha'] = closure_sha
+          handoff['release_tag'] = handoff['data_release_tag']
+          status['data_release_tag'] = 'moebot-group7-v0.7.5'
+          status['closure_tag'] = closure_tag
+          status['closure_commit_sha'] = closure_sha
+          status['release_tag'] = status['data_release_tag']
+          handoff_path.write_text(json.dumps(handoff, indent=2, sort_keys=True) + '\n')
+          status_path.write_text(json.dumps(status, indent=2, sort_keys=True) + '\n')
+          PY
+          git cat-file -e "$EXPECTED_CLOSURE_COMMIT_SHA^{commit}"
+          git merge-base --is-ancestor "$EXPECTED_CLOSURE_COMMIT_SHA" HEAD
+          git fetch --tags --force origin
+          if git show-ref --verify --quiet "refs/tags/$EXPECTED_CLOSURE_TAG"; then
+            actual="$(git rev-parse "refs/tags/$EXPECTED_CLOSURE_TAG^{commit}")"
+            test "$actual" = "$EXPECTED_CLOSURE_COMMIT_SHA"
+          else
+            git tag "$EXPECTED_CLOSURE_TAG" "$EXPECTED_CLOSURE_COMMIT_SHA"
+            git push origin "refs/tags/$EXPECTED_CLOSURE_TAG"
+          fi
+          actual="$(git rev-parse "refs/tags/$EXPECTED_CLOSURE_TAG^{commit}")"
+          test "$actual" = "$EXPECTED_CLOSURE_COMMIT_SHA"
       - name: Install verification tools
         if: steps.closure.outputs.closed == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
           pip install -r "$GROUP7_ROOT/requirements.txt"
-      - name: Verify closure commit and repository dependency identities
+      - name: Verify closure tag, commit and repository dependency identities
         if: steps.closure.outputs.closed == 'true'
         run: |
           git log --format=%s --all | grep -Fx "Group 7 officially closed"
           python - <<'PY'
-          import hashlib, json
+          import hashlib, json, os, subprocess
           from pathlib import Path
           root = Path('MoeBot_Trading_System/Group_7')
           handoff = json.loads((root / 'NEXT_GROUP_DEPENDENCY_MANIFEST.json').read_text())
           assert handoff['officially_closed'] is True
           assert handoff['group8_authorized'] is True
           assert handoff['status'] == 'frozen_read_only_dependency'
+          assert handoff['data_release_tag'] == 'moebot-group7-v0.7.5'
+          assert handoff['closure_tag'] == os.environ['EXPECTED_CLOSURE_TAG']
+          assert handoff['closure_commit_sha'] == os.environ['EXPECTED_CLOSURE_COMMIT_SHA']
+          actual = subprocess.check_output(
+              ['git', 'rev-parse', f"refs/tags/{handoff['closure_tag']}^{{commit}}"], text=True
+          ).strip()
+          assert actual == handoff['closure_commit_sha']
           failures = []
           for relative, identity in sorted(handoff['repository_files'].items()):
               path = root / relative
@@ -76,7 +121,7 @@ jobs:
                   failures.append(f'sha256:{relative}')
           if failures:
               raise SystemExit('Repository dependency verification failed: ' + ', '.join(failures))
-          print(f"PASS: {len(handoff['repository_files'])} repository dependency identities")
+          print(f"PASS: closure tag plus {len(handoff['repository_files'])} repository dependency identities")
           PY
       - name: Restore Group 7 databases from final public Release
         if: steps.closure.outputs.closed == 'true'
@@ -95,13 +140,18 @@ jobs:
           VERIFY_ROOT: ${{ runner.temp }}/group7-final-verification
         run: |
           python - <<'PY'
-          import datetime as dt, hashlib, json, os
+          import datetime as dt, json, os, subprocess
           from pathlib import Path
           root = Path('MoeBot_Trading_System/Group_7')
           runtime = Path(os.environ['VERIFY_ROOT'])
           handoff = json.loads((root / 'NEXT_GROUP_DEPENDENCY_MANIFEST.json').read_text())
           registry = json.loads((root / 'registry/GROUP7_DATABASE_REGISTRY.json').read_text())
           restored = json.loads((runtime / 'restore.json').read_text())
+          actual_tag_sha = subprocess.check_output(
+              ['git', 'rev-parse', f"refs/tags/{handoff['closure_tag']}^{{commit}}"], text=True
+          ).strip()
+          if actual_tag_sha != handoff['closure_commit_sha']:
+              raise SystemExit('Closure tag target mismatch')
           years = {}
           for year in ('2023', '2024'):
               expected = registry['years'][year]
@@ -116,28 +166,34 @@ jobs:
                   raise SystemExit(f'SQLite check failed for {year}')
               years[year] = actual
           report = {
-              'format_version': 1,
+              'format_version': 2,
               'status': 'pass',
               'verified_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
-              'release_tag': registry['release_tag'],
+              'data_release_tag': handoff['data_release_tag'],
+              'closure_tag': handoff['closure_tag'],
+              'closure_commit_sha': handoff['closure_commit_sha'],
+              'closure_tag_target_verified': True,
               'registry_status': registry['status'],
               'handoff_format_version': handoff['format_version'],
               'repository_file_count': len(handoff['repository_files']),
+              'repository_sha256_status': 'pass',
               'years': years,
-              'method': 'post-closure public Release restore plus final registry, repository-file SHA-256, SQLite, and exact closure-commit verification',
+              'method': 'closure-tag verification plus public data-release restore, repository-file SHA-256, database SHA-256, SQLite integrity and foreign-key verification',
           }
           output = root / 'registry/POST_CLOSURE_VERIFICATION.json'
           output.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
           print(json.dumps(report, indent=2, sort_keys=True))
           PY
-      - name: Commit post-closure verification
+      - name: Commit final freeze-reference verification
         if: steps.closure.outputs.closed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$GROUP7_ROOT/registry/POST_CLOSURE_VERIFICATION.json"
+          git add "$GROUP7_ROOT/STATUS.json" \
+                  "$GROUP7_ROOT/NEXT_GROUP_DEPENDENCY_MANIFEST.json" \
+                  "$GROUP7_ROOT/registry/POST_CLOSURE_VERIFICATION.json"
           if ! git diff --cached --quiet; then
-            git commit -m "Verify final Group 7 published state [skip actions]"
+            git commit -m "Verify Group 7 closure freeze reference [skip actions]"
             git pull --rebase origin main
             git push origin main
           fi
