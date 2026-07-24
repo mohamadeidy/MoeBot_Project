@@ -25,6 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Probe sequence 3: refresh active annual packaging timestamps.
           mkdir -p MoeBot_Trading_System/Group_7/ops
           gh run list \
             --repo "$GITHUB_REPOSITORY" \
