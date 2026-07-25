@@ -1,0 +1,301 @@
+name: MoeBot Group 8 Coherent v3 Lineage Rebuild
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_COHERENT_V3_REBUILD.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  GROUP7_ROOT: MoeBot_Trading_System/Group_7
+  DATA_VAULT_ROOT: MoeBot_Trading_System/Data_Vault
+  BUNDLE_V3: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3
+  RELEASE_TAG: moebot-sqlite-rebuild-v1
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile all required frozen and Group 8 tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_build_coherent_v3_year.py" \
+            "$GROUP8_ROOT/code/group8_package_coherent_v3_pack.py" \
+            "$GROUP8_ROOT/code/group8_verify_coherent_v3_pack.py" \
+            "$GROUP7_ROOT/code/moebot_group7_engine.py" \
+            "$GROUP7_ROOT/code/group7_independent_audit.py" \
+            "$GROUP7_ROOT/code/group7_real_visual_audit.py" \
+            "$GROUP7_ROOT/code/group7_test_suite.py" \
+            "$GROUP7_ROOT/code/group7_performance_smoke.py"
+      - name: Verify exact Group 7 closure source identities
+        run: |
+          test "$(sha256sum "$GROUP7_ROOT/code/moebot_group7_engine.py" | awk '{print $1}')" = "898148a579532d970283b461ea446bd34045ca9dc43b53a4a59a015a5700f173"
+          test "$(sha256sum "$GROUP7_ROOT/code/group7_independent_audit.py" | awk '{print $1}')" = "3aae274d25fd3b2362b7a9b4c7ae4d799b56d463d5d7f173dd50c200162b4354"
+          test "$(sha256sum "$GROUP7_ROOT/code/group7_real_visual_audit.py" | awk '{print $1}')" = "4f85f362c8a00ed7f1dfc8b40b8893c7b9d0b2358782fc1bf7af62feebdc5167"
+          test "$(sha256sum "$GROUP7_ROOT/code/group7_test_suite.py" | awk '{print $1}')" = "9a0c54b8821e0af80c2a696e06be36716e509f893e861a5ec53be1c6a17f5fb9"
+          test "$(sha256sum "$GROUP7_ROOT/FROZEN_CONFIG_REGISTRY.json" | awk '{print $1}')" = "f8347d8cf49d83a11afe96eccb74e142aafed2a8561c15865b0d81c1737825c5"
+      - name: Run frozen Group 7 synthetic and performance gates
+        run: |
+          mkdir -p "$RUNNER_TEMP/preflight"
+          python "$GROUP7_ROOT/code/group7_test_suite.py" --workdir "$RUNNER_TEMP/g7tests" --json-out "$RUNNER_TEMP/preflight/GROUP7_SYNTHETIC.json"
+          python "$GROUP7_ROOT/code/group7_performance_smoke.py" --zones 20000 --bars 5000 --json-out "$RUNNER_TEMP/preflight/GROUP7_PERFORMANCE.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'preflight'
+          a=json.loads((root/'GROUP7_SYNTHETIC.json').read_text());b=json.loads((root/'GROUP7_PERFORMANCE.json').read_text())
+          if not a.get('passed') or not b.get('passed'): raise SystemExit('Group7 preflight gate failed')
+          print({'synthetic':f"{a['passed_count']}/{a['total']}",'performance_seconds':b['elapsed_seconds']})
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-coherent-v3-preflight
+          path: ${{ runner.temp }}/preflight
+          retention-days: 90
+
+  materialize-year:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+          python -m pip install --disable-pip-version-check --no-cache-dir numpy
+      - name: Restore exact corrected runtime v3
+        run: |
+          python "$BUNDLE_V3/restore_bundle.py" --output "$RUNNER_TEMP/runtime-v3.tar.zst" --extract-to "$RUNNER_TEMP/runtime-v3"
+      - name: Restore canonical source database
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \
+            --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/dv-download" \
+            --output-dir "$RUNNER_TEMP/dv"
+      - name: Resolve annual source filename
+        id: names
+        shell: bash
+        run: |
+          if [ "${{ matrix.year }}" = "2024" ]; then
+            echo "source=source_2024_canonical_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=source_2023_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build coherent corrected-v3 Groups 2 through 6
+        run: |
+          python "$DATA_VAULT_ROOT/rebuild/run_frozen_pipeline.py" \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/dv/${{ steps.names.outputs.source }}" \
+            --runtime-root "$RUNNER_TEMP/runtime-v3" \
+            --work-dir "$RUNNER_TEMP/v3/intermediate" \
+            --group6-output "$RUNNER_TEMP/v3/group6.sqlite" \
+            --report "$RUNNER_TEMP/v3/pipeline_report.json"
+      - name: Resolve exact pipeline database paths
+        id: paths
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ['RUNNER_TEMP'])/'v3/pipeline_report.json').read_text())
+          for group in ('group2','group3','group4','group5','group6'):
+              p=Path(r['artifacts'][group]['path']).resolve()
+              if not p.is_file(): raise SystemExit(f'missing {group}: {p}')
+              print(f'{group}={p}')
+          PY
+      - name: Build and audit Group 7 with unchanged frozen v0.7.5 engine
+        run: |
+          python "$GROUP8_ROOT/code/group8_build_coherent_v3_year.py" \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/dv/${{ steps.names.outputs.source }}" \
+            --group6 "${{ steps.paths.outputs.group6 }}" \
+            --group7-root "$GROUP7_ROOT" \
+            --outdir "$RUNNER_TEMP/g7-${{ matrix.year }}"
+      - name: Package coherent Groups 2 through 7 with unique additive names
+        run: |
+          python "$GROUP8_ROOT/code/group8_package_coherent_v3_pack.py" \
+            --year "${{ matrix.year }}" \
+            --pipeline-report "$RUNNER_TEMP/v3/pipeline_report.json" \
+            --group7-report "$RUNNER_TEMP/g7-${{ matrix.year }}/GROUP7_COHERENT_V3_YEAR_${{ matrix.year }}.json" \
+            --group2 "${{ steps.paths.outputs.group2 }}" \
+            --group3 "${{ steps.paths.outputs.group3 }}" \
+            --group4 "${{ steps.paths.outputs.group4 }}" \
+            --group5 "${{ steps.paths.outputs.group5 }}" \
+            --group6 "${{ steps.paths.outputs.group6 }}" \
+            --group7 "$RUNNER_TEMP/g7-${{ matrix.year }}/MoeBot_Group7_XAUUSD_${{ matrix.year }}_v0.7.5_corrected_v3_group8_v1.sqlite" \
+            --output-dir "$RUNNER_TEMP/release-${{ matrix.year }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG"
+      - name: Additively publish exact assets without overwrite
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable,assets > "$RUNNER_TEMP/release-state.json"
+          python - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'release-${{ matrix.year }}';state=json.loads((Path(os.environ['RUNNER_TEMP'])/'release-state.json').read_text())
+          existing={a['name']:a for a in state.get('assets',[])}
+          missing=[]
+          for path in sorted(root.iterdir()):
+              if not path.is_file(): continue
+              row=existing.get(path.name)
+              if row is None: missing.append(str(path));continue
+              if int(row.get('size',-1))!=path.stat().st_size: raise SystemExit(f'existing asset size conflict: {path.name}')
+              digest=row.get('digest')
+              local='sha256:'+hashlib.sha256(path.read_bytes()).hexdigest()
+              if digest and digest!=local: raise SystemExit(f'existing asset digest conflict: {path.name}')
+          if missing and state.get('isImmutable'): raise SystemExit('Data Vault release is immutable and required additive assets are absent')
+          Path(os.environ['RUNNER_TEMP'],'missing-assets.txt').write_text('\n'.join(missing)+'\n')
+          print({'existing_verified':len(existing),'missing_count':len(missing),'immutable':state.get('isImmutable')})
+          PY
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "$file"
+          done < "$RUNNER_TEMP/missing-assets.txt"
+      - name: Preserve compact annual evidence
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence-${{ matrix.year }}"
+          cp "$RUNNER_TEMP/v3/pipeline_report.json" "$RUNNER_TEMP/evidence-${{ matrix.year }}/V3_PIPELINE_${{ matrix.year }}.json"
+          cp "$RUNNER_TEMP/g7-${{ matrix.year }}/GROUP7_COHERENT_V3_YEAR_${{ matrix.year }}.json" "$RUNNER_TEMP/evidence-${{ matrix.year }}/"
+          cp "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_Coherent_Upstream_G2-G7_${{ matrix.year }}_manifest.json" "$RUNNER_TEMP/evidence-${{ matrix.year }}/"
+          cp -a "$RUNNER_TEMP/g7-${{ matrix.year }}/visual_audit_${{ matrix.year }}" "$RUNNER_TEMP/evidence-${{ matrix.year }}/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-coherent-v3-materialization-${{ matrix.year }}
+          path: ${{ runner.temp }}/evidence-${{ matrix.year }}
+          retention-days: 90
+      - name: Cleanup large runner data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/v3" "$RUNNER_TEMP/g7-${{ matrix.year }}" "$RUNNER_TEMP/dv" "$RUNNER_TEMP/dv-download" "$RUNNER_TEMP/runtime-v3" "$RUNNER_TEMP/runtime-v3.tar.zst" "$RUNNER_TEMP/release-${{ matrix.year }}" || true
+
+  clean-room-year:
+    needs: materialize-year
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install zstd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-coherent-v3-materialization-${{ matrix.year }}
+          path: ${{ runner.temp }}/materialization
+      - name: Public clean-room re-download, identity, integrity, schema and categorical audit
+        run: |
+          python "$GROUP8_ROOT/code/group8_verify_coherent_v3_pack.py" \
+            --manifest "$RUNNER_TEMP/materialization/MoeBot_Group8_Coherent_Upstream_G2-G7_${{ matrix.year }}_manifest.json" \
+            --work-dir "$RUNNER_TEMP/cleanroom-${{ matrix.year }}" \
+            --output "$RUNNER_TEMP/GROUP8_COHERENT_V3_CLEAN_ROOM_${{ matrix.year }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-coherent-v3-clean-room-${{ matrix.year }}
+          path: ${{ runner.temp }}/GROUP8_COHERENT_V3_CLEAN_ROOM_${{ matrix.year }}.json
+          retention-days: 90
+
+  finalize-registry:
+    needs: [preflight, materialize-year, clean-room-year]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group8-coherent-v3-materialization-*
+          path: ${{ runner.temp }}/materialization
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group8-coherent-v3-clean-room-*
+          path: ${{ runner.temp }}/cleanroom
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-coherent-v3-preflight
+          path: ${{ runner.temp }}/preflight
+      - name: Build cross-year validation, lineage amendment and permanent dependency registry
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          repo=Path('.');rt=Path(os.environ['RUNNER_TEMP']);years={};g7_reports={}
+          for year in ('2023','2024'):
+              m=next((rt/'materialization').rglob(f'MoeBot_Group8_Coherent_Upstream_G2-G7_{year}_manifest.json'))
+              g=next((rt/'materialization').rglob(f'GROUP7_COHERENT_V3_YEAR_{year}.json'))
+              c=next((rt/'cleanroom').rglob(f'GROUP8_COHERENT_V3_CLEAN_ROOM_{year}.json'))
+              md=json.loads(m.read_text());gd=json.loads(g.read_text());cd=json.loads(c.read_text())
+              if md.get('status')!='PASS_PACKAGED' or gd.get('status')!='PASS' or cd.get('status')!='PASS': raise SystemExit(f'annual coherent gate failed {year}')
+              if md['manifest_hash']!=cd['source_manifest_hash']: raise SystemExit(f'clean-room manifest mismatch {year}')
+              concise_groups={k:{'database':v['database'],'sqlite':v['sqlite'],'table_count':v['schema']['table_count'],'schema_hash':hashlib.sha256(json.dumps(v['schema'],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest(),'categorical_hash':hashlib.sha256(json.dumps(v['categories'],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()} for k,v in cd['groups'].items()}
+              years[year]={'manifest':md,'clean_room':{'status':cd['status'],'report_hash':cd['report_hash'],'groups':concise_groups},'group7_verification':{'status':gd['status'],'engine_version':gd['engine_version'],'schema_version':gd['schema_version'],'config_id':gd['summary']['config_id'],'dataset_id':gd['summary']['dataset_id'],'database':gd['database'],'gates':gd['gates'],'independent_audit_summary':gd['independent_audit']['summary'],'summary':gd['summary'],'visual_audit_passed':gd['visual_audit']['passed'],'elapsed_seconds':gd['elapsed_seconds']}}
+              g7_reports[year]=gd
+          a,b=g7_reports['2023'],g7_reports['2024'];defs=sorted(a['summary']['by_definition'])
+          gates={'both_years_pass':a['passed'] and b['passed'],'same_frozen_engine':a['engine_version']==b['engine_version']=='0.7.5','same_schema':a['schema_version']==b['schema_version']=='7.5.0','same_config':a['summary']['config_id']==b['summary']['config_id'],'all_definitions_same':defs==sorted(b['summary']['by_definition']),'all_definitions_nonempty_2023':all(a['summary']['by_definition'][d]['zones']>0 for d in defs),'all_definitions_nonempty_2024':all(b['summary']['by_definition'][d]['zones']>0 for d in defs),'zero_causality_errors_2023':all(v==0 for v in a['summary']['causality_checks'].values()),'zero_causality_errors_2024':all(v==0 for v in b['summary']['causality_checks'].values()),'2024_frozen_oos':a['summary']['config_id']==b['summary']['config_id'] and b['holdout_policy'].startswith('2024 uses the identical frozen'),'no_profitability_calibration':not a['profitability_used'] and not b['profitability_used']}
+          distribution={d:{'zones_2023':a['summary']['by_definition'][d]['zones'],'zones_2024':b['summary']['by_definition'][d]['zones'],'ratio_2024_to_2023':b['summary']['by_definition'][d]['zones']/a['summary']['by_definition'][d]['zones'],'descriptive_only':True} for d in defs}
+          cross={'format_version':1,'status':'PASS' if all(gates.values()) else 'FAIL','gates':gates,'engine_version':a['engine_version'],'schema_version':a['schema_version'],'config_id':a['summary']['config_id'],'lineage':'dukascopy_rebuild_v1_corrected_runtime_v3_group8_v1','distribution':distribution,'policy':'2024 was untouched frozen OOS; descriptive distributions did not alter definitions or thresholds'}
+          if cross['status']!='PASS': raise SystemExit('cross-year coherent validation failed')
+          cross['report_hash']=hashlib.sha256(json.dumps(cross,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          bundle=json.loads((repo/'MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3/BUNDLE_MANIFEST.json').read_text());g7closure=json.loads((repo/'MoeBot_Trading_System/Group_7/registry/DATA_RELEASE_RECOVERY_AMENDMENT_v1.json').read_text());dv=json.loads((repo/'MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json').read_text())
+          amendment={'format_version':1,'status':'PASS_COHERENT_DEPENDENCY_LINEAGE','logical_lineage_id':'moebot-group8-upstream-corrected-v3-g7-v075-v1','lineage':'dukascopy_rebuild_v1_corrected_runtime_v3_group8_v1','release_anchor_tag':'moebot-sqlite-rebuild-v1','group7_logic_source_closure_tag':g7closure['source_closure_tag'],'group7_logic_source_closure_commit_sha':g7closure['source_closure_commit_sha'],'runtime_bundle_v3':{'bundle_sha256':bundle['bundle_sha256'],'bundle_size_bytes':bundle['bundle_size_bytes'],'runtime_engines':bundle['runtime_engines']},'cross_year_validation_hash':cross['report_hash'],'years':{y:{'manifest_hash':years[y]['manifest']['manifest_hash'],'clean_room_report_hash':years[y]['clean_room']['report_hash'],'group7_database':years[y]['group7_verification']['database']} for y in ('2023','2024')},'policy':['Published historical Group6/Group7 closure remains immutable historical evidence.','Group8 consumes only this fully coherent corrected-v3 Groups2-7 lineage.','No lossy or ambiguous upstream-ID bridge is accepted.','2024 remained untouched frozen OOS after 2023 dependency-lineage build.']}
+          amendment['amendment_hash']=hashlib.sha256(json.dumps(amendment,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          registry={'format_version':3,'status':'PASS','group':8,'lineage':amendment['lineage'],'logical_lineage_id':amendment['logical_lineage_id'],'release_anchor_tag':amendment['release_anchor_tag'],'runtime_bundle_v3':amendment['runtime_bundle_v3'],'group7_logic_source':{'closure_tag':amendment['group7_logic_source_closure_tag'],'closure_commit_sha':amendment['group7_logic_source_closure_commit_sha'],'engine_version':'0.7.5','schema_version':'7.5.0','config_id':a['summary']['config_id']},'source_databases':{y:dv['years'][y]['databases']['source'] for y in ('2023','2024')},'years':years,'cross_year':cross,'lineage_amendment_hash':amendment['amendment_hash']}
+          registry['registry_hash']=hashlib.sha256(json.dumps(registry,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
+          root=repo/'MoeBot_Trading_System/Group_8';(root/'reports').mkdir(exist_ok=True)
+          (root/'UPSTREAM_COHERENT_V3_LINEAGE_AMENDMENT.json').write_text(json.dumps(amendment,indent=2,sort_keys=True)+'\n')
+          (root/'UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json').write_text(json.dumps(registry,indent=2,sort_keys=True)+'\n')
+          (root/'reports/07_COHERENT_V3_CROSS_YEAR_VALIDATION.json').write_text(json.dumps(cross,indent=2,sort_keys=True)+'\n')
+          report={'format_version':1,'status':'PASS','phase':'COHERENT_UPSTREAM_REBUILD','registry_hash':registry['registry_hash'],'lineage_amendment_hash':amendment['amendment_hash'],'cross_year_report_hash':cross['report_hash'],'release_anchor_tag':amendment['release_anchor_tag'],'years':{y:{'manifest_hash':years[y]['manifest']['manifest_hash'],'clean_room_report_hash':years[y]['clean_room']['report_hash'],'group7_db_sha256':years[y]['group7_verification']['database']['sha256']} for y in ('2023','2024')}}
+          report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode()).hexdigest();(root/'reports/08_COHERENT_V3_DEPENDENCY_REBUILD.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(json.dumps({'status':'PASS','registry_hash':registry['registry_hash'],'amendment_hash':amendment['amendment_hash'],'cross_year_hash':cross['report_hash']},indent=2))
+          PY
+      - name: Commit verified coherent dependency registry to PR branch
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/final"
+          cp "$GROUP8_ROOT/UPSTREAM_COHERENT_V3_LINEAGE_AMENDMENT.json" "$RUNNER_TEMP/final/"
+          cp "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$RUNNER_TEMP/final/"
+          cp "$GROUP8_ROOT/reports/07_COHERENT_V3_CROSS_YEAR_VALIDATION.json" "$RUNNER_TEMP/final/"
+          cp "$GROUP8_ROOT/reports/08_COHERENT_V3_DEPENDENCY_REBUILD.json" "$RUNNER_TEMP/final/"
+          git reset --hard HEAD
+          git clean -fd
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          cp "$RUNNER_TEMP/final/UPSTREAM_COHERENT_V3_LINEAGE_AMENDMENT.json" "$GROUP8_ROOT/"
+          cp "$RUNNER_TEMP/final/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$GROUP8_ROOT/"
+          cp "$RUNNER_TEMP/final/07_COHERENT_V3_CROSS_YEAR_VALIDATION.json" "$GROUP8_ROOT/reports/"
+          cp "$RUNNER_TEMP/final/08_COHERENT_V3_DEPENDENCY_REBUILD.json" "$GROUP8_ROOT/reports/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/UPSTREAM_COHERENT_V3_LINEAGE_AMENDMENT.json" "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$GROUP8_ROOT/reports/07_COHERENT_V3_CROSS_YEAR_VALIDATION.json" "$GROUP8_ROOT/reports/08_COHERENT_V3_DEPENDENCY_REBUILD.json"
+          git commit -m "Freeze coherent corrected-v3 Group 8 annual dependencies [skip ci]"
+          git push origin "HEAD:$HEAD_BRANCH"
