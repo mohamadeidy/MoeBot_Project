@@ -1,0 +1,84 @@
+name: MoeBot Group 8 Published G6 v3 Reference Compatibility
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PUBLISHED_G6_V3_COMPATIBILITY.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+          python -m pip install --disable-pip-version-check --no-cache-dir numpy
+      - name: Restore corrected runtime v3
+        run: |
+          python MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3/restore_bundle.py \
+            --output "$RUNNER_TEMP/runtime-v3.tar.zst" \
+            --extract-to "$RUNNER_TEMP/runtime-v3"
+      - name: Restore canonical source and published Group 6
+        run: |
+          python MoeBot_Trading_System/Data_Vault/download_and_restore_databases.py \
+            --registry MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json \
+            --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/dv-download" \
+            --output-dir "$RUNNER_TEMP/dv"
+      - name: Resolve annual filenames
+        id: names
+        shell: bash
+        run: |
+          if [ "${{ matrix.year }}" = "2024" ]; then
+            echo "source=source_2024_canonical_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=source_2023_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          fi
+          echo "g6=MoeBot_Group6_XAUUSD_${{ matrix.year }}_v0.6.4_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+      - name: Build corrected v3 Groups 2-6
+        run: |
+          python MoeBot_Trading_System/Data_Vault/rebuild/run_frozen_pipeline.py \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/dv/${{ steps.names.outputs.source }}" \
+            --runtime-root "$RUNNER_TEMP/runtime-v3" \
+            --work-dir "$RUNNER_TEMP/v3/intermediate" \
+            --group6-output "$RUNNER_TEMP/v3/group6.sqlite" \
+            --report "$RUNNER_TEMP/v3/pipeline_report.json"
+      - name: Audit published Group 6 references against corrected v3 upstream IDs
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          python MoeBot_Trading_System/Group_8/code/group8_verify_published_g6_reference_compatibility.py \
+            --published-g6 "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}" \
+            --g2 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group2_XAUUSD_${{ matrix.year }}_v0.2.1_rebuilt_dukascopy_v1.sqlite" \
+            --g3 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group3_XAUUSD_${{ matrix.year }}_v0.1.1_rebuilt_dukascopy_v1.sqlite" \
+            --g4 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group4_XAUUSD_${{ matrix.year }}_v0.1.6_rebuilt_dukascopy_v1.sqlite" \
+            --g5 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group5_XAUUSD_${{ matrix.year }}_v0.1.6_rebuilt_dukascopy_v1.sqlite" \
+            --output "$RUNNER_TEMP/evidence/PUBLISHED_G6_V3_REFERENCE_COMPATIBILITY_${{ matrix.year }}.json"
+      - name: Preserve evidence
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          test -f "$RUNNER_TEMP/v3/pipeline_report.json" && cp "$RUNNER_TEMP/v3/pipeline_report.json" "$RUNNER_TEMP/evidence/V3_PIPELINE_${{ matrix.year }}.json" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-published-g6-v3-compatibility-${{ matrix.year }}
+          path: ${{ runner.temp }}/evidence
+          retention-days: 60
