@@ -1,1 +1,1 @@
-Apply the exact validated patch to the real Group 8 Design Freeze workflow now. Separate canonical source restoration/output publication from the following schema-verification step, validate one-time replacement and YAML/job structure, then commit only the corrected workflow to this PR branch.
+Run the exact validated Group 8 Design Freeze source-step patch on open PR #45 now. Require one exact legacy block, split output production and consumption into separate completed steps, validate YAML and required jobs, then commit the corrected workflow to this branch.
