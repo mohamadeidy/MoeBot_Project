@@ -1,0 +1,98 @@
+name: MoeBot Group 8 Design Hardening v3 Coherent Only
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DESIGN_HARDENING_V3.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+
+jobs:
+  harden-v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile coherent-only design tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_generate_schema_candidate_v3.py" \
+            "$GROUP8_ROOT/code/group8_design_contract_audit_v3.py" \
+            "$GROUP8_ROOT/code/group8_freeze_design_v3.py"
+      - name: Generate coherent-only Schema Candidate v3
+        run: |
+          python "$GROUP8_ROOT/code/group8_generate_schema_candidate_v3.py" \
+            --draft "$GROUP8_ROOT/02_SCHEMA_DRAFT.sql" \
+            --output "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v3.sql" \
+            --report "$GROUP8_ROOT/reports/09_SCHEMA_CANDIDATE_V3_GENERATION.json"
+      - name: Independent coherent-only design contract audit v3
+        run: |
+          python "$GROUP8_ROOT/code/group8_design_contract_audit_v3.py" \
+            --root "$GROUP8_ROOT" \
+            --schema "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v3.sql" \
+            --output "$GROUP8_ROOT/reports/10_DESIGN_CONTRACT_AUDIT_V3.json"
+      - name: Final fail-closed schema assertions
+        run: |
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          generation=json.loads((root/"reports/09_SCHEMA_CANDIDATE_V3_GENERATION.json").read_text())
+          audit=json.loads((root/"reports/10_DESIGN_CONTRACT_AUDIT_V3.json").read_text())
+          if generation.get("status")!="PASS" or audit.get("status")!="PASS": raise SystemExit("v3 design hardening did not pass")
+          con=sqlite3.connect(":memory:")
+          con.executescript((root/"02_SCHEMA_CANDIDATE_v3.sql").read_text())
+          tables={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          cols={r[1] for r in con.execute("PRAGMA table_info('dataset_registry')")}
+          con.close()
+          if "upstream_id_bridge" in tables: raise SystemExit("rejected upstream bridge table present")
+          required={"logical_dependency_lineage_id","dependency_release_anchor_tag","coherent_lineage_amendment_hash","annual_dependency_registry_hash"}
+          if not required.issubset(cols): raise SystemExit(f"coherent dataset fields missing: {sorted(required-cols)}")
+          legacy={"upstream_lineage_bridge_hash","group7_recovery_anchor_tag","group7_recovery_anchor_commit_sha"}
+          if cols & legacy: raise SystemExit(f"legacy dataset fields present: {sorted(cols&legacy)}")
+          print({"schema_v3":"PASS","design_audit_v3":"PASS","bridge_absent":True})
+          PY
+      - name: Preserve v3 hardening evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-design-hardening-v3
+          path: |
+            ${{ env.GROUP8_ROOT }}/02_SCHEMA_CANDIDATE_v3.sql
+            ${{ env.GROUP8_ROOT }}/reports/09_SCHEMA_CANDIDATE_V3_GENERATION.json
+            ${{ env.GROUP8_ROOT }}/reports/10_DESIGN_CONTRACT_AUDIT_V3.json
+          retention-days: 90
+      - name: Commit PASS v3 artifacts to PR branch
+        if: github.event_name == 'pull_request' && success()
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/v3-final"
+          cp "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v3.sql" "$RUNNER_TEMP/v3-final/"
+          cp "$GROUP8_ROOT/reports/09_SCHEMA_CANDIDATE_V3_GENERATION.json" "$RUNNER_TEMP/v3-final/"
+          cp "$GROUP8_ROOT/reports/10_DESIGN_CONTRACT_AUDIT_V3.json" "$RUNNER_TEMP/v3-final/"
+          git reset --hard HEAD
+          git clean -fd
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          mkdir -p "$GROUP8_ROOT/reports"
+          cp "$RUNNER_TEMP/v3-final/02_SCHEMA_CANDIDATE_v3.sql" "$GROUP8_ROOT/"
+          cp "$RUNNER_TEMP/v3-final/09_SCHEMA_CANDIDATE_V3_GENERATION.json" "$GROUP8_ROOT/reports/"
+          cp "$RUNNER_TEMP/v3-final/10_DESIGN_CONTRACT_AUDIT_V3.json" "$GROUP8_ROOT/reports/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v3.sql" "$GROUP8_ROOT/reports/09_SCHEMA_CANDIDATE_V3_GENERATION.json" "$GROUP8_ROOT/reports/10_DESIGN_CONTRACT_AUDIT_V3.json"
+          if ! git diff --cached --quiet; then
+            git commit -m "Harden Group 8 coherent-only schema candidate v3 [skip ci]"
+            git push origin "HEAD:$HEAD_BRANCH"
+          fi
