@@ -1,0 +1,1 @@
+Restore canonical runtime v3 and expose exact G2-G6 source files as a read-only audit artifact for Group 8 categorical value binding. No frozen identity or data is mutated.
