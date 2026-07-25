@@ -28,48 +28,26 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-
       - name: Install zstd
         run: |
           sudo apt-get update
           sudo apt-get install -y zstd
-
       - name: Resolve verified annual identities
         id: identity
         shell: bash
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, os
+          import json
           from pathlib import Path
           year='${{ matrix.year }}'
           dv=json.loads(Path('MoeBot_Trading_System/Data_Vault/registry/DATABASE_REGISTRY.json').read_text())
           g7=json.loads(Path('MoeBot_Trading_System/Group_7/registry/DATA_RELEASE_RECOVERY_AMENDMENT_v1.json').read_text())
-          source=dv['years'][year]['databases']['source']
-          g6=dv['years'][year]['databases']['group6']
-          r=g7['years'][year]['candidate_verification']
-          print(f"source_name={source['database_filename']}")
-          print(f"source_size={source['database_size_bytes']}")
-          print(f"source_sha={source['database_sha256']}")
-          print(f"g6_name={g6['database_filename']}")
-          print(f"g6_size={g6['database_size_bytes']}")
-          print(f"g6_sha={g6['database_sha256']}")
-          print(f"g7_name={r['filename']}")
-          print(f"g7_size={r['size_bytes']}")
-          print(f"g7_sha={r['sha256']}")
-          print(f"g7_compressed={r['compressed_filename']}")
-          print(f"g7_compressed_size={r['compressed_size_bytes']}")
-          print(f"g7_compressed_sha={r['compressed_sha256']}")
-          print(f"g7_tag={g7['recovery_release_anchor_tag']}")
+          source=dv['years'][year]['databases']['source'];g6=dv['years'][year]['databases']['group6'];r=g7['years'][year]['candidate_verification']
+          for k,v in {'source_name':source['database_filename'],'source_size':source['database_size_bytes'],'source_sha':source['database_sha256'],'g6_name':g6['database_filename'],'g6_size':g6['database_size_bytes'],'g6_sha':g6['database_sha256'],'g7_name':r['filename'],'g7_size':r['size_bytes'],'g7_sha':r['sha256'],'g7_compressed':r['compressed_filename'],'g7_compressed_size':r['compressed_size_bytes'],'g7_compressed_sha':r['compressed_sha256'],'g7_tag':g7['recovery_release_anchor_tag']}.items(): print(f'{k}={v}')
           PY
-
       - name: Restore canonical source and Group 6
         run: |
-          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
-            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \
-            --year "${{ matrix.year }}" \
-            --download-dir "$RUNNER_TEMP/dv-download" \
-            --output-dir "$RUNNER_TEMP/dv"
-
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" --year "${{ matrix.year }}" --download-dir "$RUNNER_TEMP/dv-download" --output-dir "$RUNNER_TEMP/dv"
       - name: Restore closure-anchored Group 7 recovery database
         run: |
           URL="https://github.com/$GITHUB_REPOSITORY/releases/download/${{ steps.identity.outputs.g7_tag }}/${{ steps.identity.outputs.g7_compressed }}"
@@ -78,33 +56,15 @@ jobs:
           test "$(sha256sum "$RUNNER_TEMP/group7.zst" | awk '{print $1}')" = "${{ steps.identity.outputs.g7_compressed_sha }}"
           zstd -d --long=31 -f "$RUNNER_TEMP/group7.zst" -o "$RUNNER_TEMP/${{ steps.identity.outputs.g7_name }}"
           rm -f "$RUNNER_TEMP/group7.zst"
-
       - name: Capture exact real SQLite schemas
         run: |
           mkdir -p "$RUNNER_TEMP/schema"
-          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
-            --database "$RUNNER_TEMP/dv/${{ steps.identity.outputs.source_name }}" \
-            --expected-sha256 "${{ steps.identity.outputs.source_sha }}" \
-            --expected-size "${{ steps.identity.outputs.source_size }}" \
-            --year "${{ matrix.year }}" \
-            --output "$RUNNER_TEMP/schema/SOURCE_SCHEMA_${{ matrix.year }}.json"
-          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
-            --database "$RUNNER_TEMP/dv/${{ steps.identity.outputs.g6_name }}" \
-            --expected-sha256 "${{ steps.identity.outputs.g6_sha }}" \
-            --expected-size "${{ steps.identity.outputs.g6_size }}" \
-            --year "${{ matrix.year }}" \
-            --output "$RUNNER_TEMP/schema/G6_SCHEMA_${{ matrix.year }}.json"
-          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
-            --database "$RUNNER_TEMP/${{ steps.identity.outputs.g7_name }}" \
-            --expected-sha256 "${{ steps.identity.outputs.g7_sha }}" \
-            --expected-size "${{ steps.identity.outputs.g7_size }}" \
-            --year "${{ matrix.year }}" \
-            --output "$RUNNER_TEMP/schema/G7_SCHEMA_${{ matrix.year }}.json"
-
+          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" --database "$RUNNER_TEMP/dv/${{ steps.identity.outputs.source_name }}" --expected-sha256 "${{ steps.identity.outputs.source_sha }}" --expected-size "${{ steps.identity.outputs.source_size }}" --year "${{ matrix.year }}" --output "$RUNNER_TEMP/schema/SOURCE_SCHEMA_${{ matrix.year }}.json"
+          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" --database "$RUNNER_TEMP/dv/${{ steps.identity.outputs.g6_name }}" --expected-sha256 "${{ steps.identity.outputs.g6_sha }}" --expected-size "${{ steps.identity.outputs.g6_size }}" --year "${{ matrix.year }}" --output "$RUNNER_TEMP/schema/G6_SCHEMA_${{ matrix.year }}.json"
+          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" --database "$RUNNER_TEMP/${{ steps.identity.outputs.g7_name }}" --expected-sha256 "${{ steps.identity.outputs.g7_sha }}" --expected-size "${{ steps.identity.outputs.g7_size }}" --year "${{ matrix.year }}" --output "$RUNNER_TEMP/schema/G7_SCHEMA_${{ matrix.year }}.json"
       - name: Remove large databases
         if: always()
         run: rm -rf "$RUNNER_TEMP/dv" "$RUNNER_TEMP/dv-download" "$RUNNER_TEMP/${{ steps.identity.outputs.g7_name }}" || true
-
       - uses: actions/upload-artifact@v4
         with:
           name: group8-real-schema-${{ matrix.year }}
@@ -120,77 +80,84 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-
       - uses: actions/download-artifact@v4
         with:
           pattern: group8-real-schema-*
           path: ${{ runner.temp }}/schema
           merge-multiple: true
 
-      - name: Verify annual upstream registry and build exact adapter map
+      - name: Verify dependency evidence and build exact schema adapter map
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
           r=json.loads(Path('MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json').read_text())
-          if r.get('status')!='PASS': raise SystemExit('annual upstream dependency registry is not PASS')
-          if not all(r['years'][y]['groups2_5_clean_room'].get('status')=='PASS' for y in ('2023','2024')):
-              raise SystemExit('G2-G5 clean-room evidence is not PASS for both years')
+          c=json.loads(Path('MoeBot_Trading_System/Group_8/UPSTREAM_CATEGORICAL_DICTIONARY.json').read_text())
+          s=json.loads(Path('MoeBot_Trading_System/Group_8/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json').read_text())
+          if r.get('status')!='PASS' or c.get('status')!='PASS' or s.get('status')!='PASS': raise SystemExit('pre-freeze dependency evidence not PASS')
+          if not all(r['years'][y]['groups2_5_clean_room'].get('status')=='PASS' for y in ('2023','2024')): raise SystemExit('G2-G5 clean-room not PASS')
           PY
           python "$GROUP8_ROOT/code/group8_build_adapter_map.py" \
             --registry "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
-            --source-schema-2023 "$RUNNER_TEMP/schema/SOURCE_SCHEMA_2023.json" \
-            --source-schema-2024 "$RUNNER_TEMP/schema/SOURCE_SCHEMA_2024.json" \
-            --g6-schema-2023 "$RUNNER_TEMP/schema/G6_SCHEMA_2023.json" \
-            --g6-schema-2024 "$RUNNER_TEMP/schema/G6_SCHEMA_2024.json" \
-            --g7-schema-2023 "$RUNNER_TEMP/schema/G7_SCHEMA_2023.json" \
-            --g7-schema-2024 "$RUNNER_TEMP/schema/G7_SCHEMA_2024.json" \
+            --source-schema-2023 "$RUNNER_TEMP/schema/SOURCE_SCHEMA_2023.json" --source-schema-2024 "$RUNNER_TEMP/schema/SOURCE_SCHEMA_2024.json" \
+            --g6-schema-2023 "$RUNNER_TEMP/schema/G6_SCHEMA_2023.json" --g6-schema-2024 "$RUNNER_TEMP/schema/G6_SCHEMA_2024.json" \
+            --g7-schema-2023 "$RUNNER_TEMP/schema/G7_SCHEMA_2023.json" --g7-schema-2024 "$RUNNER_TEMP/schema/G7_SCHEMA_2024.json" \
             --output "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json"
 
-      - name: Freeze design artifacts from reviewed drafts
+      - name: Build source-and-observation verified value bindings
+        run: |
+          python "$GROUP8_ROOT/code/group8_build_value_bindings.py" \
+            --categorical-dictionary "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json" \
+            --source-semantics "$GROUP8_ROOT/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" \
+            --output "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json"
+
+      - name: Resolve every Candidate v2 config and value reference
+        run: |
+          python "$GROUP8_ROOT/code/group8_validate_design_references.py" \
+            --definitions "$GROUP8_ROOT/01_DEFINITION_REGISTRY_CANDIDATE_v2.json" \
+            --config "$GROUP8_ROOT/FROZEN_CONFIG_DRAFT.json" \
+            --bindings "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            --output "$GROUP8_ROOT/DESIGN_REFERENCE_RESOLUTION.json"
+
+      - name: Freeze Candidate v2 design artifacts
         run: |
           python "$GROUP8_ROOT/code/group8_freeze_design.py" \
             --group8-root "$GROUP8_ROOT" \
             --annual-registry "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
             --adapter-map "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            --categorical-dictionary "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json" \
+            --value-bindings "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            --reference-resolution "$GROUP8_ROOT/DESIGN_REFERENCE_RESOLUTION.json" \
+            --source-semantics "$GROUP8_ROOT/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" \
             --group7-amendment "$GROUP7_ROOT/registry/DATA_RELEASE_RECOVERY_AMENDMENT_v1.json"
 
-      - name: Schema and immutability smoke tests
+      - name: Schema, immutability, and freeze-source smoke tests
         run: |
           python - <<'PY'
-          import json, sqlite3, tempfile
+          import json,sqlite3
           from pathlib import Path
-          root=Path('MoeBot_Trading_System/Group_8')
-          schema=(root/'02_SCHEMA.sql').read_text()
-          con=sqlite3.connect(':memory:')
-          con.executescript(schema)
+          root=Path('MoeBot_Trading_System/Group_8');schema=(root/'02_SCHEMA.sql').read_text();con=sqlite3.connect(':memory:');con.executescript(schema)
           required={'price_action_pattern_candidate','price_action_pattern_state','school_interpretation','shared_evidence','conflicting_evidence','narrative_hypothesis','hypothesis_lifecycle_event','multi_timeframe_context_relation','evidence_chain','invalidation_record'}
-          tables={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-          missing=required-tables
-          if missing: raise SystemExit(f'missing required tables: {sorted(missing)}')
+          tables={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")};missing=required-tables
+          if missing:raise SystemExit(f'missing required tables: {sorted(missing)}')
           triggers={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
           for base in ('price_action_pattern_candidate','school_interpretation','narrative_hypothesis','shared_evidence','conflicting_evidence'):
-              if f'no_update_{base}' not in triggers or f'no_delete_{base}' not in triggers:
-                  raise SystemExit(f'immutable trigger missing for {base}')
-          con.close()
-          manifest=json.loads((root/'DESIGN_FREEZE_MANIFEST.json').read_text())
-          if manifest.get('status')!='FROZEN': raise SystemExit('design freeze manifest not frozen')
-          print(json.dumps({'required_tables':len(required),'triggers':len(triggers),'design_freeze_hash':manifest['design_freeze_hash']},indent=2))
+            if f'no_update_{base}' not in triggers or f'no_delete_{base}' not in triggers:raise SystemExit(f'immutable trigger missing for {base}')
+          con.close();defs=json.loads((root/'01_DEFINITION_REGISTRY.json').read_text());manifest=json.loads((root/'DESIGN_FREEZE_MANIFEST.json').read_text());resolution=json.loads((root/'DESIGN_REFERENCE_RESOLUTION.json').read_text())
+          if defs.get('format_version')!=2 or defs.get('status')!='FROZEN':raise SystemExit('definition registry is not frozen Candidate v2')
+          if manifest.get('status')!='FROZEN' or resolution.get('status')!='PASS':raise SystemExit('freeze manifest/reference resolution failed')
+          print(json.dumps({'required_tables':len(required),'triggers':len(triggers),'definition_format_version':defs['format_version'],'design_freeze_hash':manifest['design_freeze_hash'],'reference_resolution_hash':resolution['resolution_hash']},indent=2))
           PY
 
       - name: Preserve schema evidence and freeze report
         run: |
-          mkdir -p "$GROUP8_ROOT/reports/design_freeze_schemas"
-          cp "$RUNNER_TEMP/schema/"*.json "$GROUP8_ROOT/reports/design_freeze_schemas/"
+          mkdir -p "$GROUP8_ROOT/reports/design_freeze_schemas";cp "$RUNNER_TEMP/schema/"*.json "$GROUP8_ROOT/reports/design_freeze_schemas/"
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
-          root=Path('MoeBot_Trading_System/Group_8')
-          manifest=json.loads((root/'DESIGN_FREEZE_MANIFEST.json').read_text())
-          adapter=json.loads((root/'UPSTREAM_ADAPTER_MAP.json').read_text())
-          report={'format_version':1,'status':'PASS','phase':'DESIGN_FREEZE','design_freeze_hash':manifest['design_freeze_hash'],'adapter_map_hash':adapter['adapter_map_hash'],'failure_count':len(adapter['failures']),'frozen_files':['00_DESIGN_LOCK.md','FROZEN_CONFIG.json','01_DEFINITION_REGISTRY.json','02_SCHEMA.sql','contracts/UPSTREAM_INPUT_CONTRACT.json','UPSTREAM_ADAPTER_MAP.json','DESIGN_FREEZE_MANIFEST.json']}
-          report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-          (root/'reports/04_DESIGN_FREEZE_VERIFICATION.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          root=Path('MoeBot_Trading_System/Group_8');m=json.loads((root/'DESIGN_FREEZE_MANIFEST.json').read_text());a=json.loads((root/'UPSTREAM_ADAPTER_MAP.json').read_text());b=json.loads((root/'UPSTREAM_VALUE_BINDINGS.json').read_text());r=json.loads((root/'DESIGN_REFERENCE_RESOLUTION.json').read_text())
+          files=['00_DESIGN_LOCK.md','FROZEN_CONFIG.json','01_DEFINITION_REGISTRY.json','02_SCHEMA.sql','contracts/UPSTREAM_INPUT_CONTRACT.json','UPSTREAM_ADAPTER_MAP.json','UPSTREAM_CATEGORICAL_DICTIONARY.json','UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json','UPSTREAM_VALUE_BINDINGS.json','DESIGN_REFERENCE_RESOLUTION.json','DESIGN_FREEZE_MANIFEST.json']
+          report={'format_version':2,'status':'PASS','phase':'DESIGN_FREEZE','design_freeze_hash':m['design_freeze_hash'],'adapter_map_hash':a['adapter_map_hash'],'value_binding_hash':b['binding_hash'],'reference_resolution_hash':r['resolution_hash'],'failure_count':len(a['failures'])+len(b['failures'])+len(r['failures']),'frozen_files':files};report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode()).hexdigest();(root/'reports/04_DESIGN_FREEZE_VERIFICATION.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
           PY
 
       - name: Commit frozen design to PR branch
@@ -198,15 +165,7 @@ jobs:
         env:
           HEAD_BRANCH: ${{ github.head_ref }}
         run: |
-          mkdir -p "$RUNNER_TEMP/freeze"
-          cp -a "$GROUP8_ROOT/." "$RUNNER_TEMP/freeze/"
-          git reset --hard HEAD
-          git clean -fd
-          git fetch origin "$HEAD_BRANCH"
-          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
-          cp -a "$RUNNER_TEMP/freeze/." "$GROUP8_ROOT/"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$GROUP8_ROOT"
-          git commit -m "Freeze Group 8 design after exact dependency intake [skip actions]"
-          git push origin "HEAD:$HEAD_BRANCH"
+          mkdir -p "$RUNNER_TEMP/freeze";cp -a "$GROUP8_ROOT/." "$RUNNER_TEMP/freeze/"
+          git reset --hard HEAD;git clean -fd;git fetch origin "$HEAD_BRANCH";git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH";cp -a "$RUNNER_TEMP/freeze/." "$GROUP8_ROOT/"
+          git config user.name "github-actions[bot]";git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT";git commit -m "Freeze Group 8 Candidate v2 design after exact dependency intake [skip actions]";git push origin "HEAD:$HEAD_BRANCH"
