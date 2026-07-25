@@ -1,0 +1,53 @@
+name: MoeBot Group 8 Runtime v2-v3 Source Diff
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_RUNTIME_V2_V3_SOURCE_DIFF.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Restore verified runtime bundles
+        run: |
+          python MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v2/restore_bundle.py --extract-to "$RUNNER_TEMP/v2"
+          python MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3/restore_bundle.py --output "$RUNNER_TEMP/v3.tar.zst" --extract-to "$RUNNER_TEMP/v3"
+      - name: Capture exact G4 and G5 source differences
+        run: |
+          mkdir -p "$RUNNER_TEMP/out/v2" "$RUNNER_TEMP/out/v3"
+          for name in moebot_group4_zones_engine_v0_1_6.py moebot_group5_liquidity_engine_v0_1_6.py; do
+            f2=$(find "$RUNNER_TEMP/v2" -name "$name" -print -quit)
+            f3=$(find "$RUNNER_TEMP/v3" -name "$name" -print -quit)
+            test -s "$f2" && test -s "$f3"
+            cp "$f2" "$RUNNER_TEMP/out/v2/$name"
+            cp "$f3" "$RUNNER_TEMP/out/v3/$name"
+            sha256sum "$f2" "$f3" >> "$RUNNER_TEMP/out/SHA256SUMS.txt"
+            diff -u "$f2" "$f3" > "$RUNNER_TEMP/out/${name}.diff" || true
+          done
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'out'
+          report={'format_version':1,'files':{},'status':'PASS_DIAGNOSTIC'}
+          for name in ('moebot_group4_zones_engine_v0_1_6.py','moebot_group5_liquidity_engine_v0_1_6.py'):
+              a=(root/'v2'/name).read_bytes();b=(root/'v3'/name).read_bytes();d=(root/f'{name}.diff').read_text(errors='replace')
+              report['files'][name]={'v2_sha256':hashlib.sha256(a).hexdigest(),'v3_sha256':hashlib.sha256(b).hexdigest(),'v2_size':len(a),'v3_size':len(b),'byte_equal':a==b,'diff_line_count':len(d.splitlines())}
+          report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          (root/'GROUP8_RUNTIME_V2_V3_SOURCE_DIFF_REPORT.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(report,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-runtime-v2-v3-source-diff
+          path: ${{ runner.temp }}/out
+          retention-days: 30
