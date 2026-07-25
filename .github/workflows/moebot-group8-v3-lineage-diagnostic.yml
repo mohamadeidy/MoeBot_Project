@@ -1,0 +1,53 @@
+name: MoeBot Group 8 v3 Lineage Failure Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_V3_LINEAGE_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract exact failed-step context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/context"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89618926237/logs" > "$RUNNER_TEMP/2023.log"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89618926261/logs" > "$RUNNER_TEMP/2024.log"
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          out=Path(__import__('os').environ['RUNNER_TEMP'])/'context'
+          for year in ('2023','2024'):
+              lines=(Path(__import__('os').environ['RUNNER_TEMP'])/f'{year}.log').read_text(errors='replace').splitlines()
+              anchors=[i for i,l in enumerate(lines) if 'Run corrected v3 pipeline, prove v2-v3 lineage' in l]
+              start=max(0,(anchors[-1] if anchors else 0)-5)
+              tail=lines[start:]
+              important=[]
+              patterns=('Traceback','RuntimeError','ValueError','KeyError','AssertionError','SystemExit','##[error]','FAIL','failure','mismatch','failures','status','reference','equivalence','fingerprint')
+              for i,l in enumerate(tail):
+                  if any(p.lower() in l.lower() for p in patterns):
+                      a=max(0,i-3); b=min(len(tail),i+8)
+                      important.extend(tail[a:b])
+              # Preserve order while removing exact duplicate lines.
+              seen=set(); dedup=[]
+              for l in important:
+                  if l not in seen:
+                      seen.add(l); dedup.append(l)
+              (out/f'GROUP8_V3_LINEAGE_FAILURE_CONTEXT_{year}.txt').write_text('\n'.join(dedup)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-v3-lineage-failure-context
+          path: ${{ runner.temp }}/context
+          retention-days: 30
