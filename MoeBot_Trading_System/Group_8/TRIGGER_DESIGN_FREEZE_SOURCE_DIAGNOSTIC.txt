@@ -1,0 +1,1 @@
+Read the exact failed Group 8 Design Freeze source-restore job logs for 2023 and 2024 and extract the complete error context. This is a read-only diagnostic and must not mutate releases, registries, or frozen design artifacts.
