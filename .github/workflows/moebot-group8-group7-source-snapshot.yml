@@ -1,0 +1,32 @@
+name: MoeBot Group 8 Group7 Closure Source Snapshot
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_GROUP7_SOURCE_SNAPSHOT.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: moebot-group7-v0.7.5-closure
+      - name: Capture frozen Group 7 closure implementation and dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/snapshot/.github/workflows" "$RUNNER_TEMP/snapshot/MoeBot_Trading_System"
+          cp -a MoeBot_Trading_System/Group_7 "$RUNNER_TEMP/snapshot/MoeBot_Trading_System/"
+          find .github/workflows -maxdepth 1 -type f \( -iname '*group7*' -o -iname '*sqlite*vault*' \) -exec cp {} "$RUNNER_TEMP/snapshot/.github/workflows/" \;
+          cp -a MoeBot_Trading_System/Data_Vault/rebuild "$RUNNER_TEMP/snapshot/MoeBot_Trading_System/"
+          find "$RUNNER_TEMP/snapshot" -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/snapshot/SHA256SUMS.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-group7-closure-source-snapshot
+          path: ${{ runner.temp }}/snapshot
+          retention-days: 30
