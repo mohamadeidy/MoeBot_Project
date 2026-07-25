@@ -135,8 +135,8 @@
     "group4": {
       "expected_sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
       "filename": "moebot_group4_zones_engine_v0_1_6.py",
-      "sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
-      "sha256_pass": false
+      "sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+      "sha256_pass": true
     },
     "group5": {
       "expected_sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
