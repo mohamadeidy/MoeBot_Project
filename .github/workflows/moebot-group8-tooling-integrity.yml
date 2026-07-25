@@ -47,12 +47,17 @@ jobs:
       - name: Verify scanner exact target identities and bounded behavior
         run: |
           python - <<'PY'
-          import importlib.util,tempfile,json
+          import importlib.util,sys
           from pathlib import Path
           p=Path('MoeBot_Trading_System/Group_8/code/group8_archive_deep_scan.py')
-          spec=importlib.util.spec_from_file_location('scan',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+          spec=importlib.util.spec_from_file_location('group8_archive_deep_scan',p)
+          if spec is None or spec.loader is None: raise SystemExit('unable to create scanner module spec')
+          module=importlib.util.module_from_spec(spec)
+          sys.modules[spec.name]=module
+          spec.loader.exec_module(module)
           expected={'group4':'744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad','group5':'97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc'}
-          for g,h in expected.items():
-              if m.TARGETS[g]['sha256']!=h or len(h)!=64: raise SystemExit(f'bad target identity {g}')
+          for group,digest in expected.items():
+              if module.TARGETS[group]['sha256']!=digest or len(digest)!=64:
+                  raise SystemExit(f'bad target identity {group}')
           print({'target_identities':'PASS'})
           PY
