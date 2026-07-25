@@ -1,0 +1,1 @@
+Extract exact Python failure context from authoritative Group 8 v2 fingerprint jobs 89615859140 and 89615859089 without changing any data or frozen identities.
