@@ -11,6 +11,7 @@ permissions:
   contents: read
 
 env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
   BUNDLE_V3: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3
 
 jobs:
@@ -24,12 +25,18 @@ jobs:
       - name: Restore exact runtime v3
         run: |
           python "$BUNDLE_V3/restore_bundle.py" --output "$RUNNER_TEMP/runtime-v3.tar.zst" --extract-to "$RUNNER_TEMP/runtime-v3"
-      - name: Collect exact canonical engine sources
+      - name: Verify source semantics and build machine-readable evidence
+        run: |
+          python "$GROUP8_ROOT/code/group8_build_source_semantics_evidence.py" \
+            --runtime-root "$RUNNER_TEMP/runtime-v3" \
+            --output "$RUNNER_TEMP/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json"
+      - name: Collect exact canonical engine sources for audit traceability
         run: |
           mkdir -p "$RUNNER_TEMP/sources"
           find "$RUNNER_TEMP/runtime-v3" -type f \( -name 'moebot_group2_engine_v0_2_1.py' -o -name 'moebot_group3_structure_engine_v0_1_1.py' -o -name 'moebot_group4_zones_engine_v0_1_6.py' -o -name 'moebot_group5_liquidity_engine_v0_1_6.py' -o -name 'moebot_group6_engine.py' \) -exec cp {} "$RUNNER_TEMP/sources/" \;
           test "$(find "$RUNNER_TEMP/sources" -type f | wc -l)" = "5"
           sha256sum "$RUNNER_TEMP/sources/"*.py | sort > "$RUNNER_TEMP/sources/SHA256SUMS.txt"
+          cp "$RUNNER_TEMP/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" "$RUNNER_TEMP/sources/"
       - uses: actions/upload-artifact@v4
         with:
           name: group8-canonical-runtime-source-semantics
