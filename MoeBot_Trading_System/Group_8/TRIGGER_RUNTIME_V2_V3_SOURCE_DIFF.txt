@@ -1,0 +1,1 @@
+Compare exact restored Group 4 and Group 5 source bytes from runtime bundle v2 and corrected runtime bundle v3. Read-only diagnostic only.
