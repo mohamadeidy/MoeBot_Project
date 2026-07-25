@@ -34,6 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Install runtime tools
         run: |
           sudo apt-get update
@@ -77,16 +78,21 @@ jobs:
           python "$GROUP8_ROOT/code/group8_runtime_output_fingerprint.py" \
             --pipeline-report "$RUNNER_TEMP/v2/pipeline_report.json" \
             --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_fingerprint.json"
+          set +e
           python "$GROUP8_ROOT/code/group8_g6_semantic_equivalence.py" \
             --candidate "$RUNNER_TEMP/v2/group6.sqlite" \
             --published "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}" \
             --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.json"
+          RC=$?
+          set -e
+          test -s "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.json"
+          echo "$RC" > "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.exitcode"
           cp "$RUNNER_TEMP/v2/pipeline_report.json" "$RUNNER_TEMP/evidence-${{ matrix.year }}/pipeline_v2.json"
 
       - name: Remove historical v2 databases before v3 build
         run: rm -rf "$RUNNER_TEMP/v2" "$RUNNER_TEMP/runtime-v2"
 
-      - name: Run corrected v3 pipeline and fingerprint it
+      - name: Run corrected v3 pipeline, prove v2-v3 lineage, and audit published Group6 compatibility
         run: |
           python "$DATA_VAULT_ROOT/rebuild/run_frozen_pipeline.py" \
             --year "${{ matrix.year }}" \
@@ -102,10 +108,22 @@ jobs:
             --v2 "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_fingerprint.json" \
             --v3 "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v3_fingerprint.json" \
             --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_v3_equivalence.json"
+          set +e
           python "$GROUP8_ROOT/code/group8_g6_semantic_equivalence.py" \
             --candidate "$RUNNER_TEMP/v3/group6.sqlite" \
             --published "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}" \
             --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json"
+          RC=$?
+          set -e
+          test -s "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json"
+          echo "$RC" > "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.exitcode"
+          python "$GROUP8_ROOT/code/group8_verify_published_g6_reference_compatibility.py" \
+            --published-g6 "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}" \
+            --g2 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group2_XAUUSD_${{ matrix.year }}_v0.2.1_rebuilt_dukascopy_v1.sqlite" \
+            --g3 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group3_XAUUSD_${{ matrix.year }}_v0.1.1_rebuilt_dukascopy_v1.sqlite" \
+            --g4 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group4_XAUUSD_${{ matrix.year }}_v0.1.6_rebuilt_dukascopy_v1.sqlite" \
+            --g5 "$RUNNER_TEMP/v3/intermediate/MoeBot_Group5_XAUUSD_${{ matrix.year }}_v0.1.6_rebuilt_dukascopy_v1.sqlite" \
+            --output "$RUNNER_TEMP/evidence-${{ matrix.year }}/published_g6_reference_compatibility.json"
           cp "$RUNNER_TEMP/v3/pipeline_report.json" "$RUNNER_TEMP/evidence-${{ matrix.year }}/pipeline_v3.json"
 
       - name: Remove Group 6 copies before packaging Groups 2-5
@@ -118,13 +136,17 @@ jobs:
           python "$GROUP8_ROOT/code/group8_package_g2_g5_upstream.py" \
             --year "${{ matrix.year }}" \
             --pipeline-report "$RUNNER_TEMP/v3/pipeline_report.json" \
-            --g6-equivalence "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json" \
+            --runtime-v2-v3-equivalence "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_v3_equivalence.json" \
+            --published-g6-reference-compatibility "$RUNNER_TEMP/evidence-${{ matrix.year }}/published_g6_reference_compatibility.json" \
+            --g6-v2-vs-published "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.json" \
+            --g6-v3-vs-published "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json" \
             --output-dir "$RUNNER_TEMP/release-${{ matrix.year }}" \
             --repository "$GITHUB_REPOSITORY" \
             --release-tag "$RELEASE_TAG"
           cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/runtime_v2_v3_equivalence.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_Runtime_v2_v3_Equivalence_${{ matrix.year }}.json"
-          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_G6_v2_vs_Published_${{ matrix.year }}.json"
-          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_G6_v3_vs_Published_${{ matrix.year }}.json"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/published_g6_reference_compatibility.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_Published_G6_Reference_Compatibility_${{ matrix.year }}.json"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v2_vs_published.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_G6_v2_vs_Published_DIAGNOSTIC_${{ matrix.year }}.json"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/g6_v3_vs_published.json" "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_G6_v3_vs_Published_DIAGNOSTIC_${{ matrix.year }}.json"
 
       - name: Additively publish SHA-pinned Group 2-5 assets
         env:
@@ -156,6 +178,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/materialization-${{ matrix.year }}"
           cp "$RUNNER_TEMP/release-${{ matrix.year }}/MoeBot_Group8_Upstream_G2-G5_${{ matrix.year }}_manifest.json" "$RUNNER_TEMP/materialization-${{ matrix.year }}/"
           cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/"*.json "$RUNNER_TEMP/materialization-${{ matrix.year }}/"
+          cp "$RUNNER_TEMP/evidence-${{ matrix.year }}/"*.exitcode "$RUNNER_TEMP/materialization-${{ matrix.year }}/"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -226,25 +249,48 @@ jobs:
           g7=json.loads((repo/'MoeBot_Trading_System/Group_7/registry/DATA_RELEASE_RECOVERY_AMENDMENT_v1.json').read_text())
           bundle=json.loads((repo/'MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3/BUNDLE_MANIFEST.json').read_text())
           years={}
+          def by_year(name,year):
+            rows=[]
+            for p in (rt/'materialization').rglob(name):
+              d=json.loads(p.read_text())
+              if d.get('year')==int(year) or str(d.get('published',{}).get('filename','')).find(year)>=0:
+                rows.append((p,d))
+            if len(rows)!=1: raise SystemExit(f'evidence resolution failed {name}/{year}: {len(rows)}')
+            return rows[0][1]
           for year in ('2023','2024'):
             m=next((rt/'materialization').rglob(f'MoeBot_Group8_Upstream_G2-G5_{year}_manifest.json'))
             c=next((rt/'cleanroom').rglob(f'GROUP8_UPSTREAM_CLEAN_ROOM_{year}.json'))
-            eq=next((rt/'materialization').rglob('runtime_v2_v3_equivalence.json')) if False else None
-            # Resolve by content year because artifact directories are implementation details.
-            candidates=list((rt/'materialization').rglob('runtime_v2_v3_equivalence.json'))
-            eqs=[p for p in candidates if json.loads(p.read_text()).get('year')==int(year)]
-            g6v2s=[p for p in (rt/'materialization').rglob('g6_v2_vs_published.json') if json.loads(p.read_text()).get('candidate',{}).get('filename')=='group6.sqlite']
-            g6v3s=[p for p in (rt/'materialization').rglob('g6_v3_vs_published.json') if json.loads(p.read_text()).get('candidate',{}).get('filename')=='group6.sqlite']
-            # Narrow g6 reports by published filename containing year.
-            g6v2s=[p for p in g6v2s if year in json.loads(p.read_text())['published']['filename']]
-            g6v3s=[p for p in g6v3s if year in json.loads(p.read_text())['published']['filename']]
-            if len(eqs)!=1 or len(g6v2s)!=1 or len(g6v3s)!=1: raise SystemExit(f'equivalence evidence resolution failed {year}')
-            md=json.loads(m.read_text());cd=json.loads(c.read_text());eqd=json.loads(eqs[0].read_text());g2=json.loads(g6v2s[0].read_text());g3=json.loads(g6v3s[0].read_text())
-            if not (md.get('status')=='PASS_PACKAGED' and cd.get('status')=='PASS' and eqd.get('status')=='PASS' and g2.get('status')=='PASS' and g3.get('status')=='PASS'): raise SystemExit(f'annual upstream gate failed {year}')
+            md=json.loads(m.read_text());cd=json.loads(c.read_text())
+            eqd=by_year('runtime_v2_v3_equivalence.json',year)
+            compat=by_year('published_g6_reference_compatibility.json',year)
+            g2=by_year('g6_v2_vs_published.json',year)
+            g3=by_year('g6_v3_vs_published.json',year)
+            if not (md.get('status')=='PASS_PACKAGED' and cd.get('status')=='PASS' and eqd.get('status')=='PASS' and compat.get('status')=='PASS'):
+              raise SystemExit(f'annual upstream acceptance gate failed {year}')
             if md['manifest_hash']!=cd['source_manifest_hash']: raise SystemExit(f'manifest cleanroom hash mismatch {year}')
             dvy=dv['years'][year]['databases'];gy=g7['years'][year]['candidate_verification']
-            years[year]={'source':dvy['source'],'groups2_5_manifest':md,'groups2_5_clean_room':cd,'runtime_v2_v3_equivalence':eqd,'group6_v2_vs_published':g2,'group6_v3_vs_published':g3,'group6':dvy['group6'],'group7':{'release_anchor_tag':g7['recovery_release_anchor_tag'],'release_anchor_commit_sha':g7['recovery_release_anchor_commit_sha'],'database_filename':gy['filename'],'database_size_bytes':gy['size_bytes'],'database_sha256':gy['sha256'],'compressed_filename':gy['compressed_filename'],'compressed_size_bytes':gy['compressed_size_bytes'],'compressed_sha256':gy['compressed_sha256'],'url':f"https://github.com/{dv['public_repository']}/releases/download/{g7['recovery_release_anchor_tag']}/{gy['compressed_filename']}"}}
-          report={'format_version':2,'status':'PASS','group':8,'lineage':'dukascopy_rebuild_v1','runtime_bundle_v3':{'bundle_sha256':bundle['bundle_sha256'],'bundle_size_bytes':bundle['bundle_size_bytes'],'runtime_engines':bundle['runtime_engines']},'group7_recovery_amendment_status':g7['status'],'group7_source_closure_tag':g7['source_closure_tag'],'group7_source_closure_commit_sha':g7['source_closure_commit_sha'],'years':years}
+            years[year]={
+              'source':dvy['source'],
+              'groups2_5_manifest':md,
+              'groups2_5_clean_room':cd,
+              'runtime_v2_v3_equivalence':eqd,
+              'published_group6_reference_compatibility':compat,
+              'group6_v2_vs_published_diagnostic':g2,
+              'group6_v3_vs_published_diagnostic':g3,
+              'group6':dvy['group6'],
+              'group7':{
+                'release_anchor_tag':g7['recovery_release_anchor_tag'],
+                'release_anchor_commit_sha':g7['recovery_release_anchor_commit_sha'],
+                'database_filename':gy['filename'],'database_size_bytes':gy['size_bytes'],'database_sha256':gy['sha256'],
+                'compressed_filename':gy['compressed_filename'],'compressed_size_bytes':gy['compressed_size_bytes'],'compressed_sha256':gy['compressed_sha256'],
+                'url':f"https://github.com/{dv['public_repository']}/releases/download/{g7['recovery_release_anchor_tag']}/{gy['compressed_filename']}"
+              }
+            }
+          report={
+            'format_version':3,'status':'PASS','group':8,'lineage':'dukascopy_rebuild_v1',
+            'acceptance_policy':'v2-v3 Groups2-5 stable-ID+semantic equality, v2-v3 Group6 semantic equality, canonical published Group6 upstream-reference compatibility, and public clean-room verification of v3 Groups2-5; rerun-vs-published Group6 semantic comparisons are retained as diagnostics, not acceptance gates',
+            'runtime_bundle_v3':{'bundle_sha256':bundle['bundle_sha256'],'bundle_size_bytes':bundle['bundle_size_bytes'],'runtime_engines':bundle['runtime_engines']},
+            'group7_recovery_amendment_status':g7['status'],'group7_source_closure_tag':g7['source_closure_tag'],'group7_source_closure_commit_sha':g7['source_closure_commit_sha'],'years':years}
           report['registry_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
           out=repo/'MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json';out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':'PASS','registry_hash':report['registry_hash']},indent=2))
           PY
