@@ -1,0 +1,1 @@
+Create a read-only source snapshot of Group 8, related workflows, runtime manifests, Group 7 registry, and Data Vault registry for exhaustive local review. No mutation of production artifacts.
