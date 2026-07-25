@@ -1,0 +1,1 @@
+Run coherent-only Group 8 design hardening v3. Reject all historical upstream-ID bridge and recovery-anchor persistence fields.

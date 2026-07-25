@@ -1,0 +1,28 @@
+{
+  "checks": {
+    "binding_references": [
+      "group3.advancing_bias_values",
+      "group3.bearish_direction_values",
+      "group3.bearish_transition_event_types",
+      "group3.bullish_direction_values",
+      "group3.bullish_transition_event_types",
+      "group3.declining_bias_values",
+      "group3.indeterminate_bias_values",
+      "group3.mss_or_bos_event_types"
+    ],
+    "definition_count": 45,
+    "definition_versions_unique": true,
+    "immutable_table_count": 17,
+    "legacy_dataset_columns_absent": true,
+    "rejected_bridge_table_absent": true,
+    "required_dataset_columns_present": true,
+    "schema_table_count": 19,
+    "schema_trigger_count": 34,
+    "source_semantics_status": "PASS"
+  },
+  "failures": [],
+  "format_version": 3,
+  "governance": "coherent corrected-v3 Groups2-7 lineage only; no lossy upstream-ID bridge",
+  "report_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
+  "status": "PASS"
+}
