@@ -4,7 +4,8 @@ name: MoeBot Group 8 Patch Coherent Runtime Dependencies
   pull_request:
     branches: [main]
     paths:
-      - "MoeBot_Trading_System/Group_8/TRIGGER_PATCH_COHERENT_RUNTIME.txt"
+      - ".github/workflows/moebot-group8-patch-coherent-runtime.yml"
+      - "MoeBot_Trading_System/Group_8/TRIGGER_COHERENT_V3_REBUILD.txt"
 
 permissions:
   contents: write
@@ -28,6 +29,9 @@ jobs:
           new='python -m pip install --disable-pip-version-check --no-cache-dir numpy matplotlib\n'
           count=text.count(old)
           if count != 1:
+              if new in text:
+                  print('authoritative workflow already contains matplotlib')
+                  raise SystemExit(0)
               raise SystemExit(f'expected exactly one runtime install line, found {count}')
           path.write_text(text.replace(old,new))
           PY
