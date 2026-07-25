@@ -1,0 +1,1 @@
+For 2023 and 2024, build the corrected-v3 Groups 2-6 chain and derive a fail-closed bijective bridge from every Group 2-5 ID referenced by published Group 6. Require normalized Group 6 research equality and zero unresolved or ambiguous mappings. No publication or design freeze.
