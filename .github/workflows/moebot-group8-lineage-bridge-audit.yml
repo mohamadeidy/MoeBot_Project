@@ -1,0 +1,105 @@
+name: MoeBot Group 8 Annual Lineage Bridge Audit
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_LINEAGE_BRIDGE_AUDIT.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DATA_VAULT_ROOT: MoeBot_Trading_System/Data_Vault
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  BUNDLE_V3: MoeBot_Trading_System/archive/groups_2_6_frozen_runtime_bundle_v3
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  bridge-year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+          python -m pip install --disable-pip-version-check --no-cache-dir numpy
+      - name: Restore exact corrected runtime v3
+        run: |
+          python "$BUNDLE_V3/restore_bundle.py" \
+            --output "$RUNNER_TEMP/runtime-v3.tar.zst" \
+            --extract-to "$RUNNER_TEMP/runtime-v3"
+      - name: Restore canonical source and published Group 6
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \
+            --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/dv-download" \
+            --output-dir "$RUNNER_TEMP/dv"
+      - name: Resolve annual filenames
+        id: names
+        shell: bash
+        run: |
+          if [ "${{ matrix.year }}" = "2024" ]; then
+            echo "source=source_2024_canonical_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=source_2023_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+          fi
+          echo "g6=MoeBot_Group6_XAUUSD_${{ matrix.year }}_v0.6.4_rebuilt_dukascopy_v1.sqlite" >> "$GITHUB_OUTPUT"
+      - name: Build coherent corrected-v3 Groups 2 through 6
+        run: |
+          python "$DATA_VAULT_ROOT/rebuild/run_frozen_pipeline.py" \
+            --year "${{ matrix.year }}" \
+            --source "$RUNNER_TEMP/dv/${{ steps.names.outputs.source }}" \
+            --runtime-root "$RUNNER_TEMP/runtime-v3" \
+            --work-dir "$RUNNER_TEMP/v3/intermediate" \
+            --group6-output "$RUNNER_TEMP/v3/group6.sqlite" \
+            --report "$RUNNER_TEMP/v3/pipeline_report.json"
+      - name: Resolve exact v3 upstream database paths
+        id: paths
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ['RUNNER_TEMP'])/'v3/pipeline_report.json').read_text())
+          for group in ('group2','group3','group4','group5'):
+              p=Path(r['artifacts'][group]['path']).resolve()
+              if not p.is_file(): raise SystemExit(f'missing {group}: {p}')
+              print(f'{group}={p}')
+          PY
+      - name: Build and verify bijective upstream lineage bridge
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          python "$GROUP8_ROOT/code/group8_build_g6_upstream_bridge.py" \
+            --year "${{ matrix.year }}" \
+            --published-g6 "$RUNNER_TEMP/dv/${{ steps.names.outputs.g6 }}" \
+            --v3-g6 "$RUNNER_TEMP/v3/group6.sqlite" \
+            --group2 "${{ steps.paths.outputs.group2 }}" \
+            --group3 "${{ steps.paths.outputs.group3 }}" \
+            --group4 "${{ steps.paths.outputs.group4 }}" \
+            --group5 "${{ steps.paths.outputs.group5 }}" \
+            --output "$RUNNER_TEMP/evidence/GROUP8_G6_UPSTREAM_LINEAGE_BRIDGE_${{ matrix.year }}.json"
+      - name: Preserve compact pipeline evidence
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          test -f "$RUNNER_TEMP/v3/pipeline_report.json" && cp "$RUNNER_TEMP/v3/pipeline_report.json" "$RUNNER_TEMP/evidence/V3_PIPELINE_${{ matrix.year }}.json" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-lineage-bridge-${{ matrix.year }}
+          path: ${{ runner.temp }}/evidence
+          retention-days: 90
