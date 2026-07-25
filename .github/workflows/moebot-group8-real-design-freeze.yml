@@ -1,0 +1,322 @@
+name: MoeBot Group 8 Real Design Freeze
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_REAL_DESIGN_FREEZE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  DATA_VAULT_ROOT: MoeBot_Trading_System/Data_Vault
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify coherent dependency registry and freeze tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_verify_coherent_v3_pack.py" \
+            "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
+            "$GROUP8_ROOT/code/group8_categorical_intake.py" \
+            "$GROUP8_ROOT/code/group8_merge_categorical_dictionary.py" \
+            "$GROUP8_ROOT/code/group8_build_coherent_adapter_map.py" \
+            "$GROUP8_ROOT/code/group8_build_value_bindings.py" \
+            "$GROUP8_ROOT/code/group8_validate_design_references.py" \
+            "$GROUP8_ROOT/code/group8_design_contract_audit_v3.py" \
+            "$GROUP8_ROOT/code/group8_freeze_design_v3.py"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          required=[
+            root/"UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json",
+            root/"UPSTREAM_COHERENT_V3_LINEAGE_AMENDMENT.json",
+            root/"UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json",
+            root/"01_DEFINITION_REGISTRY_CANDIDATE_v2.json",
+            root/"02_SCHEMA_CANDIDATE_v3.sql",
+            root/"FROZEN_CONFIG_DRAFT.json",
+            root/"contracts/UPSTREAM_INPUT_CONTRACT_DRAFT.json",
+            root/"reports/10_DESIGN_CONTRACT_AUDIT_V3.json",
+          ]
+          missing=[str(p) for p in required if not p.is_file()]
+          if missing: raise SystemExit(f"missing freeze prerequisites: {missing}")
+          reg=json.loads((root/"UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json").read_text())
+          lin=json.loads((root/"UPSTREAM_COHERENT_V3_LINEAGE_AMENDMENT.json").read_text())
+          sem=json.loads((root/"UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json").read_text())
+          audit=json.loads((root/"reports/10_DESIGN_CONTRACT_AUDIT_V3.json").read_text())
+          if reg.get("status")!="PASS": raise SystemExit("annual dependency registry is not PASS")
+          if lin.get("status")!="PASS_COHERENT_DEPENDENCY_LINEAGE": raise SystemExit("coherent lineage amendment is not PASS")
+          if reg.get("lineage_amendment_hash")!=lin.get("amendment_hash"): raise SystemExit("registry/amendment hash mismatch")
+          if sem.get("status")!="PASS" or sem.get("failures"): raise SystemExit("source semantics evidence is not PASS")
+          if audit.get("status")!="PASS": raise SystemExit("design audit v3 is not PASS")
+          if set(reg.get("years",{}))!={"2023","2024"}: raise SystemExit("annual registry must contain exactly 2023/2024")
+          print({"status":"PASS","registry_hash":reg["registry_hash"],"lineage":reg["logical_lineage_id"]})
+          PY
+
+  intake-year:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Materialize annual coherent manifest from frozen registry
+        run: |
+          mkdir -p "$RUNNER_TEMP/intake-${{ matrix.year }}"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          year="${{ matrix.year }}"
+          reg=json.loads(Path("MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json").read_text())
+          rec=reg["years"][year]
+          manifest=rec["manifest"]
+          if manifest.get("status")!="PASS_PACKAGED" or int(manifest.get("year",0))!=int(year): raise SystemExit("annual manifest invalid")
+          p=Path(os.environ["RUNNER_TEMP"])/f"intake-{year}/manifest.json"
+          p.write_text(json.dumps(manifest,indent=2,sort_keys=True)+"\n")
+          print({"year":year,"manifest_hash":manifest["manifest_hash"]})
+          PY
+      - name: Public clean-room verify and restore Groups 2 through 7
+        run: |
+          python "$GROUP8_ROOT/code/group8_verify_coherent_v3_pack.py" \
+            --manifest "$RUNNER_TEMP/intake-${{ matrix.year }}/manifest.json" \
+            --work-dir "$RUNNER_TEMP/intake-${{ matrix.year }}/coherent" \
+            --output "$RUNNER_TEMP/intake-${{ matrix.year }}/COHERENT_CLEANROOM_${{ matrix.year }}.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          year="${{ matrix.year }}"
+          root=Path(os.environ["RUNNER_TEMP"])/f"intake-{year}"
+          reg=json.loads(Path("MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json").read_text())
+          report=json.loads((root/f"COHERENT_CLEANROOM_{year}.json").read_text())
+          expected=reg["years"][year]["clean_room"]["report_hash"]
+          if report.get("status")!="PASS" or report.get("report_hash")!=expected: raise SystemExit(f"clean-room registry identity mismatch {year}")
+          PY
+      - name: Restore and verify canonical source database
+        id: source
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \
+            --year "${{ matrix.year }}" \
+            --download-dir "$RUNNER_TEMP/intake-${{ matrix.year }}/source-download" \
+            --output-dir "$RUNNER_TEMP/intake-${{ matrix.year }}/source"
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          year="${{ matrix.year }}"
+          reg=json.loads(Path("MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json").read_text())
+          src=reg["source_databases"][year]
+          print(f"filename={src['database_filename']}")
+          print(f"size={src['database_size_bytes']}")
+          print(f"sha={src['database_sha256']}")
+          PY
+          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
+            --database "$RUNNER_TEMP/intake-${{ matrix.year }}/source/${{ steps.source.outputs.filename }}" \
+            --expected-sha256 "${{ steps.source.outputs.sha }}" \
+            --expected-size "${{ steps.source.outputs.size }}" \
+            --year "${{ matrix.year }}" \
+            --output "$RUNNER_TEMP/intake-${{ matrix.year }}/SOURCE_SCHEMA_${{ matrix.year }}.json"
+      - name: Extract exact consumed categorical values
+        run: |
+          python - <<'PY'
+          import json,os,subprocess,sys
+          from pathlib import Path
+          year="${{ matrix.year }}"
+          root=Path(os.environ["RUNNER_TEMP"])/f"intake-{year}"
+          manifest=json.loads((root/"manifest.json").read_text())
+          script=Path("MoeBot_Trading_System/Group_8/code/group8_categorical_intake.py")
+          source_db=root/"source"/"${{ steps.source.outputs.filename }}"
+          subprocess.run([sys.executable,str(script),"--database",str(source_db),"--group","source","--year",year,"--output",str(root/f"CATEGORICAL_SOURCE_{year}.json")],check=True)
+          for group in ("group2","group3","group4","group5","group6","group7"):
+              db=root/"coherent"/manifest["packages"][group]["database_filename"]
+              if not db.is_file(): raise SystemExit(f"missing restored {group} db: {db}")
+              subprocess.run([sys.executable,str(script),"--database",str(db),"--group",group,"--year",year,"--output",str(root/f"CATEGORICAL_{group.upper()}_{year}.json")],check=True)
+          PY
+      - name: Write compact annual intake verification
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          year="${{ matrix.year }}";root=Path(os.environ["RUNNER_TEMP"])/f"intake-{year}"
+          clean=json.loads((root/f"COHERENT_CLEANROOM_{year}.json").read_text());src=json.loads((root/f"SOURCE_SCHEMA_{year}.json").read_text())
+          cats={}
+          for p in sorted(root.glob(f"CATEGORICAL_*_{year}.json")):
+              d=json.loads(p.read_text());cats[d["group"]]=d["report_hash"]
+          report={"format_version":1,"status":"PASS","year":int(year),"coherent_cleanroom_hash":clean["report_hash"],"source_schema_hash":src["report_hash"],"categorical_report_hashes":cats,"lineage":clean["lineage"]}
+          report["report_hash"]=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+          (root/f"REAL_DEPENDENCY_INTAKE_{year}.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+          print(report)
+          PY
+      - name: Preserve compact real intake evidence
+        run: |
+          E="$RUNNER_TEMP/evidence-${{ matrix.year }}";mkdir -p "$E"
+          cp "$RUNNER_TEMP/intake-${{ matrix.year }}/COHERENT_CLEANROOM_${{ matrix.year }}.json" "$E/"
+          cp "$RUNNER_TEMP/intake-${{ matrix.year }}/SOURCE_SCHEMA_${{ matrix.year }}.json" "$E/"
+          cp "$RUNNER_TEMP/intake-${{ matrix.year }}"/CATEGORICAL_*_${{ matrix.year }}.json "$E/"
+          cp "$RUNNER_TEMP/intake-${{ matrix.year }}/REAL_DEPENDENCY_INTAKE_${{ matrix.year }}.json" "$E/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-real-design-intake-${{ matrix.year }}
+          path: ${{ runner.temp }}/evidence-${{ matrix.year }}
+          retention-days: 90
+      - name: Cleanup large annual data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/intake-${{ matrix.year }}" || true
+
+  freeze:
+    needs: [preflight, intake-year]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: group8-real-design-intake-*
+          path: ${{ runner.temp }}/intake
+      - name: Revalidate annual evidence against permanent registry
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"intake"
+          reg=json.loads(Path("MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json").read_text())
+          for year in ("2023","2024"):
+              clean=next(root.rglob(f"COHERENT_CLEANROOM_{year}.json"));d=json.loads(clean.read_text())
+              if d.get("status")!="PASS" or d.get("report_hash")!=reg["years"][year]["clean_room"]["report_hash"]: raise SystemExit(f"annual evidence mismatch {year}")
+              src=next(root.rglob(f"SOURCE_SCHEMA_{year}.json"));s=json.loads(src.read_text())
+              if s.get("status")!="pass": raise SystemExit(f"source schema fail {year}")
+          PY
+      - name: Build exact coherent cross-year adapter map
+        run: |
+          python "$GROUP8_ROOT/code/group8_build_coherent_adapter_map.py" \
+            --registry "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            --cleanroom-2023 "$(find "$RUNNER_TEMP/intake" -name 'COHERENT_CLEANROOM_2023.json' -print -quit)" \
+            --cleanroom-2024 "$(find "$RUNNER_TEMP/intake" -name 'COHERENT_CLEANROOM_2024.json' -print -quit)" \
+            --source-schema-2023 "$(find "$RUNNER_TEMP/intake" -name 'SOURCE_SCHEMA_2023.json' -print -quit)" \
+            --source-schema-2024 "$(find "$RUNNER_TEMP/intake" -name 'SOURCE_SCHEMA_2024.json' -print -quit)" \
+            --output "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json"
+      - name: Merge exact categorical dictionaries and source-verified bindings
+        run: |
+          python "$GROUP8_ROOT/code/group8_merge_categorical_dictionary.py" \
+            --reports-dir "$RUNNER_TEMP/intake" \
+            --output "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json"
+          python "$GROUP8_ROOT/code/group8_build_value_bindings.py" \
+            --categorical-dictionary "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json" \
+            --source-semantics "$GROUP8_ROOT/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" \
+            --output "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json"
+      - name: Resolve every frozen definition reference
+        run: |
+          python "$GROUP8_ROOT/code/group8_validate_design_references.py" \
+            --definitions "$GROUP8_ROOT/01_DEFINITION_REGISTRY_CANDIDATE_v2.json" \
+            --config "$GROUP8_ROOT/FROZEN_CONFIG_DRAFT.json" \
+            --bindings "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            --output "$GROUP8_ROOT/DESIGN_REFERENCE_RESOLUTION.json"
+      - name: Independent coherent-only design audit v3
+        run: |
+          python "$GROUP8_ROOT/code/group8_design_contract_audit_v3.py" \
+            --root "$GROUP8_ROOT" \
+            --schema "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v3.sql" \
+            --output "$GROUP8_ROOT/reports/12_REAL_DESIGN_CONTRACT_AUDIT_V3.json"
+      - name: Freeze Group 8 v0.8.0 design
+        run: |
+          python "$GROUP8_ROOT/code/group8_freeze_design_v3.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --annual-registry "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            --lineage-amendment "$GROUP8_ROOT/UPSTREAM_COHERENT_V3_LINEAGE_AMENDMENT.json" \
+            --adapter-map "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            --categorical-dictionary "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json" \
+            --value-bindings "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            --reference-resolution "$GROUP8_ROOT/DESIGN_REFERENCE_RESOLUTION.json" \
+            --source-semantics "$GROUP8_ROOT/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" \
+            --design-audit "$GROUP8_ROOT/reports/12_REAL_DESIGN_CONTRACT_AUDIT_V3.json"
+      - name: Independent final freeze verification
+        run: |
+          python - <<'PY'
+          import hashlib,json,sqlite3
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text());manifest=json.loads((root/"DESIGN_FREEZE_MANIFEST.json").read_text());cfg=json.loads((root/"FROZEN_CONFIG.json").read_text());defs=json.loads((root/"01_DEFINITION_REGISTRY.json").read_text());contract=json.loads((root/"contracts/UPSTREAM_INPUT_CONTRACT.json").read_text())
+          if status.get("design_frozen") is not True or status.get("engine_build_authorized") is not True: raise SystemExit("status did not authorize engine build")
+          if status.get("annual_execution_2023_authorized") or status.get("annual_execution_2024_authorized"): raise SystemExit("annual execution prematurely authorized")
+          if manifest.get("status")!="FROZEN" or manifest.get("rejected_bridge_policy")!="NO_UPSTREAM_ID_BRIDGE": raise SystemExit("freeze manifest invalid")
+          if len(defs.get("definitions",{}))!=45: raise SystemExit("definition count drift")
+          if cfg.get("config_id")!=defs.get("config_id"): raise SystemExit("config/definition mismatch")
+          if contract.get("status")!="FROZEN": raise SystemExit("upstream contract not frozen")
+          schema=(root/"02_SCHEMA.sql").read_text();con=sqlite3.connect(":memory:");con.executescript(schema);tables={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")};con.close()
+          if "upstream_id_bridge" in tables: raise SystemExit("rejected bridge leaked into frozen schema")
+          report={"format_version":1,"status":"PASS","phase":"REAL_DESIGN_FREEZE","design_freeze_hash":manifest["design_freeze_hash"],"config_id":cfg["config_id"],"definition_registry_hash":defs["registry_hash"],"upstream_contract_hash":contract["contract_hash"],"schema_sha256":hashlib.sha256(schema.encode()).hexdigest(),"definition_count":45,"bridge_absent":True,"annual_execution_2023_authorized":False,"annual_execution_2024_authorized":False}
+          report["report_hash"]=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(",",":")).encode()).hexdigest();(root/"reports/13_REAL_DESIGN_FREEZE_VERIFICATION.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n");print(report)
+          PY
+      - name: Preserve frozen design artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-real-design-freeze
+          path: |
+            ${{ env.GROUP8_ROOT }}/00_DESIGN_LOCK.md
+            ${{ env.GROUP8_ROOT }}/01_DEFINITION_REGISTRY.json
+            ${{ env.GROUP8_ROOT }}/02_SCHEMA.sql
+            ${{ env.GROUP8_ROOT }}/FROZEN_CONFIG.json
+            ${{ env.GROUP8_ROOT }}/DESIGN_FREEZE_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+            ${{ env.GROUP8_ROOT }}/UPSTREAM_ADAPTER_MAP.json
+            ${{ env.GROUP8_ROOT }}/UPSTREAM_CATEGORICAL_DICTIONARY.json
+            ${{ env.GROUP8_ROOT }}/UPSTREAM_VALUE_BINDINGS.json
+            ${{ env.GROUP8_ROOT }}/DESIGN_REFERENCE_RESOLUTION.json
+            ${{ env.GROUP8_ROOT }}/contracts/UPSTREAM_INPUT_CONTRACT.json
+            ${{ env.GROUP8_ROOT }}/reports/12_REAL_DESIGN_CONTRACT_AUDIT_V3.json
+            ${{ env.GROUP8_ROOT }}/reports/13_REAL_DESIGN_FREEZE_VERIFICATION.json
+          retention-days: 90
+      - name: Commit verified frozen design to PR branch
+        if: github.event_name == 'pull_request' && success()
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/frozen-final/reports" "$RUNNER_TEMP/frozen-final/contracts"
+          for f in 00_DESIGN_LOCK.md 01_DEFINITION_REGISTRY.json 02_SCHEMA.sql FROZEN_CONFIG.json DESIGN_FREEZE_MANIFEST.json STATUS.json UPSTREAM_ADAPTER_MAP.json UPSTREAM_CATEGORICAL_DICTIONARY.json UPSTREAM_VALUE_BINDINGS.json DESIGN_REFERENCE_RESOLUTION.json; do cp "$GROUP8_ROOT/$f" "$RUNNER_TEMP/frozen-final/$f"; done
+          cp "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" "$RUNNER_TEMP/frozen-final/contracts/"
+          cp "$GROUP8_ROOT/reports/12_REAL_DESIGN_CONTRACT_AUDIT_V3.json" "$RUNNER_TEMP/frozen-final/reports/"
+          cp "$GROUP8_ROOT/reports/13_REAL_DESIGN_FREEZE_VERIFICATION.json" "$RUNNER_TEMP/frozen-final/reports/"
+          git reset --hard HEAD
+          git clean -fd
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          mkdir -p "$GROUP8_ROOT/reports" "$GROUP8_ROOT/contracts"
+          cp -a "$RUNNER_TEMP/frozen-final/." "$GROUP8_ROOT/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/00_DESIGN_LOCK.md" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/STATUS.json" "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" "$GROUP8_ROOT/UPSTREAM_CATEGORICAL_DICTIONARY.json" "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" "$GROUP8_ROOT/DESIGN_REFERENCE_RESOLUTION.json" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" "$GROUP8_ROOT/reports/12_REAL_DESIGN_CONTRACT_AUDIT_V3.json" "$GROUP8_ROOT/reports/13_REAL_DESIGN_FREEZE_VERIFICATION.json"
+          git commit -m "Freeze Group 8 v0.8.0 coherent design [skip ci]"
+          git push origin "HEAD:$HEAD_BRANCH"
