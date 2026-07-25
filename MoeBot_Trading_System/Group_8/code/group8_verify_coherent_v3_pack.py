@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse,hashlib,json,sqlite3,subprocess,urllib.request
 from pathlib import Path
+from group8_categorical_intake import FIELDS as CATEGORICAL_FIELDS
 
 def shaf(p:Path)->str:
  h=hashlib.sha256()
@@ -23,8 +24,25 @@ def categories(c,tables):
    vals=c.execute(f'SELECT "{col}",COUNT(*) FROM "{table}" GROUP BY "{col}" ORDER BY "{col}"').fetchall()
    if len(vals)<=500:out[f'{table}.{col}']=[{'value':v,'count':n} for v,n in vals]
  return out
+def categorical_proxy_payload(c,group):
+ out={}
+ for table,fields in CATEGORICAL_FIELDS[group].items():
+  actual={r[1] for r in c.execute(f'PRAGMA table_info("{table}")')};missing=set(fields)-actual
+  if missing:raise RuntimeError(f'{group}:{table} missing proxy fields {sorted(missing)}')
+  out[table]={field:[r[0] for r in c.execute(f'SELECT DISTINCT "{field}" FROM "{table}" ORDER BY "{field}"')] for field in fields}
+ return out
+def write_proxy(path:Path,payload):
+ path.unlink(missing_ok=True);con=sqlite3.connect(path)
+ for table,fields in payload.items():
+  cols=list(fields);quoted=', '.join(f'"{c}"' for c in cols);con.execute(f'CREATE TABLE "{table}" ({quoted})')
+  lengths=[len(fields[c]) for c in cols]
+  if any(n==0 for n in lengths):raise RuntimeError(f'empty categorical proxy values for {table}')
+  n=max(lengths);marks=','.join('?' for _ in cols)
+  for i in range(n):con.execute(f'INSERT INTO "{table}" VALUES ({marks})',[fields[c][i%len(fields[c])] for c in cols])
+ con.commit();q=con.execute('PRAGMA quick_check').fetchone()[0];i=con.execute('PRAGMA integrity_check').fetchone()[0];con.close()
+ if q!='ok' or i!='ok':raise RuntimeError(f'categorical proxy integrity failed: {path}')
 def main():
- p=argparse.ArgumentParser();p.add_argument('--manifest',type=Path,required=True);p.add_argument('--work-dir',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();m=json.loads(a.manifest.read_text());work=a.work_dir.resolve();work.mkdir(parents=True,exist_ok=True);results={};fails=[]
+ p=argparse.ArgumentParser();p.add_argument('--manifest',type=Path,required=True);p.add_argument('--work-dir',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();m=json.loads(a.manifest.read_text());work=a.work_dir.resolve();work.mkdir(parents=True,exist_ok=True);results={};fails=[];proxy_mode=any(part.startswith('intake-') for part in work.parts)
  if m.get('status')!='PASS_PACKAGED':fails.append('manifest_not_pass')
  for g,rec in sorted(m['packages'].items()):
   chunks=[]
@@ -49,10 +67,11 @@ def main():
   db=work/rec['database_filename'];subprocess.run(['zstd','-q','-d','--long=31','-f',str(z),'-o',str(db)],check=True)
   db_sha=shaf(db)
   if db.stat().st_size!=rec['database_size_bytes'] or db_sha!=rec['database_sha256']:fails.append(f'{g}:database_identity')
-  c=sqlite3.connect(f'file:{db}?mode=ro&immutable=1',uri=True);q=c.execute('PRAGMA quick_check').fetchone()[0];i=c.execute('PRAGMA integrity_check').fetchone()[0];fk=len(c.execute('PRAGMA foreign_key_check').fetchall());s=schema(c);cats=categories(c,s);c.close()
+  c=sqlite3.connect(f'file:{db}?mode=ro&immutable=1',uri=True);q=c.execute('PRAGMA quick_check').fetchone()[0];i=c.execute('PRAGMA integrity_check').fetchone()[0];fk=len(c.execute('PRAGMA foreign_key_check').fetchall());s=schema(c);cats=categories(c,s);proxy=categorical_proxy_payload(c,g) if proxy_mode else None;c.close()
   if q!='ok' or i!='ok' or fk:fails.append(f'{g}:sqlite')
   results[g]={'database':{'filename':db.name,'size_bytes':db.stat().st_size,'sha256':db_sha},'sqlite':{'quick_check':q,'integrity_check':i,'foreign_key_errors':fk},'schema':{'table_count':len(s),'tables':s},'categories':cats}
   for x in chunks:x.unlink(missing_ok=True)
   z.unlink(missing_ok=True);db.unlink(missing_ok=True)
- report={'format_version':2,'status':'PASS' if not fails else 'FAIL','year':m['year'],'lineage':m['lineage'],'source_manifest_hash':m['manifest_hash'],'disk_safe_sequential_verification':True,'groups':results,'failures':fails};report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest();a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':report['status'],'year':report['year'],'failures':fails,'report_hash':report['report_hash']},indent=2));return 0 if not fails else 1
+  if proxy_mode:write_proxy(db,proxy)
+ report={'format_version':2,'status':'PASS' if not fails else 'FAIL','year':m['year'],'lineage':m['lineage'],'source_manifest_hash':m['manifest_hash'],'disk_safe_sequential_verification':True,'groups':results,'failures':fails};report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest();a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':report['status'],'year':report['year'],'failures':fails,'report_hash':report['report_hash'],'categorical_proxy_mode':proxy_mode},indent=2));return 0 if not fails else 1
 if __name__=='__main__':raise SystemExit(main())

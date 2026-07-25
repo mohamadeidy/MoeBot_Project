@@ -1,0 +1,49 @@
+name: MoeBot Group 8 Categorical Proxy Regression
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/code/group8_verify_coherent_v3_pack.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_categorical_intake.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proxy-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile and verify exact categorical proxy round-trip
+        run: |
+          python -m py_compile \
+            MoeBot_Trading_System/Group_8/code/group8_verify_coherent_v3_pack.py \
+            MoeBot_Trading_System/Group_8/code/group8_categorical_intake.py
+          python - <<'PY'
+          import json, sqlite3, subprocess, sys, tempfile
+          from pathlib import Path
+          code=Path('MoeBot_Trading_System/Group_8/code').resolve();sys.path.insert(0,str(code))
+          from group8_categorical_intake import FIELDS,norm
+          from group8_verify_coherent_v3_pack import categorical_proxy_payload,write_proxy
+          root=Path(tempfile.mkdtemp());source=root/'source.sqlite';proxy=root/'proxy.sqlite';out=root/'categorical.json'
+          con=sqlite3.connect(source)
+          for table,fields in FIELDS['group3'].items():
+              con.execute(f'CREATE TABLE "{table}" ('+', '.join(f'"{f}"' for f in fields)+')')
+              for i in range(3):
+                  con.execute(f'INSERT INTO "{table}" VALUES ('+','.join('?' for _ in fields)+')',[f'{f}_{i%2}' for f in fields])
+          con.commit();payload=categorical_proxy_payload(con,'group3');con.close();write_proxy(proxy,payload)
+          subprocess.run([sys.executable,str(code/'group8_categorical_intake.py'),'--database',str(proxy),'--group','group3','--year','2023','--output',str(out)],check=True)
+          result=json.loads(out.read_text())['categorical_values']
+          for table,fields in payload.items():
+              for field,values in fields.items():
+                  expected=[norm(v) for v in values]
+                  actual=result[table][field]['values']
+                  if actual!=expected: raise SystemExit(f'proxy mismatch {table}.{field}: {actual} != {expected}')
+          con=sqlite3.connect(proxy);assert con.execute('PRAGMA quick_check').fetchone()[0]=='ok';assert con.execute('PRAGMA integrity_check').fetchone()[0]=='ok';con.close()
+          print({'status':'PASS','tables':len(payload),'fields':sum(len(v) for v in payload.values())})
+          PY
