@@ -43,7 +43,7 @@ def main()->int:
    else:
     try:get(cfg,target)
     except KeyError:fail.append(f'missing_config_target:{alias}:{target}')
- bindings=sorted(set(path for text in strings(defs) for path in re.findall(r'UPSTREAM_VALUE_BINDINGS\.([A-Za-z0-9_.]+)',text)))
+ bindings=sorted(set(path for text in strings(defs) for path in re.findall(r'UPSTREAM_VALUE_BINDINGS\.(group[0-9]+(?:\.[A-Za-z0-9_]+)+)',text)))
  expected_bindings={'group3.advancing_bias_values','group3.declining_bias_values','group3.indeterminate_bias_values','group3.bullish_transition_event_types','group3.bearish_transition_event_types','group3.bullish_direction_values','group3.bearish_direction_values','group3.mss_or_bos_event_types'}
  if set(bindings)!=expected_bindings:fail.append(f'binding_reference_set:{bindings}')
  global_text=' '.join(defs.get('global_rules',[])).lower()
