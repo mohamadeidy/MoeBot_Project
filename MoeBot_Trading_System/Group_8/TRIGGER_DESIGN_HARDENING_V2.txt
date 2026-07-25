@@ -1,0 +1,1 @@
+Generate and audit Group 8 schema candidate v2. Require all 45 definition contracts, exact source-semantics evidence, lineage-bridge persistence fields, prohibited-output checks, and append-only guards before design freeze.

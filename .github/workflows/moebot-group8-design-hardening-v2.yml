@@ -1,0 +1,71 @@
+name: MoeBot Group 8 Design Hardening v2
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DESIGN_HARDENING_V2.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compile design tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_generate_schema_candidate_v2.py" \
+            "$GROUP8_ROOT/code/group8_design_contract_audit.py"
+      - name: Generate schema candidate v2
+        run: |
+          mkdir -p "$GROUP8_ROOT/reports"
+          python "$GROUP8_ROOT/code/group8_generate_schema_candidate_v2.py" \
+            --draft "$GROUP8_ROOT/02_SCHEMA_DRAFT.sql" \
+            --output "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v2.sql" \
+            --report "$GROUP8_ROOT/reports/05_SCHEMA_CANDIDATE_V2_GENERATION.json"
+      - name: Audit definitions, source semantics, schema and prohibitions
+        run: |
+          python "$GROUP8_ROOT/code/group8_design_contract_audit.py" \
+            --root "$GROUP8_ROOT" \
+            --schema "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v2.sql" \
+            --output "$GROUP8_ROOT/reports/06_DESIGN_CONTRACT_AUDIT_V2.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-design-hardening-v2-evidence
+          path: |
+            ${{ env.GROUP8_ROOT }}/02_SCHEMA_CANDIDATE_v2.sql
+            ${{ env.GROUP8_ROOT }}/reports/05_SCHEMA_CANDIDATE_V2_GENERATION.json
+            ${{ env.GROUP8_ROOT }}/reports/06_DESIGN_CONTRACT_AUDIT_V2.json
+          retention-days: 30
+      - name: Commit generated reviewed candidates to PR branch
+        if: github.event_name == 'pull_request' && success()
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/hardened"
+          cp "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v2.sql" "$RUNNER_TEMP/hardened/"
+          cp "$GROUP8_ROOT/reports/05_SCHEMA_CANDIDATE_V2_GENERATION.json" "$RUNNER_TEMP/hardened/"
+          cp "$GROUP8_ROOT/reports/06_DESIGN_CONTRACT_AUDIT_V2.json" "$RUNNER_TEMP/hardened/"
+          git reset --hard HEAD
+          git clean -fd
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          cp "$RUNNER_TEMP/hardened/02_SCHEMA_CANDIDATE_v2.sql" "$GROUP8_ROOT/"
+          cp "$RUNNER_TEMP/hardened/05_SCHEMA_CANDIDATE_V2_GENERATION.json" "$GROUP8_ROOT/reports/"
+          cp "$RUNNER_TEMP/hardened/06_DESIGN_CONTRACT_AUDIT_V2.json" "$GROUP8_ROOT/reports/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v2.sql" "$GROUP8_ROOT/reports/05_SCHEMA_CANDIDATE_V2_GENERATION.json" "$GROUP8_ROOT/reports/06_DESIGN_CONTRACT_AUDIT_V2.json"
+          git diff --cached --quiet || git commit -m "Harden Group 8 design schema and contract candidate v2 [skip ci]"
+          git push origin "HEAD:$HEAD_BRANCH"
