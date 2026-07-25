@@ -68,12 +68,7 @@ jobs:
             --source-schema-2023 "$RUNNER_TEMP/fixtures/source-2023.json" --source-schema-2024 "$RUNNER_TEMP/fixtures/source-2024.json" --output "$RUNNER_TEMP/fixtures/adapters.json"
           python "$GROUP8_ROOT/code/group8_merge_categorical_dictionary.py" --reports-dir "$RUNNER_TEMP/fixtures/categories" --output "$RUNNER_TEMP/fixtures/categories.json"
           python "$GROUP8_ROOT/code/group8_build_value_bindings.py" --categorical-dictionary "$RUNNER_TEMP/fixtures/categories.json" --source-semantics "$GROUP8_ROOT/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" --output "$RUNNER_TEMP/fixtures/bindings.json"
-          python "$GROUP8_ROOT/code/group8_validate_design_references.py" --definitions "$GROUP8_ROOT/01_DEFINITION_REGISTRY_CANDIDATE_v2.json" --config "$GROUP8_ROOT/FROZEN_CONFIG_DRAFT.json" --bindings "$RUNNER_TEMP/fixtures/bindings.json" > "$RUNNER_TEMP/fixtures/resolution.json"
-          python - <<'PY'
-          import hashlib,json,os
-          from pathlib import Path
-          p=Path(os.environ['RUNNER_TEMP'])/'fixtures/resolution.json';d=json.loads(p.read_text());d['resolution_hash']=hashlib.sha256(json.dumps(d,sort_keys=True,separators=(',',':')).encode()).hexdigest();p.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n')
-          PY
+          python "$GROUP8_ROOT/code/group8_validate_design_references.py" --definitions "$GROUP8_ROOT/01_DEFINITION_REGISTRY_CANDIDATE_v2.json" --config "$GROUP8_ROOT/FROZEN_CONFIG_DRAFT.json" --bindings "$RUNNER_TEMP/fixtures/bindings.json" --output "$RUNNER_TEMP/fixtures/resolution.json"
       - name: Run complete freeze on temporary Group 8 copy
         run: |
           python "$GROUP8_ROOT/code/group8_freeze_design_v2.py" \
