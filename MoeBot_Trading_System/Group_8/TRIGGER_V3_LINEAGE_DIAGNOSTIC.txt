@@ -1,0 +1,1 @@
+Extract exact failure context for authoritative Group 8 v3 lineage jobs 89618926237 and 89618926261. Read-only diagnostic; no data, release, tag, registry, or frozen artifact mutation.
