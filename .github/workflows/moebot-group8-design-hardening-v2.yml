@@ -39,8 +39,17 @@ jobs:
             --root "$GROUP8_ROOT" \
             --schema "$GROUP8_ROOT/02_SCHEMA_CANDIDATE_v2.sql" \
             --output "$GROUP8_ROOT/reports/06_DESIGN_CONTRACT_AUDIT_V2.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-design-hardening-v2-evidence
+          path: |
+            ${{ env.GROUP8_ROOT }}/02_SCHEMA_CANDIDATE_v2.sql
+            ${{ env.GROUP8_ROOT }}/reports/05_SCHEMA_CANDIDATE_V2_GENERATION.json
+            ${{ env.GROUP8_ROOT }}/reports/06_DESIGN_CONTRACT_AUDIT_V2.json
+          retention-days: 30
       - name: Commit generated reviewed candidates to PR branch
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && success()
         env:
           HEAD_BRANCH: ${{ github.head_ref }}
         run: |
