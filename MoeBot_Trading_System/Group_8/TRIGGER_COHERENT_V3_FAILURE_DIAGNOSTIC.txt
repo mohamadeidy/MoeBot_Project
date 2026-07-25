@@ -1,0 +1,1 @@
+Extract exact additive-publication failure context from completed coherent-v3 2023 job 89677949232. Read-only diagnostic; no data, release, tag, design, or engine mutation.

@@ -1,0 +1,1 @@
+Continue Group 8 coherent corrected-v3 dependency closure using successful immutable annual artifacts: 2023 artifact 8623205020 and 2024 artifact 8620608166. Run disk-safe public clean-room verification for Groups2-7, cross-year validation, and freeze the permanent Group8 annual dependency registry.

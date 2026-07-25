@@ -1,0 +1,22 @@
+{
+  "cross_year_report_hash": "799a00b72dd7262c7220fd24695744e725d100713dc8e6fbf08c98386133723f",
+  "format_version": 1,
+  "lineage_amendment_hash": "a18d75a61c1ce981f6c5c784145d6cb41482ad75dce015ea9a901d9e22dd3160",
+  "phase": "COHERENT_UPSTREAM_REBUILD",
+  "registry_hash": "ad0157c56ea793ed49fe20c5b90f606388f17ade93f12450d98596506ef91e97",
+  "release_anchor_tag": "moebot-sqlite-rebuild-v1",
+  "report_hash": "57cf7b7247c3a6c523308dcc03c49baa6c116a01da238a7b13b09f3cd68018b3",
+  "status": "PASS",
+  "years": {
+    "2023": {
+      "clean_room_report_hash": "611b731b259534d281445efb5fd6a24bc120d37ad3fd7d724ed095e3a9900620",
+      "group7_db_sha256": "31c845ec0f66e5fcf9ab32f9dc00fc38d1b32f59fb283b054cef7cd0b6625318",
+      "manifest_hash": "3ce9454b3da9c288ee4ad646317d7e333fd7eebbb38dded18acea03ff55c36c0"
+    },
+    "2024": {
+      "clean_room_report_hash": "9d28304d3428fb75a98e281fd289c7ec55c7cd83cdaf10ddfdcd4f7a9f68fa76",
+      "group7_db_sha256": "091cccf3414557ee92e3d720418955227da324c9ddc127320917a0da94b4e753",
+      "manifest_hash": "ca94cbff08eedd0d2ee543addf0aa17d647f879219bb76586fba541200ceabbd"
+    }
+  }
+}

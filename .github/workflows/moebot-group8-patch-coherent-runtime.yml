@@ -1,0 +1,48 @@
+name: MoeBot Group 8 Patch Coherent Runtime Dependencies
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/moebot-group8-patch-coherent-runtime.yml"
+      - "MoeBot_Trading_System/Group_8/TRIGGER_COHERENT_V3_REBUILD.txt"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - name: Add matplotlib to authoritative coherent runtime install
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('.github/workflows/moebot-group8-coherent-v3-lineage-rebuild.yml')
+          text=path.read_text()
+          old='python -m pip install --disable-pip-version-check --no-cache-dir numpy\n'
+          new='python -m pip install --disable-pip-version-check --no-cache-dir numpy matplotlib\n'
+          count=text.count(old)
+          if count != 1:
+              if new in text:
+                  print('authoritative workflow already contains matplotlib')
+                  raise SystemExit(0)
+              raise SystemExit(f'expected exactly one runtime install line, found {count}')
+          path.write_text(text.replace(old,new))
+          PY
+          git diff --check
+          grep -F "python -m pip install --disable-pip-version-check --no-cache-dir numpy matplotlib" .github/workflows/moebot-group8-coherent-v3-lineage-rebuild.yml
+      - name: Commit exact runtime dependency repair
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/moebot-group8-coherent-v3-lineage-rebuild.yml
+          git diff --cached --quiet || git commit -m "Install matplotlib for frozen Group 7 visual audit [skip patch]"
+          git push origin "HEAD:$HEAD_BRANCH"

@@ -1,0 +1,63 @@
+name: MoeBot Group 8 Coherent v3 Failure Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_COHERENT_V3_FAILURE_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract exact 2023 additive-publication failure context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/context"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89677949232/logs" > "$RUNNER_TEMP/2023.log"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          lines=(Path(os.environ['RUNNER_TEMP'])/'2023.log').read_text(errors='replace').splitlines()
+          patterns=(
+            'Additively publish exact assets without overwrite',
+            'existing asset size conflict',
+            'existing asset digest conflict',
+            'immutable',
+            'gh release upload',
+            'already_exists',
+            'already exists',
+            'HTTP 422',
+            '##[error]',
+            'error:',
+            'failed',
+          )
+          anchors=[]
+          for i,line in enumerate(lines):
+              if any(p.lower() in line.lower() for p in patterns):
+                  anchors.append(i)
+          selected=[]
+          for i in anchors:
+              selected.extend(lines[max(0,i-8):min(len(lines),i+20)])
+          selected.extend(lines[-120:])
+          seen=set();out=[]
+          for line in selected:
+              if line not in seen:
+                  seen.add(line);out.append(line)
+          p=Path(os.environ['RUNNER_TEMP'])/'context/GROUP8_COHERENT_V3_PUBLICATION_FAILURE_2023.txt'
+          p.write_text('\n'.join(out)+'\n')
+          print(p.read_text()[-20000:])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-coherent-v3-publication-failure-2023
+          path: ${{ runner.temp }}/context
+          retention-days: 30
