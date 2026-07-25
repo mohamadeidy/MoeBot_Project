@@ -1,0 +1,1 @@
+Compile every Group 8 Python tool, validate all JSON and draft SQL artifacts, and verify exact archive-scanner target identities before merge.
