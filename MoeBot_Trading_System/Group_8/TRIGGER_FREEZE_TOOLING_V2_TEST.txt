@@ -1,0 +1,1 @@
+Run the full synthetic coherent-registry to adapter, categorical dictionary, source-verified value bindings, definition reference resolution and temporary design freeze integration test. Verify Schema Candidate v2 and all immutability guards.

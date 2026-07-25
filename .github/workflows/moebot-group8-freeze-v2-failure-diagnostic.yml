@@ -1,0 +1,45 @@
+name: MoeBot Group 8 Freeze v2 Failure Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_FREEZE_V2_FAILURE_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract exact failure context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/context"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89676243330/logs" > "$RUNNER_TEMP/freeze.log"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          lines=(Path(os.environ['RUNNER_TEMP'])/'freeze.log').read_text(errors='replace').splitlines()
+          patterns=('Traceback','RuntimeError','ValueError','KeyError','AssertionError','SystemExit','##[error]','FAIL','failure','mismatch','missing','unknown','not_pass','returned non-zero','CalledProcessError','usage:','error:')
+          important=[]
+          for i,line in enumerate(lines):
+              if any(p.lower() in line.lower() for p in patterns):
+                  important.extend(lines[max(0,i-6):min(len(lines),i+15)])
+          important.extend(lines[-100:])
+          seen=set();out=[]
+          for line in important:
+              if line not in seen:seen.add(line);out.append(line)
+          (Path(os.environ['RUNNER_TEMP'])/'context/GROUP8_FREEZE_V2_FAILURE_CONTEXT.txt').write_text('\n'.join(out)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-freeze-v2-failure-context
+          path: ${{ runner.temp }}/context
+          retention-days: 30

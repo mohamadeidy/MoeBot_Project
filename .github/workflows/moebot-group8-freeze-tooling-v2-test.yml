@@ -1,0 +1,86 @@
+name: MoeBot Group 8 Freeze Tooling v2 Test
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_FREEZE_TOOLING_V2_TEST.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile freeze tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_build_coherent_adapter_map.py" \
+            "$GROUP8_ROOT/code/group8_merge_categorical_dictionary.py" \
+            "$GROUP8_ROOT/code/group8_freeze_design_v2.py"
+      - name: Build deterministic synthetic coherent evidence fixtures
+        run: |
+          cp -a "$GROUP8_ROOT" "$RUNNER_TEMP/g8"
+          mkdir -p "$RUNNER_TEMP/fixtures/categories"
+          PYTHONPATH="$GROUP8_ROOT/code" python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from group8_build_adapter_map import REQUIRED
+          rt=Path(os.environ['RUNNER_TEMP']);fx=rt/'fixtures'
+          def write(p,v):p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(v,indent=2,sort_keys=True)+'\n')
+          def colrows(cols):return [{'cid':i,'name':c,'type':'TEXT','notnull':0,'dflt_value':None,'pk':1 if i==0 else 0} for i,c in enumerate(cols)]
+          groups={}
+          for g,tables in REQUIRED.items():
+              if g=='source':continue
+              groups[g]={'schema':{'table_count':len(tables),'tables':{t:{'columns':colrows(c)} for t,c in tables.items()}},'database':{'filename':f'{g}.sqlite','size_bytes':1,'sha256':'0'*64},'sqlite':{'quick_check':'ok','integrity_check':'ok','foreign_key_errors':0},'categories':{}}
+          for year in (2023,2024):
+              cr={'format_version':1,'status':'PASS','year':year,'lineage':'synthetic','source_manifest_hash':f'm{year}','groups':groups,'failures':[],'report_hash':f'cr{year}'};write(fx/f'cleanroom-{year}.json',cr)
+              source={'status':'pass','schema':{'tables':{'bars':{'columns':colrows(REQUIRED['source']['bars'])}}}};write(fx/f'source-{year}.json',source)
+          annual={'status':'PASS','lineage':'synthetic','logical_lineage_id':'synthetic-v1','registry_hash':'registry-hash','lineage_amendment_hash':'amendment-hash','years':{'2023':{'clean_room':{'report_hash':'cr2023'}},'2024':{'clean_room':{'report_hash':'cr2024'}}},'group7_logic_source':{'closure_tag':'tag','closure_commit_sha':'sha'},'cross_year':{'report_hash':'cross'}};write(fx/'annual.json',annual)
+          sem=json.loads(Path(os.environ['GITHUB_WORKSPACE'],os.environ['GROUP8_ROOT'],'UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json').read_text())
+          base={
+            'source':{'bars':{'timeframe':['M15'],'symbol':['XAUUSD_'],'time_confidence':['provider_utc']}},
+            'group2':{'regime_states':{'direction_code':[0],'volatility_code':[0],'phase_code':[0],'raw_label_code':[0],'stable_label_code':[0],'uncertain':[0],'baseline_mature':[1]},'timeframe_dictionary':{'timeframe':['M15'],'timeframe_code':[3],'parent_timeframe_code':[5]}},
+            'group3':{'structure_states':{'timeframe':['M15'],'layer':['internal','external'],'sequence_bias':['bullish','bearish','transition','unknown'],'active_bias':['bullish','bearish','transition','unknown'],'leg':['initial'],'last_event_type':['BOS']},'break_events':{'timeframe':['M15'],'layer':['internal','external'],'event_type':['BOS','MSS','CHOCH','FAILED_BREAK'],'direction':['up','down'],'break_kind':['continuation','reversal'],'strong_break':[0,1],'outcome':['accepted','failed']},'swings':{'timeframe':['M15'],'layer':['internal','external'],'swing_type':['high','low'],'relation':['INITIAL','HH','LH','HL','LL']}},
+            'group4':{'zones':{'timeframe':['M15'],'source_timeframe':['M15'],'zone_class':['structural'],'initial_role':['support'],'current_role':['support'],'layer':['internal'],'status':['fresh'],'broken_direction':[None]},'zone_interactions':{'timeframe':['M15'],'event_type':['touch'],'status_after':['tested'],'role_after':['support']},'zone_transitions':{'from_status':['fresh'],'to_status':['tested'],'role_after':['support'],'reason':['touch']}},
+            'group5':{'liquidity_pools':{'timeframe':['M15'],'pool_class':['swing'],'side':['buy_side'],'layer':['internal'],'status':['active']},'liquidity_events':{'timeframe':['M15'],'side':['buy_side'],'event_type':['liquidity_grab'],'reclaimed':[1],'same_bar':[0],'closed_beyond':[0],'is_sweep':[1],'is_liquidity_grab':[1],'is_stop_run':[0],'is_false_breakout':[0],'resolution':['reclaimed']},'draw_states':{'timeframe':['M15'],'active_bias':['bullish'],'draw_side':['buy_side']},'inducements':{'timeframe':['M15'],'direction':['up'],'status':['candidate']},'liquidity_voids':{'timeframe':['M15'],'direction':['up'],'status':['active']}},
+            'group6':{'displacement_legs':{'timeframe':['M15'],'leg_kind':['single'],'direction':['bullish'],'origin_label':['last_opposing'],'initial_classification':['validated'],'uncertain':[0]},'displacement_validation_events':{'validation_type':['fvg'],'result':['pass']},'fvg_events':{'timeframe':['M15'],'direction':['bullish'],'clean_displacement':[1],'formation_quality':['clean']},'fvg_lifecycle_summary':{'fill_state':['open'],'directional_validity':['valid']},'group6_evidence':{'subject_type':['fvg'],'source_group':['group5'],'relation_type':['sweep'],'source_timeframe':['M15']},'imbalance_variants':{'timeframe':['M15'],'variant_type':['fvg'],'direction':['bullish'],'classification':['clean'],'separation_reason':[None]},'inversion_fvg_relations':{'direction_before':['bullish'],'direction_after':['bearish'],'inversion_status':['candidate']},'liquidity_voids':{'timeframe':['M15'],'direction':['bullish'],'state':['open']},'bpr_relations':{'timeframe':['M15'],'second_fvg_direction':['bearish'],'state':['open']},'mtf_imbalance_relations':{'child_type':['fvg'],'child_timeframe':['M15'],'parent_type':['fvg'],'parent_timeframe':['H1'],'relation_type':['within'],'direction_alignment':['same']}},
+            'group7':{'definition_registry':{'definition_id':['strict_order_block'],'definition_version':['1'],'derived':[0],'range_policy':['full'],'invalidation_closes':[1]},'institutional_zones':{'definition_id':['strict_order_block'],'timeframe':['M15'],'direction':['bullish'],'zone_label':['order_block']},'zone_evidence':{'evidence_type':['source'],'source_group':['group6'],'relation_type':['delivery']},'zone_relations':{'relation_type':['overlap']},'zone_state_transitions':{'event_type':['touch'],'status':['tested'],'freshness':['tested']},'zone_lifecycle_summary':{'status':['active'],'freshness':['tested']}}
+          }
+          for year in (2023,2024):
+              for group,tables in base.items():
+                  vals={t:{f:{'distinct_count':len(v),'values':v} for f,v in fields.items()} for t,fields in tables.items()}
+                  rep={'format_version':1,'status':'PASS','group':group,'year':year,'sqlite':{'quick_check':'ok','integrity_check':'ok','foreign_key_errors':0},'categorical_values':vals};rep['report_hash']=hashlib.sha256(json.dumps(rep,sort_keys=True,separators=(',',':'),default=str).encode()).hexdigest();write(fx/'categories'/f'CATEGORICAL_{group.upper()}_{year}.json',rep)
+          amendment={'status':'PASS_COHERENT_DEPENDENCY_LINEAGE','amendment_hash':'amendment-hash'};write(fx/'amendment.json',amendment)
+          audit={'status':'PASS','report_hash':'audit-hash'};write(fx/'design-audit.json',audit)
+          PY
+      - name: Run coherent adapter, categorical, binding and reference gates
+        run: |
+          PYTHONPATH="$GROUP8_ROOT/code" python "$GROUP8_ROOT/code/group8_build_coherent_adapter_map.py" \
+            --registry "$RUNNER_TEMP/fixtures/annual.json" --cleanroom-2023 "$RUNNER_TEMP/fixtures/cleanroom-2023.json" --cleanroom-2024 "$RUNNER_TEMP/fixtures/cleanroom-2024.json" \
+            --source-schema-2023 "$RUNNER_TEMP/fixtures/source-2023.json" --source-schema-2024 "$RUNNER_TEMP/fixtures/source-2024.json" --output "$RUNNER_TEMP/fixtures/adapters.json"
+          python "$GROUP8_ROOT/code/group8_merge_categorical_dictionary.py" --reports-dir "$RUNNER_TEMP/fixtures/categories" --output "$RUNNER_TEMP/fixtures/categories.json"
+          python "$GROUP8_ROOT/code/group8_build_value_bindings.py" --categorical-dictionary "$RUNNER_TEMP/fixtures/categories.json" --source-semantics "$GROUP8_ROOT/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" --output "$RUNNER_TEMP/fixtures/bindings.json"
+          python "$GROUP8_ROOT/code/group8_validate_design_references.py" --definitions "$GROUP8_ROOT/01_DEFINITION_REGISTRY_CANDIDATE_v2.json" --config "$GROUP8_ROOT/FROZEN_CONFIG_DRAFT.json" --bindings "$RUNNER_TEMP/fixtures/bindings.json" --output "$RUNNER_TEMP/fixtures/resolution.json"
+      - name: Run complete freeze on temporary Group 8 copy
+        run: |
+          python "$GROUP8_ROOT/code/group8_freeze_design_v2.py" \
+            --group8-root "$RUNNER_TEMP/g8" --annual-registry "$RUNNER_TEMP/fixtures/annual.json" --lineage-amendment "$RUNNER_TEMP/fixtures/amendment.json" \
+            --adapter-map "$RUNNER_TEMP/fixtures/adapters.json" --categorical-dictionary "$RUNNER_TEMP/fixtures/categories.json" --value-bindings "$RUNNER_TEMP/fixtures/bindings.json" \
+            --reference-resolution "$RUNNER_TEMP/fixtures/resolution.json" --source-semantics "$GROUP8_ROOT/UPSTREAM_SOURCE_SEMANTICS_EVIDENCE.json" --design-audit "$RUNNER_TEMP/fixtures/design-audit.json"
+          python - <<'PY'
+          import json,sqlite3,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'g8';m=json.loads((root/'DESIGN_FREEZE_MANIFEST.json').read_text())
+          if m.get('status')!='FROZEN':raise SystemExit('freeze manifest not frozen')
+          c=sqlite3.connect(':memory:');c.executescript((root/'02_SCHEMA.sql').read_text());tables={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")};triggers={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='trigger'")};c.close()
+          if 'upstream_id_bridge' not in tables or len(triggers)<36:raise SystemExit('frozen schema hardening missing')
+          print({'freeze_hash':m['design_freeze_hash'],'tables':len(tables),'triggers':len(triggers)})
+          PY
