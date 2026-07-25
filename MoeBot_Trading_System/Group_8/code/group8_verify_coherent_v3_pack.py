@@ -2,7 +2,6 @@
 from __future__ import annotations
 import argparse,hashlib,json,sqlite3,subprocess,urllib.request
 from pathlib import Path
-from typing import Any
 
 def shaf(p:Path)->str:
  h=hashlib.sha256()
@@ -48,9 +47,12 @@ def main():
       out.write(b)
   if z.stat().st_size!=rec['compressed_size_bytes'] or shaf(z)!=rec['compressed_sha256']:fails.append(f'{g}:compressed_identity')
   db=work/rec['database_filename'];subprocess.run(['zstd','-q','-d','--long=31','-f',str(z),'-o',str(db)],check=True)
-  if db.stat().st_size!=rec['database_size_bytes'] or shaf(db)!=rec['database_sha256']:fails.append(f'{g}:database_identity')
+  db_sha=shaf(db)
+  if db.stat().st_size!=rec['database_size_bytes'] or db_sha!=rec['database_sha256']:fails.append(f'{g}:database_identity')
   c=sqlite3.connect(f'file:{db}?mode=ro&immutable=1',uri=True);q=c.execute('PRAGMA quick_check').fetchone()[0];i=c.execute('PRAGMA integrity_check').fetchone()[0];fk=len(c.execute('PRAGMA foreign_key_check').fetchall());s=schema(c);cats=categories(c,s);c.close()
   if q!='ok' or i!='ok' or fk:fails.append(f'{g}:sqlite')
-  results[g]={'database':{'filename':db.name,'size_bytes':db.stat().st_size,'sha256':shaf(db)},'sqlite':{'quick_check':q,'integrity_check':i,'foreign_key_errors':fk},'schema':{'table_count':len(s),'tables':s},'categories':cats}
- report={'format_version':1,'status':'PASS' if not fails else 'FAIL','year':m['year'],'lineage':m['lineage'],'source_manifest_hash':m['manifest_hash'],'groups':results,'failures':fails};report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest();a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':report['status'],'year':report['year'],'failures':fails,'report_hash':report['report_hash']},indent=2));return 0 if not fails else 1
+  results[g]={'database':{'filename':db.name,'size_bytes':db.stat().st_size,'sha256':db_sha},'sqlite':{'quick_check':q,'integrity_check':i,'foreign_key_errors':fk},'schema':{'table_count':len(s),'tables':s},'categories':cats}
+  for x in chunks:x.unlink(missing_ok=True)
+  z.unlink(missing_ok=True);db.unlink(missing_ok=True)
+ report={'format_version':2,'status':'PASS' if not fails else 'FAIL','year':m['year'],'lineage':m['lineage'],'source_manifest_hash':m['manifest_hash'],'disk_safe_sequential_verification':True,'groups':results,'failures':fails};report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest();a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':report['status'],'year':report['year'],'failures':fails,'report_hash':report['report_hash']},indent=2));return 0 if not fails else 1
 if __name__=='__main__':raise SystemExit(main())
