@@ -1,0 +1,56 @@
+name: MoeBot Group 8 Design Freeze Source Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_DESIGN_FREEZE_SOURCE_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  JOB_2023: "89723237769"
+  JOB_2024: "89723237774"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact failed job logs and extract source-step failures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$JOB_2023/logs" > "$RUNNER_TEMP/logs/2023.log"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$JOB_2024/logs" > "$RUNNER_TEMP/logs/2024.log"
+          python - <<'PY' | tee "$RUNNER_TEMP/logs/diagnostic.txt"
+          import re,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'logs'
+          for year in ('2023','2024'):
+              lines=(root/f'{year}.log').read_text(encoding='utf-8',errors='replace').splitlines()
+              print(f'===== {year} SOURCE RESTORE FAILURE =====')
+              hits=[]
+              for i,line in enumerate(lines):
+                  low=line.lower()
+                  if any(x in low for x in ('error','traceback','exception','failed','mismatch','no space','not found','keyerror','filenotfound','runtimeerror','systemexit')):
+                      hits.append(i)
+              seen=set()
+              for i in hits:
+                  lo=max(0,i-8);hi=min(len(lines),i+12)
+                  key=(lo,hi)
+                  if key in seen:continue
+                  seen.add(key)
+                  print(f'--- lines {lo+1}-{hi} ---')
+                  print('\n'.join(lines[lo:hi]))
+              print('--- final 120 lines ---')
+              print('\n'.join(lines[-120:]))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-design-freeze-source-diagnostic
+          path: ${{ runner.temp }}/logs
+          retention-days: 30
