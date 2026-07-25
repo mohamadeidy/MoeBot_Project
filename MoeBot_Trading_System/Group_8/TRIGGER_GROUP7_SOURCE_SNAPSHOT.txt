@@ -1,0 +1,1 @@
+Capture the exact Group 7 closure-tag implementation, audits, tests, packaging code and related workflows for a coherent corrected-v3 dependency-lineage rebuild. Read-only snapshot only.
