@@ -1,0 +1,1 @@
+Run the exact Group 8 Design Freeze source-step patch now. Canonical source restore must complete and publish filename/size/SHA outputs before a separate schema-verification step consumes them. Require exact one-time replacement and valid YAML/job structure before committing the corrected workflow.

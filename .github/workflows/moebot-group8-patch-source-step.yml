@@ -1,0 +1,109 @@
+name: MoeBot Group 8 Patch Source Step
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PATCH_SOURCE_STEP.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Split source restore from schema verification
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('.github/workflows/moebot-group8-real-design-freeze.yml')
+          text=path.read_text()
+          old='''      - name: Restore and verify canonical source database
+        id: source
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \\
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \\
+            --year "${{ matrix.year }}" \\
+            --download-dir "$RUNNER_TEMP/intake-${{ matrix.year }}/source-download" \\
+            --output-dir "$RUNNER_TEMP/intake-${{ matrix.year }}/source"
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          year="${{ matrix.year }}"
+          reg=json.loads(Path("MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json").read_text())
+          src=reg["source_databases"][year]
+          print(f"filename={src['database_filename']}")
+          print(f"size={src['database_size_bytes']}")
+          print(f"sha={src['database_sha256']}")
+          PY
+          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \\
+            --database "$RUNNER_TEMP/intake-${{ matrix.year }}/source/${{ steps.source.outputs.filename }}" \\
+            --expected-sha256 "${{ steps.source.outputs.sha }}" \\
+            --expected-size "${{ steps.source.outputs.size }}" \\
+            --year "${{ matrix.year }}" \\
+            --output "$RUNNER_TEMP/intake-${{ matrix.year }}/SOURCE_SCHEMA_${{ matrix.year }}.json"
+'''
+          new='''      - name: Restore canonical source database and expose identity
+        id: source
+        run: |
+          python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \\
+            --registry "$DATA_VAULT_ROOT/registry/DATABASE_REGISTRY.json" \\
+            --year "${{ matrix.year }}" \\
+            --download-dir "$RUNNER_TEMP/intake-${{ matrix.year }}/source-download" \\
+            --output-dir "$RUNNER_TEMP/intake-${{ matrix.year }}/source"
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          year="${{ matrix.year }}"
+          reg=json.loads(Path("MoeBot_Trading_System/Group_8/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json").read_text())
+          src=reg["source_databases"][year]
+          print(f"filename={src['database_filename']}")
+          print(f"size={src['database_size_bytes']}")
+          print(f"sha={src['database_sha256']}")
+          PY
+      - name: Verify canonical source identity and schema
+        run: |
+          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \\
+            --database "$RUNNER_TEMP/intake-${{ matrix.year }}/source/${{ steps.source.outputs.filename }}" \\
+            --expected-sha256 "${{ steps.source.outputs.sha }}" \\
+            --expected-size "${{ steps.source.outputs.size }}" \\
+            --year "${{ matrix.year }}" \\
+            --output "$RUNNER_TEMP/intake-${{ matrix.year }}/SOURCE_SCHEMA_${{ matrix.year }}.json"
+'''
+          if text.count(old)!=1:
+              raise SystemExit(f'expected one exact source block, found {text.count(old)}')
+          path.write_text(text.replace(old,new))
+          print({'status':'PATCHED','path':str(path)})
+          PY
+      - name: Validate workflow structure
+        run: |
+          python -m pip install --disable-pip-version-check --quiet pyyaml
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+          path=Path('.github/workflows/moebot-group8-real-design-freeze.yml')
+          text=path.read_text();data=yaml.safe_load(text)
+          if text.count('Restore canonical source database and expose identity')!=1: raise SystemExit('restore step missing')
+          if text.count('Verify canonical source identity and schema')!=1: raise SystemExit('schema step missing')
+          if 'Restore and verify canonical source database' in text: raise SystemExit('legacy combined step remains')
+          jobs=data.get('jobs',{}) if isinstance(data,dict) else {}
+          if 'intake-year' not in jobs or 'freeze' not in jobs: raise SystemExit('workflow jobs missing')
+          print({'status':'PASS','jobs':sorted(jobs)})
+          PY
+      - name: Commit corrected workflow to PR branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/moebot-group8-real-design-freeze.yml
+          git commit -m "Split Group 8 source restore and schema verification [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
