@@ -1,0 +1,1 @@
+Restore canonical runtime v3, verify exact G2-G5 source semantics against SHA-pinned code rules, and expose machine-readable semantics evidence plus exact sources as a read-only audit artifact. No frozen identity or data is mutated.
