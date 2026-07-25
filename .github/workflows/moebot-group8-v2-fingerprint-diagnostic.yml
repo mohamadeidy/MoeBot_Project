@@ -1,0 +1,52 @@
+name: MoeBot Group 8 v2 Fingerprint Failure Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_V2_FINGERPRINT_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  JOB_2023: "89615859140"
+  JOB_2024: "89615859089"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download exact failed logs and extract Python failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          for spec in "2023:$JOB_2023" "2024:$JOB_2024"; do
+            y="${spec%%:*}"; id="${spec##*:}"
+            gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" > "$RUNNER_TEMP/$y.log"
+            python - "$y" <<'PY' > "$RUNNER_TEMP/out/$y.txt"
+          import sys
+          from pathlib import Path
+          y=sys.argv[1]
+          lines=Path(f"{Path('/home/runner/work/_temp') if False else ''}")
+          import os
+          src=Path(os.environ['RUNNER_TEMP'])/f'{y}.log'
+          rows=src.read_text(encoding='utf-8',errors='replace').splitlines()
+          pats=('Traceback','Error','Exception','KeyError','OperationalError','TypeError','ValueError','RuntimeError','no such table','no such column','integrity fail','group8_runtime_output_fingerprint.py','group8_g6_semantic_equivalence.py','##[error]')
+          hits=[]
+          for i,line in enumerate(rows):
+              if any(p.lower() in line.lower() for p in pats):
+                  hits.append(f'--- around {i+1} ---')
+                  hits.extend(rows[max(0,i-15):min(len(rows),i+35)])
+          print('\n'.join(hits[-400:]))
+          PY
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-v2-fingerprint-failure-context
+          path: ${{ runner.temp }}/out
+          retention-days: 30
