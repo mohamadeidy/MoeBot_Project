@@ -22,8 +22,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/context"
-          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89656464320/logs" > "$RUNNER_TEMP/2023.log"
-          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89656464293/logs" > "$RUNNER_TEMP/2024.log"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89675756165/logs" > "$RUNNER_TEMP/2023.log"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89675756168/logs" > "$RUNNER_TEMP/2024.log"
           python - <<'PY'
           from pathlib import Path
           import os
