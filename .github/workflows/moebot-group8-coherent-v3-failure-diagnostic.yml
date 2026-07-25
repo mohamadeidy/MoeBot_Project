@@ -1,0 +1,53 @@
+name: MoeBot Group 8 Coherent v3 Failure Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_COHERENT_V3_FAILURE_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract exact Group 7 build failure context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/context"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89656464320/logs" > "$RUNNER_TEMP/2023.log"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89656464293/logs" > "$RUNNER_TEMP/2024.log"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          out=Path(os.environ['RUNNER_TEMP'])/'context'
+          patterns=('Traceback','RuntimeError','ValueError','KeyError','AssertionError','SystemExit','##[error]','FAIL','failure','mismatch','missing','No such file','returned non-zero','CalledProcessError','usage:','error:')
+          for year in ('2023','2024'):
+              lines=(Path(os.environ['RUNNER_TEMP'])/f'{year}.log').read_text(errors='replace').splitlines()
+              anchors=[i for i,l in enumerate(lines) if 'Build and audit Group 7 with unchanged frozen v0.7.5 engine' in l]
+              start=max(0,(anchors[-1] if anchors else max(0,len(lines)-220))-5)
+              tail=lines[start:]
+              important=[]
+              for i,l in enumerate(tail):
+                  if any(p.lower() in l.lower() for p in patterns):
+                      a=max(0,i-5); b=min(len(tail),i+12)
+                      important.extend(tail[a:b])
+              important.extend(tail[-80:])
+              seen=set(); dedup=[]
+              for l in important:
+                  if l not in seen:
+                      seen.add(l); dedup.append(l)
+              (out/f'GROUP8_COHERENT_V3_FAILURE_CONTEXT_{year}.txt').write_text('\n'.join(dedup)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-coherent-v3-failure-context
+          path: ${{ runner.temp }}/context
+          retention-days: 30
