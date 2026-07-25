@@ -1,0 +1,63 @@
+name: MoeBot Group 8 Tooling Integrity
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_TOOLING_INTEGRITY.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile every Group 8 Python tool
+        run: |
+          python - <<'PY'
+          import py_compile
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8/code')
+          files=sorted(root.glob('*.py'))
+          if not files: raise SystemExit('no Group 8 Python tools found')
+          for path in files:
+              py_compile.compile(str(path),doraise=True)
+          print({'compiled':len(files)})
+          PY
+      - name: Validate JSON and SQL artifacts
+        run: |
+          python - <<'PY'
+          import json,sqlite3
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8')
+          json_files=sorted(root.rglob('*.json'))
+          for path in json_files: json.loads(path.read_text(encoding='utf-8'))
+          con=sqlite3.connect(':memory:')
+          con.executescript((root/'02_SCHEMA_DRAFT.sql').read_text(encoding='utf-8'))
+          required={'price_action_pattern_candidate','price_action_pattern_state','school_interpretation','shared_evidence','conflicting_evidence','narrative_hypothesis','hypothesis_lifecycle_event','multi_timeframe_context_relation','evidence_chain','invalidation_record'}
+          tables={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          missing=required-tables
+          if missing: raise SystemExit(f'missing required Group 8 tables: {sorted(missing)}')
+          print({'json_files':len(json_files),'tables':len(tables)})
+          PY
+      - name: Verify scanner exact target identities and bounded behavior
+        run: |
+          python - <<'PY'
+          import importlib.util,sys
+          from pathlib import Path
+          p=Path('MoeBot_Trading_System/Group_8/code/group8_archive_deep_scan.py')
+          spec=importlib.util.spec_from_file_location('group8_archive_deep_scan',p)
+          if spec is None or spec.loader is None: raise SystemExit('unable to create scanner module spec')
+          module=importlib.util.module_from_spec(spec)
+          sys.modules[spec.name]=module
+          spec.loader.exec_module(module)
+          expected={'group4':'744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad','group5':'97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc'}
+          for group,digest in expected.items():
+              if module.TARGETS[group]['sha256']!=digest or len(digest)!=64:
+                  raise SystemExit(f'bad target identity {group}')
+          print({'target_identities':'PASS'})
+          PY
