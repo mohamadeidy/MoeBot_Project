@@ -1,0 +1,24 @@
+{
+  "checks": {
+    "binding_references": [
+      "group3.advancing_bias_values",
+      "group3.bearish_direction_values",
+      "group3.bearish_transition_event_types",
+      "group3.bullish_direction_values",
+      "group3.bullish_transition_event_types",
+      "group3.declining_bias_values",
+      "group3.indeterminate_bias_values",
+      "group3.mss_or_bos_event_types"
+    ],
+    "definition_count": 45,
+    "definition_versions_unique": true,
+    "immutable_table_count": 18,
+    "schema_table_count": 20,
+    "schema_trigger_count": 36,
+    "source_semantics_status": "PASS"
+  },
+  "failures": [],
+  "format_version": 1,
+  "report_hash": "0ee09c84f63f9c4d7db6b443fea8632b01f9817ac5c3679356a636cdc6b42568",
+  "status": "PASS"
+}
