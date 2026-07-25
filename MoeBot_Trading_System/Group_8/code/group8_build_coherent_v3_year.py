@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, hashlib, json, sqlite3, sys, time
+import argparse, hashlib, json, sqlite3, subprocess, sys, time
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,21 @@ def sha256_file(path: Path) -> str:
     with path.open('rb') as f:
         for b in iter(lambda:f.read(16*1024*1024),b''): h.update(b)
     return h.hexdigest()
+
+def ensure_visual_runtime() -> None:
+    try:
+        import matplotlib  # noqa: F401
+    except ModuleNotFoundError:
+        subprocess.run([
+            sys.executable,
+            '-m',
+            'pip',
+            'install',
+            '--disable-pip-version-check',
+            '--no-cache-dir',
+            'matplotlib',
+        ], check=True)
+        import matplotlib  # noqa: F401
 
 def summarize(db: Path, base_defs: tuple[str,...], defs: tuple[str,...]) -> dict[str,Any]:
     con=sqlite3.connect(f'file:{db.resolve()}?mode=ro&immutable=1',uri=True);con.row_factory=sqlite3.Row
@@ -44,6 +59,7 @@ def main()->int:
     root=a.group7_root.resolve();code=root/'code';files={'engine':code/'moebot_group7_engine.py','audit':code/'group7_independent_audit.py','visual':code/'group7_real_visual_audit.py','tests':code/'group7_test_suite.py','config':root/'FROZEN_CONFIG_REGISTRY.json'}
     source_identity={k:{'path':str(v),'sha256':sha256_file(v),'expected_sha256':EXPECTED_G7[k],'pass':sha256_file(v)==EXPECTED_G7[k]} for k,v in files.items()}
     if not all(v['pass'] for v in source_identity.values()): raise RuntimeError('Group7 frozen source identity mismatch')
+    ensure_visual_runtime()
     sys.path.insert(0,str(code))
     from moebot_group7_engine import BASE_DEFINITIONS,DEFINITIONS,ENGINE_VERSION,SCHEMA_VERSION,build
     from group7_independent_audit import run as independent_audit
