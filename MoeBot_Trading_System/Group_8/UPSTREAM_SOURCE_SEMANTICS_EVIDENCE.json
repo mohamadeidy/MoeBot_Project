@@ -1,0 +1,149 @@
+{
+  "evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
+  "failures": [],
+  "format_version": 1,
+  "semantics": {
+    "group2": {
+      "all_engine_labels": [
+        "strong_bullish_trend",
+        "weak_bullish_trend",
+        "strong_bearish_trend",
+        "weak_bearish_trend",
+        "neutral_range",
+        "compression",
+        "expansion",
+        "high_volatility_disorder",
+        "low_volatility_condition",
+        "normal_volatility",
+        "continuation",
+        "pullback",
+        "retracement",
+        "reversal",
+        "transition",
+        "balanced_phase",
+        "accumulation_like",
+        "distribution_like",
+        "uncertain"
+      ],
+      "directional_label_sign": {
+        "strong_bearish_trend": -1,
+        "strong_bullish_trend": 1,
+        "weak_bearish_trend": -1,
+        "weak_bullish_trend": 1
+      },
+      "interpretation_rule": "Only labels present in directional_label_sign are directional; neutral_range is non-directional; phase/volatility labels are not direction signals.",
+      "neutral_direction_labels": [
+        "neutral_range"
+      ]
+    },
+    "group3": {
+      "accepted_event_mapping": {
+        "continuation": "BOS",
+        "reversal_non_strong": "CHOCH",
+        "reversal_strong": "MSS"
+      },
+      "accepted_outcome": "accepted",
+      "active_bias_values": [
+        "bullish",
+        "bearish",
+        "transition",
+        "unknown"
+      ],
+      "break_kind_values": [
+        "continuation",
+        "reversal"
+      ],
+      "direction_values": [
+        "up",
+        "down"
+      ],
+      "failed_event_type": "FAILED_BREAK",
+      "failed_outcome": "failed",
+      "layers": [
+        "internal",
+        "external"
+      ],
+      "sequence_bias_values": [
+        "bullish",
+        "bearish",
+        "transition",
+        "unknown"
+      ],
+      "swing_relations": [
+        "INITIAL",
+        "HH",
+        "LH",
+        "HL",
+        "LL"
+      ]
+    },
+    "group4": {
+      "base_roles": [
+        "support",
+        "resistance"
+      ],
+      "core_status_progression_values": [
+        "fresh",
+        "tested",
+        "mitigated",
+        "broken",
+        "flipped",
+        "superseded",
+        "expired"
+      ],
+      "flip_rule": "break up then qualifying opposite-side retest => support; break down then qualifying retest => resistance",
+      "touch_rule": "mitigated when penetration threshold reached or close inside; otherwise tested"
+    },
+    "group5": {
+      "auxiliary_event_type": "reclaim",
+      "draw_rule": "bullish active_bias may select nearest eligible buy-side pool; bearish active_bias may select nearest eligible sell-side pool; otherwise deterministic distance/ambiguity logic applies",
+      "draw_sides": [
+        "buy_side",
+        "sell_side",
+        "none",
+        "balanced_uncertain"
+      ],
+      "grab_flag_rule": "event_type==liquidity_grab",
+      "pool_sides": [
+        "buy_side",
+        "sell_side"
+      ],
+      "primary_event_types": [
+        "liquidity_grab",
+        "stop_run",
+        "false_breakout",
+        "taken_without_reclaim",
+        "censored_pending"
+      ],
+      "stop_run_flag_rule": "event_type==stop_run",
+      "sweep_flag_rule": "is_sweep=1 only for a non-reclaim primary event whose interaction was reclaimed"
+    }
+  },
+  "source_files": {
+    "group2": {
+      "expected_sha256": "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926",
+      "filename": "moebot_group2_engine_v0_2_1.py",
+      "sha256": "3d83dd19d36e790a71d4ee84db98c38eaf112ec4d9b0de88e54480f315173926",
+      "sha256_pass": true
+    },
+    "group3": {
+      "expected_sha256": "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512",
+      "filename": "moebot_group3_structure_engine_v0_1_1.py",
+      "sha256": "8a44667aa6ca7b683c334223ccce011fdc9c5e1112a9c104a4a83d721531d512",
+      "sha256_pass": true
+    },
+    "group4": {
+      "expected_sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+      "filename": "moebot_group4_zones_engine_v0_1_6.py",
+      "sha256": "744aa2bdc48b74bdf462353819569bb9947085623b5bdf462353819569bb9947085623b5bdf3f77dae76e7fb2a4ad",
+      "sha256_pass": false
+    },
+    "group5": {
+      "expected_sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+      "filename": "moebot_group5_liquidity_engine_v0_1_6.py",
+      "sha256": "97a062e465f5c488519b76cb84cd6596d9b665f16d3c95c59747d569b5a758bc",
+      "sha256_pass": true
+    }
+  },
+  "status": "PASS"
+}
