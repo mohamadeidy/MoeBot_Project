@@ -22,7 +22,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/context"
-          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89657312369/logs" > "$RUNNER_TEMP/freeze.log"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/89676243330/logs" > "$RUNNER_TEMP/freeze.log"
           python - <<'PY'
           from pathlib import Path
           import os
