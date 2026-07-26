@@ -3,7 +3,9 @@
 
 No frozen definition is changed here. This tool only binds the post-fix exact
 2023 workload evidence to the frozen PA7 enumeration rule and revokes annual
-execution until an explicit design decision is made.
+execution until an explicit design decision is made. The registration is
+idempotent so its evidence can be independently regenerated without reopening
+execution authorization.
 """
 from __future__ import annotations
 
@@ -14,8 +16,11 @@ from pathlib import Path
 from typing import Any
 
 GAP_ID = "G8-PA7-ENUMERATION-EXPLOSION-007"
+PREVIOUS_GAP_ID = "G8-PA7-CROSS-TIMEFRAME-006"
 EXPECTED_ENGINE_SHA256 = "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d"
 EXPECTED_WORKLOAD_REPORT_HASH = "6308c8b0e614fd81bc73f64fbc86f037cdd9ff5dc28696bfe3111997db031dbc"
+EXPECTED_DEFINITION_REGISTRY_HASH = "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579"
+EXPECTED_DESIGN_FREEZE_HASH = "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672"
 ENUMERATION_RULE = "one record per qualifying (bar_id,boundary_source_id,boundary_side); all boundaries are evaluated independently"
 
 
@@ -47,6 +52,8 @@ def main() -> int:
     status_path = root / "STATUS.json"
     workload_path = root / "reports" / "35_POSTFIX_BREAKOUT_CARDINALITY_DIAGNOSTIC.json"
     defs = json.loads((root / "01_DEFINITION_REGISTRY.json").read_text())
+    freeze = json.loads((root / "DESIGN_FREEZE_MANIFEST.json").read_text())
+    build = json.loads((root / "ENGINE_BUILD_MANIFEST.json").read_text())
     workload = json.loads(workload_path.read_text())
     status = json.loads(status_path.read_text())
 
@@ -54,18 +61,44 @@ def main() -> int:
         raise SystemExit("unexpected corrected engine identity")
     if workload.get("report_hash") != EXPECTED_WORKLOAD_REPORT_HASH or not report_hash_valid(workload) or workload.get("status") != "PASS":
         raise SystemExit("post-fix workload evidence identity invalid")
+    if freeze.get("status") != "FROZEN" or freeze.get("definition_registry_hash") != EXPECTED_DEFINITION_REGISTRY_HASH:
+        raise SystemExit("frozen definition-registry identity mismatch")
+    if freeze.get("design_freeze_hash") != EXPECTED_DESIGN_FREEZE_HASH:
+        raise SystemExit("design-freeze identity mismatch")
+    if build.get("definition_registry_hash") != EXPECTED_DEFINITION_REGISTRY_HASH or build.get("design_freeze_hash") != EXPECTED_DESIGN_FREEZE_HASH:
+        raise SystemExit("technical build is not bound to the expected frozen definition/design identities")
+    if build.get("identities", {}).get("engine", {}).get("sha256") != EXPECTED_ENGINE_SHA256:
+        raise SystemExit("technical build engine identity mismatch")
+
     pa7 = defs.get("definitions", {}).get("pa_breakout_exact", {})
     if pa7.get("enumeration_rule") != ENUMERATION_RULE or pa7.get("version") != "PA7E.1":
         raise SystemExit("frozen PA7 exact enumeration contract changed unexpectedly")
     for variant in ("pa_breakout_atr_buffer", "pa_breakout_point_buffer"):
         if defs.get("definitions", {}).get(variant, {}).get("enumeration_rule") != "same independent boundary enumeration as pa_breakout_exact":
             raise SystemExit(f"frozen PA7 variant enumeration contract changed:{variant}")
+
     if status.get("design_frozen") is not True or status.get("officially_closed") is not False:
         raise SystemExit("invalid Group 8 phase")
-    if status.get("engine_build", {}).get("engine_sha256") != EXPECTED_ENGINE_SHA256 or status.get("engine_build", {}).get("status") != "TECHNICAL_CANDIDATE_PASS":
-        raise SystemExit("expected re-frozen corrected technical candidate missing")
-    if status.get("annual_execution_2023_authorized") is not True or status.get("annual_execution_2024_authorized") is not False:
-        raise SystemExit("unexpected pre-blocker annual authorization state")
+    current_gap = status.get("blocking_gap", {})
+    pre_blocker = (
+        status.get("engine_build", {}).get("engine_sha256") == EXPECTED_ENGINE_SHA256
+        and status.get("engine_build", {}).get("status") == "TECHNICAL_CANDIDATE_PASS"
+        and status.get("annual_execution_2023_authorized") is True
+        and status.get("annual_execution_2024_authorized") is False
+        and current_gap.get("gap_id") == PREVIOUS_GAP_ID
+        and current_gap.get("status") == "CLOSED_BY_TECHNICAL_REFREEZE"
+    )
+    already_blocked = (
+        status.get("engine_build", {}).get("engine_sha256") == EXPECTED_ENGINE_SHA256
+        and status.get("engine_build", {}).get("status") == "TECHNICAL_CANDIDATE_BLOCKED_BY_DESIGN_GAP"
+        and status.get("annual_execution_2023_authorized") is False
+        and status.get("annual_execution_2024_authorized") is False
+        and current_gap.get("gap_id") == GAP_ID
+        and current_gap.get("status") == "OPEN_DESIGN_DECISION_REQUIRED"
+        and current_gap.get("previous_closed_gap_id") == PREVIOUS_GAP_ID
+    )
+    if not (pre_blocker or already_blocked):
+        raise SystemExit("unexpected pre-registration or idempotent blocker state")
 
     lower = workload["minimum_group6_plus_group8_workload"]
     candidates = int(lower["candidate_total"])
@@ -75,7 +108,7 @@ def main() -> int:
         raise SystemExit("exact measured workload changed from audited evidence")
 
     gap: dict[str, Any] = {
-        "format_version": 1,
+        "format_version": 2,
         "status": "OPEN_DESIGN_DECISION_REQUIRED",
         "gap_id": GAP_ID,
         "severity": "BLOCKING",
@@ -83,7 +116,8 @@ def main() -> int:
         "classification": "FROZEN_DESIGN_CARDINALITY_CONTRADICTION",
         "engine_sha256": EXPECTED_ENGINE_SHA256,
         "workload_report_hash": workload["report_hash"],
-        "frozen_definition_registry_hash": defs.get("definition_registry_hash"),
+        "frozen_definition_registry_hash": freeze["definition_registry_hash"],
+        "frozen_design_freeze_hash": freeze["design_freeze_hash"],
         "frozen_pa7_exact_version": pa7.get("version"),
         "frozen_pa7_enumeration_rule": ENUMERATION_RULE,
         "frozen_variant_enumeration_binding": "pa_breakout_atr_buffer and pa_breakout_point_buffer use the same independent boundary enumeration",
@@ -141,9 +175,6 @@ def main() -> int:
     gap_path = root / "reports" / "36_PA7_ENUMERATION_DESIGN_BLOCKER.json"
     gap_path.write_text(json.dumps(gap, indent=2, sort_keys=True) + "\n")
 
-    previous = status.get("blocking_gap", {})
-    if previous.get("gap_id") != "G8-PA7-CROSS-TIMEFRAME-006" or previous.get("status") != "CLOSED_BY_TECHNICAL_REFREEZE":
-        raise SystemExit("previous closed gap lineage not in expected state")
     status["blocking_gap"] = {
         "gap_id": GAP_ID,
         "severity": "BLOCKING",
@@ -152,7 +183,9 @@ def main() -> int:
         "report_hash": gap["report_hash"],
         "workload_report_hash": workload["report_hash"],
         "engine_sha256": EXPECTED_ENGINE_SHA256,
-        "previous_closed_gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
+        "frozen_definition_registry_hash": freeze["definition_registry_hash"],
+        "frozen_design_freeze_hash": freeze["design_freeze_hash"],
+        "previous_closed_gap_id": PREVIOUS_GAP_ID,
         "design_change_required": True,
         "decision_required": True,
     }
@@ -169,6 +202,7 @@ def main() -> int:
         "status": gap["status"],
         "gap_id": GAP_ID,
         "report_hash": gap["report_hash"],
+        "frozen_definition_registry_hash": gap["frozen_definition_registry_hash"],
         "candidate_lower_bound": candidates,
         "minimum_candidate_plus_creation_state_rows": candidates * 2,
         "2023_authorized": False,
