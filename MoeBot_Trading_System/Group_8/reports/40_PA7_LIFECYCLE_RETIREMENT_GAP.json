@@ -1,0 +1,55 @@
+{
+  "classification": "FROZEN_IMPLEMENTATION_SEMANTIC_VIOLATION",
+  "decision_required": false,
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "design_change_required": false,
+  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "engine_build_manifest_hash": "2c89bce52ef8473d55fdc612249f85026554b41666a2ee1595736edab14ed032",
+  "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+  "exact_2023_evidence": {
+    "bounded_range_count": 93834,
+    "bounded_range_post_invalidation_fraction_historical_diagnostic": 0.843955759,
+    "group5_pool_probe_hash": "98e0621ba60924da8739584d1b49bfc0636bb7eda7e8e41be31175a8fd12282d",
+    "group5_retirement_not_applied_without_exact_contract_confirmation": true,
+    "group5_swept_pool_count": 8735,
+    "group6_fvg_total": 121953,
+    "group6_fvg_traversed_invalidated_terminal_count": 121174,
+    "group6_lifecycle_probe_hash": "7fc11390048db7e3bfeaf6741250bbd2de78a485f21651372e9a545cc6ed76bb",
+    "lifecycle_aware_count_report_hash": "82a5c4a3a27385a9fa425c49ba99f9187d1d721004a62bea42bb68b696c2f03d",
+    "lifecycle_aware_group6_fvg_transition_total": 361050,
+    "lifecycle_aware_group8_bounded_range_transition_total": 2128551,
+    "lifecycle_aware_partial_transition_total": 54413814,
+    "pre_lifecycle_transition_total_group6_plus_group8": 110081623,
+    "transition_count_report_hash": "a4f62c29a1e5198ba0b0b496e4db29b177fa94aa94a500c8338e6c874359e6a3"
+  },
+  "forbidden_shortcuts": [
+    "do not disable M1 or any timeframe to make workload smaller",
+    "do not suppress valid PA7 variants",
+    "do not change Exact/ATR/Point predicates or thresholds",
+    "do not use 2024 to select a fix",
+    "do not back-project final lifecycle states without causal timestamps"
+  ],
+  "format_version": 1,
+  "frozen_contract": {
+    "buffered_variants_linkage": "PA7A.2 and PA7P.2 explicitly use the same independent transition-event state machine as pa_breakout_exact and remain scoped to their exact boundary identity/variant",
+    "exact_lifecycle_rule": "state belongs only to the exact boundary identity and is never carried to a different boundary identity; lifecycle termination retires that identity's state",
+    "transition_semantics_unchanged": "NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY",
+    "variants": {
+      "pa_breakout_atr_buffer": "PA7A.2",
+      "pa_breakout_exact": "PA7E.2",
+      "pa_breakout_point_buffer": "PA7P.2"
+    }
+  },
+  "gap_id": "G8-PA7-LIFECYCLE-RETIREMENT-008",
+  "minimal_correct_fix": {
+    "group5": "retain existing expires_at handling unless exact frozen Group5 runtime contract separately proves first_sweep_time is lifecycle termination",
+    "group6_fvg": "retire at first causal group6__fvg_state_transitions transition with event_type=traversed and directional_validity=invalidated; transition_time is the causal timestamp",
+    "group8_bounded_range": "retire at first causal invalidation of either locked Group4 boundary, matching frozen PA6G.1 invalidation rule",
+    "other_group6": "do not infer retirement from final state without a causal timestamp in the frozen adapter"
+  },
+  "oos_2024_accessed": false,
+  "report_hash": "cdd862c7d725858be54c326300404811deee6245ddcb0da3d32a4be68b4122a8",
+  "root_cause": "_pa7_boundary_active_at applies causal lifetime to Group4 and Group7 but has no Group6 or Group8 branch, so Group6 FVG and Group8 bounded-range boundary identities fall through active after causally known lifecycle termination.",
+  "severity": "BLOCKING",
+  "status": "OPEN_CORRECTNESS_FIX_REQUIRED"
+}
