@@ -1,0 +1,65 @@
+name: MoeBot Group 8 PA7 Sharded Parity
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_SHARDED_PARITY.txt"
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact free-only sharded frozen state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());f=json.loads((r/'DESIGN_FREEZE_MANIFEST.json').read_text());c=json.loads((r/'SHARDED_STORAGE_CONTRACT.json').read_text())
+          e=hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()
+          assert e=='ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0'
+          assert f['design_freeze_hash']=='213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a'
+          assert c['storage_contract_hash']=='d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a'
+          assert c['free_only_policy']['paid_runner_allowed'] is False and c['free_only_policy']['paid_service_allowed'] is False
+          assert c['partitioning']['adaptive_bucket_rule']['assignment']=='int(sha256(partition_root_id)[0:16],16) % bucket_count'
+          assert s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','engine':e,'2024_oos':False,'free_only':True})
+          PY
+
+      - name: Compile shard executor and parity regression
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_pa7_shard_executor.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_sharded_parity_v0_8_0.py"
+
+      - name: Run frozen semantic regressions plus exact sharded parity
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python -m unittest \
+            "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_sharded_parity_v0_8_0.py"
+
+      - name: Independent forbidden-mutation audit
+        run: |
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/STATUS.json"
