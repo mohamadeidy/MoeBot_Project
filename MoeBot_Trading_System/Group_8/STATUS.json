@@ -1,9 +1,9 @@
 {
   "adapter_map_hash": "cc76916214be35474134376c16299728db3e0a5d07ddcb58860ec5c9c3244d77",
   "annual_dependency_registry_hash": "ad0157c56ea793ed49fe20c5b90f606388f17ade93f12450d98596506ef91e97",
-  "annual_execution_2023_authorized": true,
+  "annual_execution_2023_authorized": false,
   "annual_execution_2024_authorized": false,
-  "annual_execution_authorized": true,
+  "annual_execution_authorized": false,
   "categorical_dictionary_hash": "924173aec9086dc692a20539eadde9b7f92218dc94e7b13c629f7aef454a579b",
   "coherent_lineage_amendment_hash": "a18d75a61c1ce981f6c5c784145d6cb41482ad75dce015ea9a901d9e22dd3160",
   "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
@@ -43,6 +43,6 @@
   "required_group7_closure_tag": "moebot-group7-v0.7.5-closure",
   "required_group7_data_release_tag": "moebot-group7-v0.7.5",
   "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
-  "status": "ENGINE_TECHNICAL_CANDIDATE_PASS_2023_AUTHORIZED",
+  "status": "DESIGN_FROZEN_ENGINE_BUILD_AUTHORIZED",
   "value_binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b"
 }

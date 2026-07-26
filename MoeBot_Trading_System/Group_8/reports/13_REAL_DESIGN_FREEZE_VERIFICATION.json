@@ -6,9 +6,9 @@
   "definition_count": 45,
   "definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
   "design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
-  "format_version": 3,
-  "phase": "REAL_DESIGN_FREEZE_V3",
-  "report_hash": "1c4115b71f93d407e6be75939982319493529914535e651f13a9bd4fecf2dc2b",
+  "format_version": 1,
+  "phase": "REAL_DESIGN_FREEZE",
+  "report_hash": "940229b555fcf91e76ea3fa9bc70f5f7893f94c613d03070674bd1f5bbc5f43b",
   "schema_sha256": "69382b60266857c0d5aa8662ee6d98d47ae20288bac4d76149aba438eec2d6c1",
   "status": "PASS",
   "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a"
