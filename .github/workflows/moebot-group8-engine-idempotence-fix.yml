@@ -1,0 +1,137 @@
+name: MoeBot Group 8 Lifecycle Idempotence Fix
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ENGINE_IDEMPOTENCE_FIX.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  EXPECTED_OLD_ENGINE_SHA256: b6387dae6ca911d7d1cf43b3ce65cb35383cc125d501478d68187b237f030db7
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  patch-review-retest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify exact reviewed candidate and patch lifecycle idempotence
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          engine=root/"code/moebot_group8_engine_v0_8_0.py"
+          tests=root/"tests/test_group8_engine_v0_8_0.py"
+          status_path=root/"STATUS.json"
+          manifest=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          status=json.loads(status_path.read_text())
+          actual=hashlib.sha256(engine.read_bytes()).hexdigest()
+          expected="b6387dae6ca911d7d1cf43b3ce65cb35383cc125d501478d68187b237f030db7"
+          if actual!=expected or manifest["identities"]["engine"]["sha256"]!=expected:
+              raise SystemExit(f"reviewed engine identity mismatch: {actual}")
+          if status.get("annual_execution_2023_authorized") is not True or status.get("annual_execution_2024_authorized") is not False:
+              raise SystemExit("unexpected pre-fix annual authorization state")
+
+          text=engine.read_text()
+          old='''        self._insert_immutable("narrative_hypothesis", "hypothesis_id", hid, row, hash_column="hypothesis_hash", expected_hash=h); self.definition_coverage[definition_id] += 1; self._write_evidence_chain("narrative_hypothesis", hid, refs); self._append_lifecycle(hid, initial_state, event_time=event_time, availability_time=availability_time, source_type=None, source_id=None, details={"creation": True}); return hid\n'''
+          new='''        inserted = self._insert_immutable("narrative_hypothesis", "hypothesis_id", hid, row, hash_column="hypothesis_hash", expected_hash=h)\n        self.definition_coverage[definition_id] += 1\n        self._write_evidence_chain("narrative_hypothesis", hid, refs)\n        if inserted:\n            self._append_lifecycle(hid, initial_state, event_time=event_time, availability_time=availability_time, source_type=None, source_id=None, details={"creation": True})\n        return hid\n'''
+          if text.count(old)!=1:
+              raise SystemExit(f"expected one exact hypothesis lifecycle creation block, found {text.count(old)}")
+          engine.write_text(text.replace(old,new))
+
+          ttext=tests.read_text()
+          old_tests="['price_action_pattern_candidate','school_interpretation','narrative_hypothesis','evidence_chain']"
+          new_tests="['price_action_pattern_candidate','school_interpretation','narrative_hypothesis','hypothesis_lifecycle_event','evidence_chain']"
+          if ttext.count(old_tests)!=1:
+              raise SystemExit(f"expected one idempotence table list, found {ttext.count(old_tests)}")
+          tests.write_text(ttext.replace(old_tests,new_tests))
+
+          report={
+              "format_version":1,
+              "status":"BLOCKING_GAP_FIXED_PENDING_RETEST",
+              "phase":"ENGINE_BUILD_REVIEW_GAP_ANALYSIS",
+              "gap_id":"G8-ENGINE-IDEMPOTENCE-001",
+              "severity":"BLOCKING",
+              "root_cause":"Narrative hypothesis deterministic duplicate handling did not guard the initial lifecycle append. A rerun could append a new lifecycle ordinal even when the hypothesis creation row already existed.",
+              "evidence":{
+                  "previous_engine_sha256":expected,
+                  "previous_engine_build_manifest_hash":manifest["manifest_hash"],
+                  "previous_technical_audit_hash":manifest["technical_audit_hash"],
+                  "test_gap":"The prior idempotence count set omitted hypothesis_lifecycle_event."
+              },
+              "minimal_correct_fix":"Append the initial lifecycle event only when narrative_hypothesis was newly inserted; extend the idempotence regression to include hypothesis_lifecycle_event.",
+              "design_changed":False,
+              "thresholds_changed":False,
+              "upstream_changed":False,
+              "2023_authorized_after_gap_detection":False,
+              "2024_authorized":False
+          }
+          report["report_hash"]=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+          (root/"reports/21_ENGINE_BUILD_REVIEW_GAP_ANALYSIS.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+          status["annual_execution_authorized"]=False
+          status["annual_execution_2023_authorized"]=False
+          status["annual_execution_2024_authorized"]=False
+          status["status"]="ENGINE_REVIEW_BLOCKING_GAP_FIXED_PENDING_RETEST"
+          status["officially_closed"]=False
+          status["engine_build"]["review_gap_id"]="G8-ENGINE-IDEMPOTENCE-001"
+          status["engine_build"]["status"]="BLOCKING_GAP_FIXED_PENDING_RETEST"
+          status_path.write_text(json.dumps(status,indent=2,sort_keys=True)+"\n")
+          print({"status":"PATCHED","gap_id":"G8-ENGINE-IDEMPOTENCE-001"})
+          PY
+      - name: Compile patched engine and tests
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+      - name: Retest full frozen technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+      - name: Independent lifecycle-idempotence verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          engine=(root/"code/moebot_group8_engine_v0_8_0.py").read_text()
+          tests=(root/"tests/test_group8_engine_v0_8_0.py").read_text()
+          status=json.loads((root/"STATUS.json").read_text())
+          report=json.loads((root/"reports/21_ENGINE_BUILD_REVIEW_GAP_ANALYSIS.json").read_text())
+          required=[
+              'inserted = self._insert_immutable("narrative_hypothesis"',
+              'if inserted:',
+              'hypothesis_lifecycle_event',
+          ]
+          if any(x not in engine+tests for x in required): raise SystemExit("idempotence fix evidence missing")
+          if status.get("annual_execution_2023_authorized") or status.get("annual_execution_2024_authorized"):
+              raise SystemExit("annual execution must remain revoked until technical candidate refreeze")
+          if report.get("status")!="BLOCKING_GAP_FIXED_PENDING_RETEST": raise SystemExit("gap report status mismatch")
+          print({"status":"PASS","patched_engine_sha256":hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest(),"2023_authorized":False,"2024_authorized":False})
+          PY
+      - name: Commit reviewed fix to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/reports/21_ENGINE_BUILD_REVIEW_GAP_ANALYSIS.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Fix Group 8 lifecycle idempotence gap [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
