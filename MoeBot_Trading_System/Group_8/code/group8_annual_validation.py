@@ -112,6 +112,7 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
     material = json.loads(args.materializer_report.read_text())
     engine_audit = json.loads(args.engine_audit.read_text())
     failures: list[str] = []
+    locked_context_violations = 0
 
     if build.get("status") != "TECHNICAL_CANDIDATE_PASS": failures.append("engine_build_manifest_not_pass")
     if status.get("engine_build", {}).get("engine_build_manifest_hash") != build.get("manifest_hash"): failures.append("status_engine_manifest_hash_mismatch")
@@ -191,6 +192,8 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
             causal_errors[t] = n
             if n: failures.append(f"causality:{t}:{n}")
 
+        locked_context_violations = int(out.execute("""SELECT COUNT(*) FROM school_interpretation i JOIN invalidation_record inv ON inv.subject_type='price_action_pattern_candidate' AND inv.rule_id='pa_bounded_range_context.invalidation_rule' AND inv.subject_id=json_extract(i.upstream_refs_json,'$[0].source_id') WHERE i.definition_id='ict_premium_discount_context' AND i.availability_time>=inv.availability_time""").fetchone()[0])
+        if locked_context_violations: failures.append(f"locked_context:ict_premium_discount_context:{locked_context_violations}")
         before_creation = int(out.execute("SELECT COUNT(*) FROM hypothesis_lifecycle_event l JOIN narrative_hypothesis h USING(hypothesis_id) WHERE l.availability_time<h.availability_time").fetchone()[0])
         if before_creation: failures.append(f"lifecycle_before_creation:{before_creation}")
         terminal = int(out.execute("SELECT COUNT(DISTINCT hypothesis_id) FROM hypothesis_lifecycle_event WHERE lifecycle_state IN ('invalidated','completed_descriptive','right_censored')").fetchone()[0])
@@ -283,6 +286,7 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
         "materializer_report_hash": material.get("report_hash"),
         "engine_audit_hash": engine_audit.get("report_hash"),
         "causality_errors": causal_errors,
+        "locked_context_violations": locked_context_violations,
         "upstream_reference_integrity": {"unresolved_group8": unresolved_group8, "unresolved_upstream": unresolved_upstream, "unknown_source_types": sorted(set(unknown_source_types))},
         "lifecycle": {"hypotheses": hypotheses, "initial": initial, "terminal": terminal, "before_creation": before_creation},
         "counts": counts,

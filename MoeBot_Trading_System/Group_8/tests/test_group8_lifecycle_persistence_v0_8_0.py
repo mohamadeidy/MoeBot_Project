@@ -120,6 +120,34 @@ class Group8LifecyclePersistenceTests(unittest.TestCase):
             self.assertGreater(state, 0)
             con.close()
 
+    def test_ict_premium_discount_never_survives_locked_range_invalidation(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); stage = root / "stage.sqlite"; output = root / "out.sqlite"
+            base.make_stage(stage)
+            con = sqlite3.connect(stage)
+            columns = [r[1] for r in con.execute("PRAGMA table_info('group4__zone_transitions')")]
+            row = {c: None for c in columns}
+            row.update(transition_id="zlow_invalid_locked_context_regression", zone_id="zlow", bar_id=22, transition_time=1700000000+22*900,
+                       from_status="active", to_status="invalidated", role_after="support", reason="fixture_break", transition_hash="zlow-invalid-locked-context-regression")
+            con.execute(f"INSERT INTO group4__zone_transitions ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})", [row[c] for c in columns])
+            con.commit(); con.close()
+            self._run(stage, output)
+            con = sqlite3.connect(output)
+            violations = con.execute("""
+                SELECT COUNT(*)
+                FROM school_interpretation i
+                JOIN invalidation_record inv
+                  ON inv.subject_type='price_action_pattern_candidate'
+                 AND inv.rule_id='pa_bounded_range_context.invalidation_rule'
+                 AND inv.subject_id=json_extract(i.upstream_refs_json,'$[0].source_id')
+                WHERE i.definition_id='ict_premium_discount_context'
+                  AND i.availability_time>=inv.availability_time
+            """).fetchone()[0]
+            invalidated = con.execute("SELECT COUNT(DISTINCT subject_id) FROM invalidation_record WHERE rule_id='pa_bounded_range_context.invalidation_rule'").fetchone()[0]
+            self.assertGreater(invalidated, 0)
+            self.assertEqual(violations, 0)
+            con.close()
+
     def test_bounded_range_right_censors_without_invalidation(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); stage = root / "stage.sqlite"; output = root / "out.sqlite"
