@@ -1,0 +1,21 @@
+{
+  "2023_authorized_after_gap_detection": false,
+  "2024_authorized": false,
+  "design_changed": false,
+  "evidence": {
+    "previous_engine_build_manifest_hash": "9bd7de153f83786f0cb6610774b0e2af07aec80360f784d93dcd5554b4f56819",
+    "previous_engine_sha256": "b6387dae6ca911d7d1cf43b3ce65cb35383cc125d501478d68187b237f030db7",
+    "previous_technical_audit_hash": "2e073af24c6b28be21d24b88fa469779729fd63ccd60f5af77156c23edace6c7",
+    "test_gap": "The prior idempotence count set omitted hypothesis_lifecycle_event."
+  },
+  "format_version": 1,
+  "gap_id": "G8-ENGINE-IDEMPOTENCE-001",
+  "minimal_correct_fix": "Append the initial lifecycle event only when narrative_hypothesis was newly inserted; extend the idempotence regression to include hypothesis_lifecycle_event.",
+  "phase": "ENGINE_BUILD_REVIEW_GAP_ANALYSIS",
+  "report_hash": "48ec2b260ca7891529959f5d43730e44d43dbd6863f0ef2ddd9196b1f90077e0",
+  "root_cause": "Narrative hypothesis deterministic duplicate handling did not guard the initial lifecycle append. A rerun could append a new lifecycle ordinal even when the hypothesis creation row already existed.",
+  "severity": "BLOCKING",
+  "status": "BLOCKING_GAP_FIXED_PENDING_RETEST",
+  "thresholds_changed": false,
+  "upstream_changed": false
+}

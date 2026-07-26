@@ -82,7 +82,7 @@ class Group8Tests(unittest.TestCase):
     def test_idempotence_and_conflicting_duplicate_rejection(self):
         td,stage,out,report=self.run_engine()
         try:
-            con=sqlite3.connect(out);before={t:con.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0] for t in ['price_action_pattern_candidate','school_interpretation','narrative_hypothesis','evidence_chain']};con.close();eng=Group8Engine(staging_db=stage,output_db=out,artifacts_root=ART,year=2023,symbol='XAUUSD_');r2=eng.run();eng.close();self.assertEqual(r2['status'],'PASS',r2['failures']);con=sqlite3.connect(out);after={t:con.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0] for t in before};con.close();self.assertEqual(before,after)
+            con=sqlite3.connect(out);before={t:con.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0] for t in ['price_action_pattern_candidate','school_interpretation','narrative_hypothesis','hypothesis_lifecycle_event','evidence_chain']};con.close();eng=Group8Engine(staging_db=stage,output_db=out,artifacts_root=ART,year=2023,symbol='XAUUSD_');r2=eng.run();eng.close();self.assertEqual(r2['status'],'PASS',r2['failures']);con=sqlite3.connect(out);after={t:con.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0] for t in before};con.close();self.assertEqual(before,after)
         finally:td.cleanup()
     def test_read_only_upstream_and_immutable_creation(self):
         td,stage,out,report=self.run_engine()
