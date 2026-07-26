@@ -1,0 +1,23 @@
+{
+  "anchor_counts": {
+    "audit_counts": 1,
+    "audit_hashes": 1,
+    "audit_paths": 1,
+    "audit_texts": 1,
+    "continuation_guard": 1,
+    "finalizer_files": 1,
+    "finalizer_status": 1,
+    "hypothesis_initial": 1,
+    "pattern_state": 1,
+    "run_block": 1,
+    "structural_import": 1,
+    "workflow_materializer_artifact": 0,
+    "workflow_test": 1,
+    "workflow_test_artifact": 0
+  },
+  "annual_execution_2023_authorized": true,
+  "annual_execution_2024_authorized": false,
+  "engine_sha256": "58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88",
+  "format_version": 1,
+  "status": "FAIL"
+}
