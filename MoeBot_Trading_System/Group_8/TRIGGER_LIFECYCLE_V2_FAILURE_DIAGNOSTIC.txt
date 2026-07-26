@@ -1,0 +1,1 @@
+Reproduce failed lifecycle hardening v2 run 30194718968 exactly enough to capture failing unittest names and traceback/assertion context. Commit only the permanent diagnostic JSON report; do not mutate engine, design, dependencies, thresholds, data, or authorization.
