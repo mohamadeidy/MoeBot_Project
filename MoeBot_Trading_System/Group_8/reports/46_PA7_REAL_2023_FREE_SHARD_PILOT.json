@@ -1,0 +1,38 @@
+{
+  "bucket_count": 8,
+  "bucket_index": 0,
+  "candidate_rows": 2703189,
+  "compressed_shard_size_bytes": 1056334855,
+  "definition_coverage": {
+    "pa_breakout_atr_buffer": 451329,
+    "pa_breakout_exact": 451226,
+    "pa_failed_breakout": 900436,
+    "pa_retest": 900198
+  },
+  "elapsed_seconds": 1239,
+  "format_version": 1,
+  "free_only": true,
+  "hard_guard_bytes": 2500000000,
+  "materialization_report_hash": "317dd63a27ee86d89e0c5d7596bf443c0d0368139887f173306113e7b9a3622b",
+  "oos_2024_accessed": false,
+  "paid_runner_used": false,
+  "paid_service_used": false,
+  "peak_rss_bytes": 775229440,
+  "phase": "PA7_REAL_2023_FREE_SHARD_PILOT",
+  "raw_shard_size_bytes": 5998891008,
+  "report_hash": "a755eea4be5aeb68002734c703d943440c6cc8c8c3b007377f3c43682fabeddb",
+  "root_month": "2023-01",
+  "shard_logical_hashes": {
+    "price_action_pattern_candidate": "f9183ec8f87709a8c1182674d96c6fba01bad9f1481e579e4c918191e82d1c72",
+    "price_action_pattern_state": "aa9456d2029a2b2a339de8614d3fe2bd4fc4d0f56c811db177ebc0635a0713b3"
+  },
+  "shard_manifest_hash": "ba696b95c56a5f692eb28c0011a8508f5f0b9e2a40ca3e169a658a0b04aeddb9",
+  "soft_target_bytes": 1500000000,
+  "state_rows": 2703189,
+  "status": "PASS",
+  "symbol": "XAUUSD_",
+  "timeframe": "M1",
+  "within_hard_guard": false,
+  "within_soft_target": false,
+  "year": 2023
+}
