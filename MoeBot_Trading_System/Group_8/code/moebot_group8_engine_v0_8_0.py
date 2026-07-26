@@ -292,7 +292,12 @@ class Group8Engine:
         creation = {"definition_id": definition_id, "school": definition["school"], "symbol": symbol, "timeframe": timeframe, "direction": direction, "event_time": int(event_time), "confirmation_time": int(confirmation_time), "availability_time": int(availability_time), "initial_state": initial_state, "mandatory_evidence_complete": bool(complete), "ambiguous": bool(ambiguous), "supporting_evidence_count": support_count, "conflicting_evidence_count": int(conflict_count), "evidence_strength": json_safe(evidence_strength or {}), "upstream_refs": refs, "reasons": list(reasons), "engine_version": ENGINE_VERSION, "schema_version": SCHEMA_VERSION, "config_id": CONFIG_ID}
         hid = deterministic_id("g8h", creation); h = stable_hash(creation)
         row = {"hypothesis_id": hid, "definition_id": definition_id, "school_id": SCHOOL_IDS[definition["school"]], "symbol": symbol, "timeframe": timeframe, "direction": direction, "event_time": int(event_time), "confirmation_time": int(confirmation_time), "availability_time": int(availability_time), "initial_state": initial_state, "mandatory_evidence_complete": 1 if complete else 0, "ambiguous": 1 if ambiguous else 0, "supporting_evidence_count": support_count, "conflicting_evidence_count": int(conflict_count), "evidence_strength_json": canonical_json(json_safe(evidence_strength or {})), "upstream_refs_json": canonical_json(refs), "reasons_json": canonical_json(list(reasons)), "hypothesis_hash": h}
-        self._insert_immutable("narrative_hypothesis", "hypothesis_id", hid, row, hash_column="hypothesis_hash", expected_hash=h); self.definition_coverage[definition_id] += 1; self._write_evidence_chain("narrative_hypothesis", hid, refs); self._append_lifecycle(hid, initial_state, event_time=event_time, availability_time=availability_time, source_type=None, source_id=None, details={"creation": True}); return hid
+        inserted = self._insert_immutable("narrative_hypothesis", "hypothesis_id", hid, row, hash_column="hypothesis_hash", expected_hash=h)
+        self.definition_coverage[definition_id] += 1
+        self._write_evidence_chain("narrative_hypothesis", hid, refs)
+        if inserted:
+            self._append_lifecycle(hid, initial_state, event_time=event_time, availability_time=availability_time, source_type=None, source_id=None, details={"creation": True})
+        return hid
 
     def _append_lifecycle(self, hypothesis_id: str, state: str, *, event_time: int, availability_time: int, source_type: str | None, source_id: str | None, details: Mapping[str, Any]) -> str:
         if state not in LIFECYCLE_STATES: raise Group8InvariantError(f"invalid lifecycle state {state}")
