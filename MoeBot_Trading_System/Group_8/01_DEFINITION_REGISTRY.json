@@ -181,16 +181,28 @@
     },
     "pa_breakout_atr_buffer": {
       "availability": "max inputs",
-      "enumeration_rule": "same independent boundary enumeration as pa_breakout_exact",
+      "enumeration_rule": "same independent transition-event state machine as pa_breakout_exact, keyed separately for pa_breakout_atr_buffer; no cross-variant deduplication",
+      "initial_state_rule": "initialize NOT_BEYOND_BOUNDARY at first causal eligibility for this variant; emit only on first confirmed qualifying close",
       "kind": "boundary_event",
+      "lifecycle_identity_rule": "state is scoped to the exact boundary identity and this PA7 variant; no carry to another boundary identity",
       "mandatory_inputs": [
         "closed_bar",
         "locked_boundary",
         "causal_atr14"
       ],
       "pass_rule": "bullish close >= upper + config.breakout_atr_buffer * ATR; bearish close <= lower - buffer",
+      "persistent_state_records_forbidden": true,
+      "rearm_rule": "a causally later eligible confirmed close that no longer satisfies this variant's BEYOND predicate returns state to NOT_BEYOND_BOUNDARY; a later crossing may emit again",
       "school": "classical_price_action",
-      "version": "PA7A.1"
+      "state_key": [
+        "symbol",
+        "timeframe",
+        "direction",
+        "exact_boundary_identity",
+        "pa7_variant"
+      ],
+      "transition_rule": "NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY only",
+      "version": "PA7A.2"
     },
     "pa_breakout_exact": {
       "availability": "max(bar, locked boundary)",
@@ -201,29 +213,53 @@
         "group7_zone_edge",
         "pa_bounded_range_edge"
       ],
-      "enumeration_rule": "one record per qualifying (bar_id,boundary_source_id,boundary_side); all boundaries are evaluated independently",
+      "enumeration_rule": "one record only for each causal NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY transition for the exact state key; persistent BEYOND state emits no additional records",
+      "initial_state_rule": "when an exact boundary identity first becomes causally eligible, initialize that PA7 variant/direction state as NOT_BEYOND_BOUNDARY; the first confirmed close satisfying the variant may create the transition event",
       "kind": "boundary_event",
+      "lifecycle_identity_rule": "state belongs only to the exact boundary identity and is never carried to a different boundary identity; lifecycle termination retires that identity's state",
       "mandatory_inputs": [
         "closed_bar",
         "one_locked_causally_available_boundary"
       ],
       "pass_rule": "bullish: close > locked upper boundary; bearish: close < locked lower boundary",
+      "persistent_state_records_forbidden": true,
+      "rearm_rule": "after a later causally eligible confirmed closed bar does not satisfy this variant's BEYOND predicate, state is NOT_BEYOND_BOUNDARY and a subsequent qualifying confirmed close may create a new transition; no future information is used",
       "school": "classical_price_action",
-      "version": "PA7E.1",
+      "state_key": [
+        "symbol",
+        "timeframe",
+        "direction",
+        "exact_boundary_identity",
+        "pa7_variant"
+      ],
+      "transition_rule": "NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY only",
+      "version": "PA7E.2",
       "wick_only_pass": false
     },
     "pa_breakout_point_buffer": {
       "availability": "max inputs",
-      "enumeration_rule": "same independent boundary enumeration as pa_breakout_exact",
+      "enumeration_rule": "same independent transition-event state machine as pa_breakout_exact, keyed separately for pa_breakout_point_buffer; no cross-variant deduplication",
+      "initial_state_rule": "initialize NOT_BEYOND_BOUNDARY at first causal eligibility for this variant; emit only on first confirmed qualifying close",
       "kind": "boundary_event",
+      "lifecycle_identity_rule": "state is scoped to the exact boundary identity and this PA7 variant; no carry to another boundary identity",
       "mandatory_inputs": [
         "closed_bar",
         "locked_boundary",
         "verified_price_increment"
       ],
       "pass_rule": "bullish close >= upper + one increment; bearish close <= lower - one increment",
+      "persistent_state_records_forbidden": true,
+      "rearm_rule": "a causally later eligible confirmed close that no longer satisfies this variant's BEYOND predicate returns state to NOT_BEYOND_BOUNDARY; a later crossing may emit again",
       "school": "classical_price_action",
-      "version": "PA7P.1"
+      "state_key": [
+        "symbol",
+        "timeframe",
+        "direction",
+        "exact_boundary_identity",
+        "pa7_variant"
+      ],
+      "transition_rule": "NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY only",
+      "version": "PA7P.2"
     },
     "pa_candle_anatomy": {
       "availability": "bar.available_at",
@@ -593,13 +629,26 @@
       "version": "WYC2S.1"
     }
   },
+  "design_amendment": {
+    "2024_oos_used": false,
+    "amendment_id": "G8-PA7-TRANSITION-EVENT-AMENDMENT-001",
+    "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
+    "previous_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+    "reason": "approved correction of frozen PA7 persistent-state cardinality contradiction",
+    "semantics": "PA7_TRANSITION_EVENT_ENUMERATION",
+    "variants": {
+      "pa_breakout_atr_buffer": "PA7A.2",
+      "pa_breakout_exact": "PA7E.2",
+      "pa_breakout_point_buffer": "PA7P.2"
+    }
+  },
   "design_contract_audit_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
   "engine_version": "0.8.0",
   "engine_version_candidate": "0.8.0",
-  "format_version": 2,
+  "format_version": 3,
   "global_rules": [
     "Definitions are evaluated independently; passing one never implies another passed.",
-    "Create one record for every qualifying evidence tuple unless a definition explicitly states first-qualifying resolution; never select a preferred object or school.",
+    "Create one record for every qualifying evidence tuple unless a definition explicitly states transition-event or first-qualifying resolution; transition-event definitions emit only on their frozen causal state transition; never select a preferred object or school.",
     "Availability equals the maximum availability of all mandatory inputs and the resolving closed bar when one is required.",
     "Creation records are immutable; later state, contradiction and invalidation are append-only.",
     "No future-return, MFE, MAE, PnL, profitability, entry, stop, target, size or preferred-direction field may participate in a definition.",
@@ -610,7 +659,7 @@
   "lineage": "dukascopy_rebuild_v1_corrected_runtime_v3_group8_v1",
   "logical_dependency_lineage_id": "moebot-group8-upstream-corrected-v3-g7-v075-v1",
   "reference_resolution_hash": "ed5595bb8350087714cf96718dfe9277c6ffe817cd03b124c25e44aeebb8047d",
-  "registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+  "registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
   "schema_version": "8.0.0",
   "schema_version_candidate": "8.0.0",
   "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",

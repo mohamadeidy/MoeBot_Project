@@ -4,12 +4,31 @@
   "categorical_dictionary_hash": "924173aec9086dc692a20539eadde9b7f92218dc94e7b13c629f7aef454a579b",
   "coherent_lineage_amendment_hash": "a18d75a61c1ce981f6c5c784145d6cb41482ad75dce015ea9a901d9e22dd3160",
   "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
-  "definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
   "dependency_release_anchor_tag": "moebot-sqlite-rebuild-v1",
+  "design_amendment": {
+    "amendment_id": "G8-PA7-TRANSITION-EVENT-AMENDMENT-001",
+    "amendment_version": 1,
+    "approved_semantics": "PA7_TRANSITION_EVENT_ENUMERATION",
+    "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
+    "groups_1_7_changed": false,
+    "oos_2024_accessed": false,
+    "previous_definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+    "previous_design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
+    "schema_changed": false,
+    "scope": [
+      "pa_breakout_exact",
+      "pa_breakout_atr_buffer",
+      "pa_breakout_point_buffer",
+      "PA7 enumeration state machine"
+    ],
+    "thresholds_changed": false,
+    "upstream_lineage_changed": false
+  },
   "design_contract_audit_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
-  "design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
+  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
   "engine_version": "0.8.0",
-  "format_version": 4,
+  "format_version": 5,
   "group7_logic_source": {
     "closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
     "closure_tag": "moebot-group7-v0.7.5-closure",
@@ -17,6 +36,7 @@
     "engine_version": "0.7.5",
     "schema_version": "7.5.0"
   },
+  "identity_hash_algorithm": "sha256(canonical_json_without_design_freeze_hash)",
   "lineage": "dukascopy_rebuild_v1_corrected_runtime_v3_group8_v1",
   "logical_dependency_lineage_id": "moebot-group8-upstream-corrected-v3-g7-v075-v1",
   "reference_resolution_hash": "ed5595bb8350087714cf96718dfe9277c6ffe817cd03b124c25e44aeebb8047d",

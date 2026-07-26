@@ -22,9 +22,9 @@ ENGINE_VERSION = "0.8.0"
 SCHEMA_VERSION = "8.0.0"
 CONFIG_ID = "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded"
 EXPECTED_DEFINITION_COUNT = 45
-EXPECTED_DEFINITION_REGISTRY_HASH = "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579"
+EXPECTED_DEFINITION_REGISTRY_HASH = "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9"
 EXPECTED_SCHEMA_SHA256 = "69382b60266857c0d5aa8662ee6d98d47ae20288bac4d76149aba438eec2d6c1"
-EXPECTED_DESIGN_FREEZE_HASH = "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672"
+EXPECTED_DESIGN_FREEZE_HASH = "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4"
 EXPECTED_LOGICAL_LINEAGE = "moebot-group8-upstream-corrected-v3-g7-v075-v1"
 
 FORBIDDEN_OUTPUT_TOKENS = {
@@ -415,20 +415,143 @@ class Group8Engine:
             yield {"group":"group7","type":"institutional_zones","id":r["zone_id"],"availability":int(r["availability_time"]),"event":int(r["event_time"]),"lower":float(r["lower"]),"upper":float(r["upper"])}
         for r in self.out.execute("SELECT candidate_id,availability_time,event_time,lower,upper FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context' AND symbol=? AND timeframe=? AND availability_time<=?", (bar.symbol,bar.timeframe,bar.available_at)): yield {"group":"group8","type":"pa_bounded_range_context","id":r["candidate_id"],"availability":int(r["availability_time"]),"event":int(r["event_time"]),"lower":float(r["lower"]),"upper":float(r["upper"])}
 
+    def _pa7_boundary_catalog(self, symbol: str, tf: str) -> list[dict[str, Any]]:
+        """Load each PA7 boundary identity once; eligibility is checked causally later."""
+        rows: list[dict[str, Any]] = []
+        for r in self.input.execute("SELECT * FROM group4__zones WHERE symbol=? AND timeframe=?", (symbol, tf)):
+            rows.append({"group":"group4","type":"zones","id":str(r["zone_id"]),"availability":int(r["available_at"]),"event":int(r["origin_time"]),"lower":float(r["lower"]),"upper":float(r["upper"]),"expires_at":int(r["expires_at"]) if r["expires_at"] is not None else None,"base_status":str(r["status"] or "active")})
+        for r in self.input.execute("SELECT * FROM group5__liquidity_pools WHERE symbol=? AND timeframe=?", (symbol, tf)):
+            vals=[("anchor",r["anchor_price"]),("lower",r["lower"]),("upper",r["upper"])]; seen=set()
+            for label,val in vals:
+                if val is None or float(val) in seen: continue
+                seen.add(float(val)); rows.append({"group":"group5","type":"liquidity_pools","id":f"{r['pool_id']}:{label}","source_id":str(r["pool_id"]),"availability":int(r["available_at"]),"event":int(r["origin_time"]),"lower":float(val),"upper":float(val),"expires_at":int(r["expires_at"]) if r["expires_at"] is not None else None})
+        for t,idc,avc,lowc,upc,eventc in [("fvg_events","fvg_id","availability_time","lower","upper","creation_time"),("imbalance_variants","variant_id","availability_time","lower","upper","availability_time"),("liquidity_voids","void_id","availability_time","lower","upper","start_time"),("bpr_relations","bpr_id","availability_time","lower","upper","creation_time")]:
+            cols={x[1] for x in self.input.execute(f"PRAGMA table_info('group6__{t}')")}; event_expr=eventc if eventc in cols else avc
+            for r in self.input.execute(f"SELECT {idc} id,{avc} av,{lowc} lo,{upc} hi,{event_expr} ev FROM group6__{t} WHERE timeframe=?", (tf,)):
+                rows.append({"group":"group6","type":t,"id":str(r["id"]),"availability":int(r["av"]),"event":int(r["ev"]),"lower":float(r["lo"]),"upper":float(r["hi"])})
+        for r in self.input.execute("SELECT * FROM group7__institutional_zones WHERE timeframe=?", (tf,)):
+            rows.append({"group":"group7","type":"institutional_zones","id":str(r["zone_id"]),"availability":int(r["availability_time"]),"event":int(r["event_time"]),"lower":float(r["lower"]),"upper":float(r["upper"])})
+        for r in self.out.execute("SELECT candidate_id,availability_time,event_time,lower,upper FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context' AND symbol=? AND timeframe=?", (symbol,tf)):
+            rows.append({"group":"group8","type":"pa_bounded_range_context","id":str(r["candidate_id"]),"availability":int(r["availability_time"]),"event":int(r["event_time"]),"lower":float(r["lower"]),"upper":float(r["upper"])})
+        return rows
+
+    def _pa7_boundary_active_at(self, bnd: Mapping[str, Any], availability: int) -> bool:
+        if int(bnd["availability"]) > int(availability): return False
+        expires=bnd.get("expires_at")
+        if expires is not None and int(expires) < int(availability): return False
+        if bnd["group"]=="group4":
+            return self._status_active(self._active_zone_status_at(str(bnd["id"]),str(bnd.get("base_status","active")),int(availability)))
+        if bnd["group"]=="group7":
+            tr=self.input.execute("SELECT status FROM group7__zone_state_transitions WHERE zone_id=? AND transition_time<=? ORDER BY transition_time DESC,transition_ordinal DESC LIMIT 1", (bnd["id"],int(availability))).fetchone()
+            return not tr or self._status_active(str(tr[0]))
+        return True
+
+    def _pa7_beyond(self, definition_id: str, direction: str, bar: Bar, bnd: Mapping[str, Any], *, increment: float | None, atr_fraction: float) -> bool | None:
+        level=float(bnd["upper"] if direction=="bullish" else bnd["lower"])
+        if definition_id=="pa_breakout_exact":
+            return bar.close>level if direction=="bullish" else bar.close<level
+        if definition_id=="pa_breakout_point_buffer":
+            if increment is None: return None
+            return bar.close>=level+increment if direction=="bullish" else bar.close<=level-increment
+        if definition_id=="pa_breakout_atr_buffer":
+            atr=self.atr_by_bar.get(bar.id)
+            if atr in (None,0): return None
+            buffer=atr_fraction*float(atr)
+            return bar.close>=level+buffer if direction=="bullish" else bar.close<=level-buffer
+        raise Group8InvariantError(f"unknown PA7 variant {definition_id}")
+
+    def _pa7_state_boundary_identity(self, bnd: Mapping[str, Any], direction: str) -> str:
+        side="upper" if direction=="bullish" else "lower"
+        return f"{bnd['group']}:{bnd['type']}:{bnd['id']}:{side}"
+
+    def _pa7_emit_transition(self, definition_id: str, direction: str, bar: Bar, bnd: Mapping[str, Any], *, increment: float | None, atr_fraction: float, previous_bar_id: int | None, initialization_transition: bool) -> None:
+        side="upper" if direction=="bullish" else "lower"; level=float(bnd["upper"] if direction=="bullish" else bnd["lower"])
+        state_boundary_identity=self._pa7_state_boundary_identity(bnd,direction)
+        state_payload={"symbol":bar.symbol,"timeframe":bar.timeframe,"direction":direction,"boundary_identity":state_boundary_identity,"variant":definition_id}
+        state_key=deterministic_id("g8pa7state",state_payload)
+        features={"boundary_identity":bnd["id"],"state_boundary_identity":state_boundary_identity,"boundary_side":side,"locked_level":level,"pa7_variant":definition_id,"state_key":state_key,"transition_from":"NOT_BEYOND_BOUNDARY","transition_to":"BEYOND_BOUNDARY","previous_eligible_bar_id":previous_bar_id,"initialization_transition":bool(initialization_transition)}
+        if definition_id=="pa_breakout_point_buffer": features["verified_increment"]=increment
+        elif definition_id=="pa_breakout_atr_buffer":
+            atr=self.atr_by_bar.get(bar.id); features["atr14"]=atr; features["buffer"]=atr_fraction*float(atr) if atr not in (None,0) else None
+        avail=max_time(bar.available_at,bnd["availability"])
+        refs=[self._ref("source","bars",bar.id,bar.available_at,event_time=bar.close_time,timeframe=bar.timeframe),self._ref(bnd["group"],bnd["type"],bnd.get("source_id",bnd["id"]),bnd["availability"],event_time=bnd["event"],timeframe=bar.timeframe,details={"boundary_identity":bnd["id"],"state_boundary_identity":state_boundary_identity,"lower":bnd["lower"],"upper":bnd["upper"]})]
+        self._write_pattern(definition_id,symbol=bar.symbol,timeframe=bar.timeframe,direction=direction,source_bar_id=bar.id,event_time=bar.close_time,confirmation_time=bar.close_time,availability_time=avail,lower=level,upper=level,features=features,upstream_refs=refs)
+
+    @staticmethod
+    def _pa7_window(levels: Sequence[float], *, definition_id: str, direction: str, previous_bar: Bar, bar: Bar, previous_atr: float | None, current_atr: float | None, increment: float | None, atr_fraction: float) -> tuple[int,int] | None:
+        import bisect
+        if definition_id=="pa_breakout_exact":
+            if direction=="bullish":
+                if bar.close<=previous_bar.close: return None
+                return bisect.bisect_left(levels,previous_bar.close),bisect.bisect_left(levels,bar.close)
+            if bar.close>=previous_bar.close: return None
+            return bisect.bisect_right(levels,bar.close),bisect.bisect_right(levels,previous_bar.close)
+        if definition_id=="pa_breakout_point_buffer":
+            if increment is None: return None
+            prev_adj=previous_bar.close-increment if direction=="bullish" else previous_bar.close+increment
+            cur_adj=bar.close-increment if direction=="bullish" else bar.close+increment
+        elif definition_id=="pa_breakout_atr_buffer":
+            if previous_atr in (None,0) or current_atr in (None,0): return None
+            prev_buf=atr_fraction*float(previous_atr); cur_buf=atr_fraction*float(current_atr)
+            prev_adj=previous_bar.close-prev_buf if direction=="bullish" else previous_bar.close+prev_buf
+            cur_adj=bar.close-cur_buf if direction=="bullish" else bar.close+cur_buf
+        else:
+            raise Group8InvariantError(f"unknown PA7 variant {definition_id}")
+        if direction=="bullish":
+            if cur_adj<=prev_adj: return None
+            return bisect.bisect_right(levels,prev_adj),bisect.bisect_right(levels,cur_adj)
+        if cur_adj>=prev_adj: return None
+        return bisect.bisect_left(levels,cur_adj),bisect.bisect_left(levels,prev_adj)
+
     def process_breakouts(self) -> None:
-        atr_fraction = float(self.config["pattern_thresholds"]["atr_buffer_breakout_fraction"])
-        for (symbol, tf), bars in sorted(self.bars_by_tf.items()):
-            increment = self.point_increment.get(symbol)
-            for bar in bars:
-                atr = self.atr_by_bar.get(bar.id)
-                for bnd in self._boundary_rows_for_bar(bar):
-                    avail = max_time(bar.available_at, bnd["availability"]); refs = [self._ref("source","bars",bar.id,bar.available_at,event_time=bar.close_time,timeframe=tf), self._ref(bnd["group"],bnd["type"],bnd.get("source_id",bnd["id"]),bnd["availability"],event_time=bnd["event"],timeframe=tf,details={"boundary_identity":bnd["id"],"lower":bnd["lower"],"upper":bnd["upper"]})]; tests = []
-                    if bar.close > bnd["upper"]: tests.append(("bullish",bnd["upper"]))
-                    if bar.close < bnd["lower"]: tests.append(("bearish",bnd["lower"]))
-                    for d, level in tests:
-                        self._write_pattern("pa_breakout_exact",symbol=symbol,timeframe=tf,direction=d,source_bar_id=bar.id,event_time=bar.close_time,confirmation_time=bar.close_time,availability_time=avail,lower=level,upper=level,features={"boundary_identity":bnd["id"],"boundary_side":"upper" if d=="bullish" else "lower","locked_level":level},upstream_refs=refs)
-                        if increment is not None and ((d=="bullish" and bar.close>=level+increment) or (d=="bearish" and bar.close<=level-increment)): self._write_pattern("pa_breakout_point_buffer",symbol=symbol,timeframe=tf,direction=d,source_bar_id=bar.id,event_time=bar.close_time,confirmation_time=bar.close_time,availability_time=avail,lower=level,upper=level,features={"boundary_identity":bnd["id"],"locked_level":level,"verified_increment":increment},upstream_refs=refs)
-                        if atr not in (None,0) and ((d=="bullish" and bar.close>=level+atr_fraction*atr) or (d=="bearish" and bar.close<=level-atr_fraction*atr)): self._write_pattern("pa_breakout_atr_buffer",symbol=symbol,timeframe=tf,direction=d,source_bar_id=bar.id,event_time=bar.close_time,confirmation_time=bar.close_time,availability_time=avail,lower=level,upper=level,features={"boundary_identity":bnd["id"],"locked_level":level,"atr14":atr,"buffer":atr_fraction*atr},upstream_refs=refs)
+        """Emit only causal PA7 NOT_BEYOND -> BEYOND transition events.
+
+        The level-indexed sweep is semantically required by PA7E/A/P.2 and avoids
+        persistent-state bar×boundary materialization. Re-arm is causal: after a
+        prior eligible bar is NOT_BEYOND, a later qualifying close may transition
+        again. Newly available boundaries initialize in NOT_BEYOND and may
+        transition on their first causally eligible confirmed close.
+        """
+        import bisect
+        atr_fraction=float(self.config["pattern_thresholds"]["atr_buffer_breakout_fraction"])
+        variants=("pa_breakout_exact","pa_breakout_point_buffer","pa_breakout_atr_buffer")
+        for (symbol,tf),bars in sorted(self.bars_by_tf.items()):
+            increment=self.point_increment.get(symbol); catalog=self._pa7_boundary_catalog(symbol,tf)
+            by_avail=sorted(catalog,key=lambda b:(int(b["availability"]),b["group"],b["type"],b["id"]))
+            avail_keys=[int(b["availability"]) for b in by_avail]
+            upper=sorted(catalog,key=lambda b:(float(b["upper"]),b["group"],b["type"],b["id"])); upper_levels=[float(b["upper"]) for b in upper]
+            lower=sorted(catalog,key=lambda b:(float(b["lower"]),b["group"],b["type"],b["id"])); lower_levels=[float(b["lower"]) for b in lower]
+            for idx,bar in enumerate(bars):
+                prev=bars[idx-1] if idx else None; current_atr=self.atr_by_bar.get(bar.id); previous_atr=self.atr_by_bar.get(prev.id) if prev else None
+                for definition_id in variants:
+                    if definition_id=="pa_breakout_point_buffer" and increment is None: continue
+                    current_evaluable=definition_id!="pa_breakout_atr_buffer" or current_atr not in (None,0)
+                    if not current_evaluable: continue
+                    previous_evaluable=prev is not None and (definition_id!="pa_breakout_atr_buffer" or previous_atr not in (None,0))
+                    emitted: set[tuple[str,str,str,str]] = set()
+                    if previous_evaluable and prev is not None:
+                        for direction,entries,levels in (("bullish",upper,upper_levels),("bearish",lower,lower_levels)):
+                            window=self._pa7_window(levels,definition_id=definition_id,direction=direction,previous_bar=prev,bar=bar,previous_atr=previous_atr,current_atr=current_atr,increment=increment,atr_fraction=atr_fraction)
+                            if window is None: continue
+                            lo,hi=window
+                            for bnd in entries[lo:hi]:
+                                if int(bnd["availability"])>prev.available_at: continue
+                                if not self._pa7_boundary_active_at(bnd,prev.available_at) or not self._pa7_boundary_active_at(bnd,bar.available_at): continue
+                                key=(bnd["group"],bnd["type"],bnd["id"],direction)
+                                if key in emitted: continue
+                                if self._pa7_beyond(definition_id,direction,bar,bnd,increment=increment,atr_fraction=atr_fraction) is True:
+                                    self._pa7_emit_transition(definition_id,direction,bar,bnd,increment=increment,atr_fraction=atr_fraction,previous_bar_id=prev.id,initialization_transition=False); emitted.add(key)
+                    if previous_evaluable and prev is not None:
+                        a=bisect.bisect_right(avail_keys,prev.available_at); z=bisect.bisect_right(avail_keys,bar.available_at); initial_candidates=by_avail[a:z]
+                    else:
+                        z=bisect.bisect_right(avail_keys,bar.available_at); initial_candidates=by_avail[:z]
+                    for bnd in initial_candidates:
+                        if not self._pa7_boundary_active_at(bnd,bar.available_at): continue
+                        for direction in ("bullish","bearish"):
+                            key=(bnd["group"],bnd["type"],bnd["id"],direction)
+                            if key in emitted: continue
+                            if self._pa7_beyond(definition_id,direction,bar,bnd,increment=increment,atr_fraction=atr_fraction) is True:
+                                self._pa7_emit_transition(definition_id,direction,bar,bnd,increment=increment,atr_fraction=atr_fraction,previous_bar_id=None,initialization_transition=True); emitted.add(key)
         self.out.commit()
 
     def process_context_rejections(self) -> None:

@@ -5,18 +5,21 @@
   "annual_execution_2024_authorized": false,
   "annual_execution_authorized": false,
   "blocking_gap": {
+    "amended_definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+    "amended_design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+    "amended_engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+    "approved_design": "PA7_TRANSITION_EVENT_ENUMERATION",
     "classification": "FROZEN_DESIGN_CARDINALITY_CONTRADICTION",
-    "decision_required": true,
+    "decision_required": false,
+    "design_amendment_report_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
     "design_change_required": true,
-    "engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
-    "frozen_definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
-    "frozen_design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
     "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
-    "previous_closed_gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
-    "report_hash": "b8a3cd3209d949783ffee172f4ab4c7c56a7258fbeeb426343f0cdbab5951940",
+    "oos_2024_accessed": false,
+    "previous_definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+    "previous_design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
+    "previous_engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
     "severity": "BLOCKING",
-    "status": "OPEN_DESIGN_DECISION_REQUIRED",
-    "workload_report_hash": "6308c8b0e614fd81bc73f64fbc86f037cdd9ff5dc28696bfe3111997db031dbc"
+    "status": "FIXED_PENDING_TECHNICAL_REFREEZE"
   },
   "categorical_dictionary_hash": "924173aec9086dc692a20539eadde9b7f92218dc94e7b13c629f7aef454a579b",
   "coherent_lineage_amendment_hash": "a18d75a61c1ce981f6c5c784145d6cb41482ad75dce015ea9a901d9e22dd3160",
@@ -32,6 +35,7 @@
     "value_bindings": "PASS"
   },
   "dependency_release_anchor_tag": "moebot-sqlite-rebuild-v1",
+  "design_amendment_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
   "design_contract_audit_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
   "design_frozen": true,
   "engine_build": {
@@ -39,12 +43,12 @@
     "closed_gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
     "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
     "engine_build_manifest_hash": "1c7a6b700ebc0552c02e230be7404544606d2f576cd96f05d796531d863774b1",
-    "engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
+    "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
     "engine_version": "0.8.0",
     "materializer_sha256": "bd6927c0195e0b3a8070f6921fe19b09ea5eb003e1053592d6b9551a8aaf901d",
     "postprocessor_sha256": "ed0ec59c7c357b28a52bfe15b368d1b33b0312a71f300d3cac658eb7d7bd19ef",
     "schema_version": "8.0.0",
-    "status": "TECHNICAL_CANDIDATE_BLOCKED_BY_DESIGN_GAP",
+    "status": "STALE_PENDING_TECHNICAL_REFREEZE_AFTER_PA7_DESIGN_AMENDMENT",
     "supplemental_technical_audit_hash": "ed4e85b5d9592ccc8daf616829e00cd8ca784f38b8459299d7532379c3e4832b",
     "technical_audit_hash": "e3d6f1d85f6a5b3d19d363e8558f1f737f76fc743769de6917bc920981ca2f74"
   },
@@ -61,6 +65,6 @@
   "required_group7_closure_tag": "moebot-group7-v0.7.5-closure",
   "required_group7_data_release_tag": "moebot-group7-v0.7.5",
   "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
-  "status": "BLOCKING_DESIGN_GAP_G8_PA7_ENUMERATION_007_DECISION_REQUIRED",
+  "status": "PA7_TRANSITION_EVENT_DESIGN_AMENDMENT_APPLIED_PENDING_TECHNICAL_REFREEZE",
   "value_binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b"
 }
