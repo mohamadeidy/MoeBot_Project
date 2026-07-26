@@ -1,0 +1,51 @@
+name: MoeBot Group 8 Release Publication Tooling Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_RELEASE_PUBLICATION_TOOLING_CHECK.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile release and official closure tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_finalize_release_publication.py" \
+            "$GROUP8_ROOT/code/group8_finalize_official_release_closure.py" \
+            "$GROUP8_ROOT/tests/test_group8_release_publication.py" \
+            "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
+      - name: Verify publication manifest fail-closed behavior
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_release_publication.py"
+      - name: Verify release-gated official closure regression
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
+      - name: Re-run lower lifecycle and OOS freeze regressions
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
