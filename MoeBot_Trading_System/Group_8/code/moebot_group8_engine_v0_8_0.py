@@ -425,18 +425,35 @@ class Group8Engine:
             for label,val in vals:
                 if val is None or float(val) in seen: continue
                 seen.add(float(val)); rows.append({"group":"group5","type":"liquidity_pools","id":f"{r['pool_id']}:{label}","source_id":str(r["pool_id"]),"availability":int(r["available_at"]),"event":int(r["origin_time"]),"lower":float(val),"upper":float(val),"expires_at":int(r["expires_at"]) if r["expires_at"] is not None else None})
+        fvg_terminal={str(r["fvg_id"]):int(r["inactive_at"]) for r in self.input.execute("SELECT fvg_id,MIN(transition_time) inactive_at FROM group6__fvg_state_transitions WHERE lower(event_type)='traversed' AND lower(directional_validity)='invalidated' GROUP BY fvg_id")}
         for t,idc,avc,lowc,upc,eventc in [("fvg_events","fvg_id","availability_time","lower","upper","creation_time"),("imbalance_variants","variant_id","availability_time","lower","upper","availability_time"),("liquidity_voids","void_id","availability_time","lower","upper","start_time"),("bpr_relations","bpr_id","availability_time","lower","upper","creation_time")]:
             cols={x[1] for x in self.input.execute(f"PRAGMA table_info('group6__{t}')")}; event_expr=eventc if eventc in cols else avc
             for r in self.input.execute(f"SELECT {idc} id,{avc} av,{lowc} lo,{upc} hi,{event_expr} ev FROM group6__{t} WHERE timeframe=?", (tf,)):
-                rows.append({"group":"group6","type":t,"id":str(r["id"]),"availability":int(r["av"]),"event":int(r["ev"]),"lower":float(r["lo"]),"upper":float(r["hi"])})
+                inactive=fvg_terminal.get(str(r["id"])) if t=="fvg_events" else None
+                rows.append({"group":"group6","type":t,"id":str(r["id"]),"availability":int(r["av"]),"event":int(r["ev"]),"lower":float(r["lo"]),"upper":float(r["hi"]),"inactive_at":inactive})
         for r in self.input.execute("SELECT * FROM group7__institutional_zones WHERE timeframe=?", (tf,)):
             rows.append({"group":"group7","type":"institutional_zones","id":str(r["zone_id"]),"availability":int(r["availability_time"]),"event":int(r["event_time"]),"lower":float(r["lower"]),"upper":float(r["upper"])})
-        for r in self.out.execute("SELECT candidate_id,availability_time,event_time,lower,upper FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context' AND symbol=? AND timeframe=?", (symbol,tf)):
-            rows.append({"group":"group8","type":"pa_bounded_range_context","id":str(r["candidate_id"]),"availability":int(r["availability_time"]),"event":int(r["event_time"]),"lower":float(r["lower"]),"upper":float(r["upper"])})
+        zone_invalidations: dict[str,list[int]]={}
+        for r in self.input.execute("SELECT zone_id,transition_time,to_status FROM group4__zone_transitions ORDER BY zone_id,transition_time,transition_id"):
+            if not self._status_active(str(r["to_status"])): zone_invalidations.setdefault(str(r["zone_id"]),[]).append(int(r["transition_time"]))
+        for r in self.input.execute("SELECT zone_id,interaction_time,status_after FROM group4__zone_interactions ORDER BY zone_id,interaction_time,interaction_id"):
+            if not self._status_active(str(r["status_after"])): zone_invalidations.setdefault(str(r["zone_id"]),[]).append(int(r["interaction_time"]))
+        for times in zone_invalidations.values(): times.sort()
+        import bisect
+        for r in self.out.execute("SELECT candidate_id,availability_time,event_time,lower,upper,features_json FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context' AND symbol=? AND timeframe=?", (symbol,tf)):
+            start=int(r["availability_time"]); features=json.loads(r["features_json"]); invalidations=[]
+            for zid in (features.get("lower_zone_id"),features.get("upper_zone_id")):
+                times=zone_invalidations.get(str(zid),[]) if zid is not None else []
+                pos=bisect.bisect_right(times,start)
+                if pos<len(times): invalidations.append(int(times[pos]))
+            inactive=min(invalidations) if invalidations else None
+            rows.append({"group":"group8","type":"pa_bounded_range_context","id":str(r["candidate_id"]),"availability":start,"event":int(r["event_time"]),"lower":float(r["lower"]),"upper":float(r["upper"]),"inactive_at":inactive})
         return rows
 
     def _pa7_boundary_active_at(self, bnd: Mapping[str, Any], availability: int) -> bool:
         if int(bnd["availability"]) > int(availability): return False
+        inactive=bnd.get("inactive_at")
+        if inactive is not None and int(availability) >= int(inactive): return False
         expires=bnd.get("expires_at")
         if expires is not None and int(expires) < int(availability): return False
         if bnd["group"]=="group4":
