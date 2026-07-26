@@ -1,0 +1,1 @@
+Run the read-only Group 8 lifecycle hardening patch precheck against current main. Record exact engine SHA and exact anchor counts only; do not mutate engine, design, dependencies, thresholds, or annual authorization.
