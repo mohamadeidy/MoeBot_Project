@@ -1,0 +1,32 @@
+{
+  "checks": {
+    "2024_execution_not_embedded": true,
+    "causality_guards_present": true,
+    "deterministic_identity_present": true,
+    "exact_45_evaluator_coverage": true,
+    "frozen_identity": true,
+    "future_outcome_tables_not_consumed": true,
+    "historical_zone_state_reconstruction_present": true,
+    "materializer_adapter_bound": true,
+    "no_trading_action_functions": true,
+    "prohibited_output_schema_absent": true,
+    "upstream_read_only_enforced": true
+  },
+  "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
+  "definition_count": 45,
+  "engine_version": "0.8.0",
+  "failures": [],
+  "format_version": 1,
+  "hashes": {
+    "definition_registry_file_sha256": "b66a8f6c50a8d60905978c2f69e7cb284ceded049ac49cf564df8e0d9bb474de",
+    "engine_sha256": "b6387dae6ca911d7d1cf43b3ce65cb35383cc125d501478d68187b237f030db7",
+    "frozen_config_file_sha256": "d58015a0b99d0d38959cfc5089714aee6d19cf21d2b0eb6a38535dfe5f7ed727",
+    "materializer_sha256": "bd6927c0195e0b3a8070f6921fe19b09ea5eb003e1053592d6b9551a8aaf901d",
+    "schema_sha256": "69382b60266857c0d5aa8662ee6d98d47ae20288bac4d76149aba438eec2d6c1",
+    "tests_sha256": "81cc95e4b1c5ef226d3dbf95994ebffb97a23e1b046a6da737efa51d02a79576"
+  },
+  "phase": "ENGINE_TECHNICAL_CANDIDATE_AUDIT",
+  "report_hash": "2e073af24c6b28be21d24b88fa469779729fd63ccd60f5af77156c23edace6c7",
+  "schema_version": "8.0.0",
+  "status": "PASS"
+}
