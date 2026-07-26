@@ -1,0 +1,1 @@
+Validate dormant Group 8 post-2023 tooling only: frozen 2024 OOS finalizer, descriptive cross-year validation, release-gated closure candidate, release-verified official closure, and all lower regressions. Do not access real 2024 data or change persistent authorization.
