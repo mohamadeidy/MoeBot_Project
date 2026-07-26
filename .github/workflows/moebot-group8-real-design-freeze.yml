@@ -119,7 +119,7 @@ jobs:
           expected=reg["years"][year]["clean_room"]["report_hash"]
           if report.get("status")!="PASS" or report.get("report_hash")!=expected: raise SystemExit(f"clean-room registry identity mismatch {year}")
           PY
-      - name: Restore and verify canonical source database
+      - name: Restore canonical source database and expose identity
         id: source
         run: |
           python "$DATA_VAULT_ROOT/download_and_restore_databases.py" \
@@ -137,6 +137,8 @@ jobs:
           print(f"size={src['database_size_bytes']}")
           print(f"sha={src['database_sha256']}")
           PY
+      - name: Verify canonical source identity and schema
+        run: |
           python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \
             --database "$RUNNER_TEMP/intake-${{ matrix.year }}/source/${{ steps.source.outputs.filename }}" \
             --expected-sha256 "${{ steps.source.outputs.sha }}" \
