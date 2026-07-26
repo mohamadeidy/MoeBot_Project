@@ -1,0 +1,137 @@
+name: MoeBot Group 8 Post-Fix Breakout Workload Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_POSTFIX_BREAKOUT_CARDINALITY.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact corrected technical candidate
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text())
+          build=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          expected="f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d"
+          actual=hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest()
+          if actual!=expected or build.get("identities",{}).get("engine",{}).get("sha256")!=expected:
+              raise SystemExit("unexpected corrected engine identity")
+          if status.get("engine_build",{}).get("status")!="TECHNICAL_CANDIDATE_PASS" or status.get("annual_execution_2023_authorized") is not True:
+              raise SystemExit("2023 corrected technical candidate is not authorized")
+          if status.get("annual_execution_2024_authorized") is not False or status.get("officially_closed") is not False:
+              raise SystemExit("OOS/closure boundary invalid")
+          print({"status":"PASS","engine_sha256":actual,"2023_authorized":True,"2024_authorized":False})
+          PY
+          python -m py_compile \
+            .github/scripts/group8_breakout_partial_stage.py \
+            .github/scripts/group8_ephemeral_staging_indexes.py \
+            .github/scripts/group8_postfix_breakout_cardinality.py \
+            "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py"
+
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Materialize exact relevant authorized 2023 slices
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-postfix-cardinality/work" "$RUNNER_TEMP/g8-postfix-cardinality/reports"
+          python .github/scripts/group8_breakout_partial_stage.py \
+            --group8-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-postfix-cardinality/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-postfix-cardinality/work" \
+            --report "$RUNNER_TEMP/g8-postfix-cardinality/reports/PARTIAL_STAGING.json"
+          python .github/scripts/group8_ephemeral_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-postfix-cardinality/staging.sqlite" \
+            --year 2023 --phase post-fix-breakout-cardinality \
+            --output "$RUNNER_TEMP/g8-postfix-cardinality/reports/STAGING_INDEX_REPORT.json"
+
+      - name: Measure corrected same-timeframe workload and candidate lower bound
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python .github/scripts/group8_postfix_breakout_cardinality.py \
+            --group8-root "$GROUP8_ROOT" \
+            --staging-db "$RUNNER_TEMP/g8-postfix-cardinality/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-postfix-cardinality/diagnostic_output.sqlite" \
+            --year 2023 \
+            --report "$GROUP8_ROOT/reports/35_POSTFIX_BREAKOUT_CARDINALITY_DIAGNOSTIC.json"
+
+      - name: Independently verify diagnostic scope and frozen state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          report=json.loads((root/"reports/35_POSTFIX_BREAKOUT_CARDINALITY_DIAGNOSTIC.json").read_text())
+          payload=dict(report);h=payload.pop("report_hash")
+          actual=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()
+          if h!=actual or report.get("status")!="PASS":
+              raise SystemExit("post-fix diagnostic self-hash/status failure")
+          if report.get("engine_sha256")!="f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d":
+              raise SystemExit("diagnostic engine identity mismatch")
+          obs=report.get("observations",{})
+          if any(obs.get(k) for k in ("engine_changed","definitions_changed","thresholds_changed","schema_changed","upstream_changed","authorization_changed","oos_2024_accessed")):
+              raise SystemExit("diagnostic claims forbidden mutation/access")
+          if report.get("post_fix_group6_same_timeframe_enumerations",0) > report.get("pre_fix_group6_unfiltered_enumerations",0):
+              raise SystemExit("same-timeframe fix unexpectedly increased Group6 enumeration")
+          print({"status":"PASS","post_fix_group6_enumerations":report["post_fix_group6_same_timeframe_enumerations"],"candidate_lower_bound":report["minimum_group6_plus_group8_workload"]["candidate_total"]})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/STATUS.json" \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-postfix-breakout-cardinality
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/35_POSTFIX_BREAKOUT_CARDINALITY_DIAGNOSTIC.json
+            ${{ runner.temp }}/g8-postfix-cardinality/reports
+          retention-days: 30
+
+      - name: Commit permanent post-fix diagnostic evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/35_POSTFIX_BREAKOUT_CARDINALITY_DIAGNOSTIC.json"
+          git diff --cached --check
+          git commit -m "Record Group 8 post-fix breakout workload diagnostic [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
+
+      - name: Cleanup disposable diagnostic data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-postfix-cardinality" || true
