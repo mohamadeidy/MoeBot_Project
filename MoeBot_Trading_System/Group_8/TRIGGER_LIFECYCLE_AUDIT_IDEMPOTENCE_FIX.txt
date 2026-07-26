@@ -1,0 +1,1 @@
+Execute the fail-closed Group 8 lifecycle audit-evidence idempotence fix against the exact reviewed lifecycle hardening. Apply only the proven duplicate-prevention correction, run the original frozen technical matrix plus strengthened lifecycle persistence regression, keep annual authorization revoked, and commit the corrected hardening artifacts only on complete PASS.
