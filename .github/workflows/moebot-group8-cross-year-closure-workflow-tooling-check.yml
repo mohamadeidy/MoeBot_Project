@@ -1,0 +1,60 @@
+name: MoeBot Group 8 Cross-Year Closure Workflow Tooling Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_CROSS_YEAR_CLOSURE_WORKFLOW_TOOLING_CHECK.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify dormant cross-year workflow syntax and guards
+        run: |
+          ruby -e 'require "yaml"; YAML.load_file(".github/workflows/moebot-group8-cross-year-closure-candidate.yml"); puts "YAML PASS"'
+          test ! -f "$GROUP8_ROOT/TRIGGER_CROSS_YEAR_CLOSURE_CANDIDATE.txt"
+          python - <<'PY'
+          from pathlib import Path
+          t=Path('.github/workflows/moebot-group8-cross-year-closure-candidate.yml').read_text()
+          required=['ANNUAL_2024_OOS_PASS_CROSS_YEAR_REQUIRED','annual_execution_authorized','group8_cross_year_validation.py','locked_context_violations_both_years_zero','No pass/fail threshold','group8_prepare_closure_candidate.py','NEXT_GROUP_DEPENDENCY_MANIFEST.json','CLOSURE_CANDIDATE_MANIFEST.json','FROZEN_HANDOFF_PENDING_RELEASE_VERIFICATION','CLOSURE_CANDIDATE_RELEASE_REQUIRED','moebot-group8-v0.8.0','preserve_locked_context_fix']
+          missing=[x for x in required if x not in t]
+          if missing: raise SystemExit(f'missing cross-year/closure guards:{missing}')
+          if '--year 2024' in t or 'group8_materialize_inputs.py' in t: raise SystemExit('cross-year workflow must not access annual source data')
+          print({'status':'PASS','required_guards':len(required),'real_cross_year_trigger_absent':True,'annual_data_access_absent':True})
+          PY
+      - name: Compile cross-year closure and publication tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_cross_year_validation.py" \
+            "$GROUP8_ROOT/code/group8_prepare_closure_candidate.py" \
+            "$GROUP8_ROOT/code/group8_finalize_release_publication.py" \
+            "$GROUP8_ROOT/code/group8_finalize_official_release_closure.py"
+      - name: Run cross-year closure and publication regressions
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
+          python "$GROUP8_ROOT/tests/test_group8_release_publication.py"
+      - name: Re-run lifecycle and OOS freeze lower gates
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
