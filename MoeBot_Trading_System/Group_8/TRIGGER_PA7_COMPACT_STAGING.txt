@@ -1,0 +1,1 @@
+Prove the exact PA7 shard output is identical when unused Group2/3 and non-PA7 adapter tables are omitted from staging. Keep 2024 OOS forbidden.
