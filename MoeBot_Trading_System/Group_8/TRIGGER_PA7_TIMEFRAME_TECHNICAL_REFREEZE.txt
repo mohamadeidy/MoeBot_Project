@@ -1,0 +1,1 @@
+Run the exact Group 8 technical re-freeze for G8-PA7-CROSS-TIMEFRAME-006 only after all legacy technical, lifecycle/locked-context, and permanent PA7 same-timeframe regressions pass. Preserve frozen design/config/schema/upstream lineage, re-authorize 2023 engineering validation only, keep 2024 OOS forbidden, and keep Group 8 officially open.
