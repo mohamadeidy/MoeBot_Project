@@ -1,0 +1,199 @@
+name: MoeBot Group 8 PA7 Timeframe Technical Refreeze
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_TIMEFRAME_TECHNICAL_REFREEZE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  audit-refreeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact fixed-pending-refreeze state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text())
+          gap=json.loads((root/"reports/33_BREAKOUT_TIMEFRAME_GAP_ANALYSIS.json").read_text())
+          expected="f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d"
+          actual=hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest()
+          if actual!=expected or gap.get("corrected_engine_sha256")!=expected:
+              raise SystemExit("corrected engine identity mismatch")
+          if status.get("design_frozen") is not True or status.get("officially_closed") is not False:
+              raise SystemExit("invalid Group 8 phase")
+          if status.get("status")!="BLOCKING_GAP_G8_PA7_CROSS_TIMEFRAME_FIXED_PENDING_TECHNICAL_REFREEZE":
+              raise SystemExit("wrong pre-refreeze phase")
+          if status.get("blocking_gap",{}).get("gap_id")!="G8-PA7-CROSS-TIMEFRAME-006" or status.get("blocking_gap",{}).get("status")!="FIXED_PENDING_REFREEZE":
+              raise SystemExit("blocking gap identity/state mismatch")
+          if any(status.get(k) for k in ("engine_build_authorized","annual_execution_authorized","annual_execution_2023_authorized","annual_execution_2024_authorized")):
+              raise SystemExit("execution authorization must remain revoked before refreeze")
+          print({"status":"PASS","engine_sha256":actual,"2023_authorized":False,"2024_authorized":False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+
+      - name: Compile corrected engine audit and regression tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            "$GROUP8_ROOT/code/group8_pa7_timeframe_technical_audit.py" \
+            "$GROUP8_ROOT/code/group8_refreeze_engine_build_after_pa7_timeframe.py" \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py"
+
+      - name: Retest original technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+
+      - name: Retest lifecycle and locked-context matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+
+      - name: Retest permanent PA7 same-timeframe regression
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py"
+
+      - name: Run full existing independent technical candidate audit
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --output "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json"
+
+      - name: Run independent PA7 timeframe technical audit
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_pa7_timeframe_technical_audit.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --base-technical-audit "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            --output "$GROUP8_ROOT/reports/34_PA7_TIMEFRAME_TECHNICAL_AUDIT.json"
+
+      - name: Re-freeze exact corrected technical candidate and authorize 2023 only
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_refreeze_engine_build_after_pa7_timeframe.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --base-technical-audit "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            --pa7-technical-audit "$GROUP8_ROOT/reports/34_PA7_TIMEFRAME_TECHNICAL_AUDIT.json" \
+            --manifest-output "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+
+      - name: Independent exact refreeze verification
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python - <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          sys.path.insert(0,str(root/"code"))
+          from moebot_group8_engine_v0_8_0 import stable_hash
+          status=json.loads((root/"STATUS.json").read_text())
+          manifest=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          audit=json.loads((root/"reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json").read_text())
+          pa7=json.loads((root/"reports/34_PA7_TIMEFRAME_TECHNICAL_AUDIT.json").read_text())
+          expected="f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d"
+          mh=dict(manifest);actual_hash=mh.pop("manifest_hash")
+          if stable_hash(mh)!=actual_hash:
+              raise SystemExit("engine build manifest self-hash mismatch")
+          for rec,name in ((audit,"base audit"),(pa7,"PA7 audit")):
+              payload=dict(rec);h=payload.pop("report_hash")
+              if stable_hash(payload)!=h:
+                  raise SystemExit(f"{name} self-hash mismatch")
+          if manifest.get("status")!="TECHNICAL_CANDIDATE_PASS" or manifest.get("format_version")!=3:
+              raise SystemExit("refrozen manifest status/version mismatch")
+          if manifest.get("closed_blocking_gap",{}).get("gap_id")!="G8-PA7-CROSS-TIMEFRAME-006":
+              raise SystemExit("refrozen gap identity mismatch")
+          if manifest.get("previous_closed_blocking_gap",{}).get("gap_id")!="G8-ICT-LOCKED-CONTEXT-005":
+              raise SystemExit("prior gap lineage lost")
+          if manifest.get("identities",{}).get("engine",{}).get("sha256")!=expected:
+              raise SystemExit("refrozen engine identity mismatch")
+          if manifest.get("technical_audit_hash")!=audit.get("report_hash") or manifest.get("supplemental_technical_audit_hash")!=pa7.get("report_hash"):
+              raise SystemExit("audit lineage mismatch")
+          for name,ident in manifest.get("identities",{}).items():
+              p=root/ident["path"]
+              if not p.is_file() or p.stat().st_size!=int(ident["size_bytes"]) or hashlib.sha256(p.read_bytes()).hexdigest()!=ident["sha256"]:
+                  raise SystemExit(f"identity drift:{name}")
+          if status.get("engine_build",{}).get("engine_build_manifest_hash")!=manifest.get("manifest_hash"):
+              raise SystemExit("STATUS manifest binding mismatch")
+          if status.get("engine_build",{}).get("engine_sha256")!=expected or status.get("engine_build",{}).get("closed_gap_id")!="G8-PA7-CROSS-TIMEFRAME-006":
+              raise SystemExit("STATUS corrected-engine binding mismatch")
+          if status.get("blocking_gap",{}).get("status")!="CLOSED_BY_TECHNICAL_REFREEZE":
+              raise SystemExit("blocking gap not closed by refreeze")
+          if status.get("engine_build_authorized") is not True or status.get("annual_execution_2023_authorized") is not True or status.get("annual_execution_2024_authorized") is not False:
+              raise SystemExit("post-refreeze authorization boundary invalid")
+          if status.get("officially_closed") is not False:
+              raise SystemExit("Group 8 prematurely closed")
+          print({"status":"PASS","engine_sha256":expected,"manifest_hash":manifest["manifest_hash"],"2023_authorized":True,"2024_authorized":False,"officially_closed":False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-pa7-timeframe-technical-refreeze-evidence
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/reports/34_PA7_TIMEFRAME_TECHNICAL_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/ENGINE_BUILD_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 30
+
+      - name: Commit exact refrozen technical state to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            "$GROUP8_ROOT/reports/34_PA7_TIMEFRAME_TECHNICAL_AUDIT.json" \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Re-freeze Group 8 after PA7 timeframe isolation fix [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
