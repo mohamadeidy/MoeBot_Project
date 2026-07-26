@@ -45,10 +45,12 @@ jobs:
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
         run: |
+          set -o pipefail
           df -h /
           python "$GROUP8_ROOT/code/group8_pa7_storage_feasibility_diagnostic.py" \
             --group8-root "$GROUP8_ROOT" \
-            --report "$GROUP8_ROOT/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json"
+            --report "$GROUP8_ROOT/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json" \
+            2>&1 | tee "$RUNNER_TEMP/group8-pa7-storage-proof.log"
 
       - name: Independent proof verification
         run: |
@@ -81,7 +83,10 @@ jobs:
         if: always()
         with:
           name: group8-pa7-storage-feasibility009
-          path: ${{ env.GROUP8_ROOT }}/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json
+            ${{ runner.temp }}/group8-pa7-storage-proof.log
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Commit permanent storage feasibility evidence
