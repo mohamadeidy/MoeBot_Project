@@ -1,0 +1,1 @@
+Execute Group 8 Real Design Freeze v2 against the merged coherent corrected-v3 annual dependency registry. Use source-only frozen restore, disk-safe G2-G7 categorical proxies, exact cross-year adapters and source-verified value bindings, resolve all 45 definitions, run coherent-only design audit v3, and freeze only on complete PASS.
