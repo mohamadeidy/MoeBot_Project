@@ -1,0 +1,622 @@
+{
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "engine_group6_active_at_falls_through_true": true,
+  "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+  "format_version": 1,
+  "fvg_counts_by_timeframe": [
+    {
+      "fvg_count": 53,
+      "timeframe": "D1",
+      "with_ce_time": 48,
+      "with_first_touch": 49,
+      "with_full_fill_time": 46,
+      "with_traverse_time": 45
+    },
+    {
+      "fvg_count": 1051,
+      "timeframe": "H1",
+      "with_ce_time": 1030,
+      "with_first_touch": 1032,
+      "with_full_fill_time": 1024,
+      "with_traverse_time": 1013
+    },
+    {
+      "fvg_count": 326,
+      "timeframe": "H4",
+      "with_ce_time": 315,
+      "with_first_touch": 317,
+      "with_full_fill_time": 313,
+      "with_traverse_time": 304
+    },
+    {
+      "fvg_count": 98034,
+      "timeframe": "M1",
+      "with_ce_time": 97805,
+      "with_first_touch": 97876,
+      "with_full_fill_time": 97746,
+      "with_traverse_time": 97625
+    },
+    {
+      "fvg_count": 4642,
+      "timeframe": "M15",
+      "with_ce_time": 4591,
+      "with_first_touch": 4600,
+      "with_full_fill_time": 4580,
+      "with_traverse_time": 4554
+    },
+    {
+      "fvg_count": 2220,
+      "timeframe": "M30",
+      "with_ce_time": 2187,
+      "with_first_touch": 2192,
+      "with_full_fill_time": 2183,
+      "with_traverse_time": 2174
+    },
+    {
+      "fvg_count": 15627,
+      "timeframe": "M5",
+      "with_ce_time": 15532,
+      "with_first_touch": 15549,
+      "with_full_fill_time": 15511,
+      "with_traverse_time": 15459
+    }
+  ],
+  "fvg_lifecycle_summary_distribution": [
+    {
+      "directional_validity": "invalidated",
+      "fill_state": "fully_filled",
+      "n": 121174,
+      "with_ce_time": 121174,
+      "with_first_touch": 121174,
+      "with_full_fill_time": 121174,
+      "with_traverse_time": 121174
+    },
+    {
+      "directional_validity": "valid",
+      "fill_state": "untouched",
+      "n": 338,
+      "with_ce_time": 0,
+      "with_first_touch": 0,
+      "with_full_fill_time": 0,
+      "with_traverse_time": 0
+    },
+    {
+      "directional_validity": "valid",
+      "fill_state": "fully_filled",
+      "n": 229,
+      "with_ce_time": 229,
+      "with_first_touch": 229,
+      "with_full_fill_time": 229,
+      "with_traverse_time": 0
+    },
+    {
+      "directional_validity": "valid",
+      "fill_state": "ce_reached",
+      "n": 105,
+      "with_ce_time": 105,
+      "with_first_touch": 105,
+      "with_full_fill_time": 0,
+      "with_traverse_time": 0
+    },
+    {
+      "directional_validity": "valid",
+      "fill_state": "partially_filled",
+      "n": 100,
+      "with_ce_time": 0,
+      "with_first_touch": 100,
+      "with_full_fill_time": 0,
+      "with_traverse_time": 0
+    },
+    {
+      "directional_validity": "valid",
+      "fill_state": "first_touched",
+      "n": 7,
+      "with_ce_time": 0,
+      "with_first_touch": 7,
+      "with_full_fill_time": 0,
+      "with_traverse_time": 0
+    }
+  ],
+  "fvg_transition_distribution": [
+    {
+      "directional_validity": "valid",
+      "event_type": "created",
+      "fill_state": "untouched",
+      "max_transition_time": 1703887200,
+      "min_transition_time": 1672701420,
+      "n": 121953
+    },
+    {
+      "directional_validity": "valid",
+      "event_type": "first_touched",
+      "fill_state": "first_touched",
+      "max_transition_time": 1703894400,
+      "min_transition_time": 1672701600,
+      "n": 121615
+    },
+    {
+      "directional_validity": "valid",
+      "event_type": "ce_reached",
+      "fill_state": "ce_reached",
+      "max_transition_time": 1703894400,
+      "min_transition_time": 1672701600,
+      "n": 121508
+    },
+    {
+      "directional_validity": "valid",
+      "event_type": "fully_filled",
+      "fill_state": "fully_filled",
+      "max_transition_time": 1703887020,
+      "min_transition_time": 1672701600,
+      "n": 121403
+    },
+    {
+      "directional_validity": "invalidated",
+      "event_type": "traversed",
+      "fill_state": "fully_filled",
+      "max_transition_time": 1703887020,
+      "min_transition_time": 1672701660,
+      "n": 121174
+    },
+    {
+      "directional_validity": "valid",
+      "event_type": "partially_filled",
+      "fill_state": "partially_filled",
+      "max_transition_time": 1703884800,
+      "min_transition_time": 1672701660,
+      "n": 35768
+    }
+  ],
+  "group6_boundary_counts_by_type_timeframe": [
+    {
+      "n": 3,
+      "source_type": "bpr_relations",
+      "timeframe": "D1"
+    },
+    {
+      "n": 53,
+      "source_type": "fvg_events",
+      "timeframe": "D1"
+    },
+    {
+      "n": 86,
+      "source_type": "imbalance_variants",
+      "timeframe": "D1"
+    },
+    {
+      "n": 10,
+      "source_type": "liquidity_voids",
+      "timeframe": "D1"
+    },
+    {
+      "n": 146,
+      "source_type": "bpr_relations",
+      "timeframe": "H1"
+    },
+    {
+      "n": 1051,
+      "source_type": "fvg_events",
+      "timeframe": "H1"
+    },
+    {
+      "n": 975,
+      "source_type": "imbalance_variants",
+      "timeframe": "H1"
+    },
+    {
+      "n": 193,
+      "source_type": "liquidity_voids",
+      "timeframe": "H1"
+    },
+    {
+      "n": 81,
+      "source_type": "bpr_relations",
+      "timeframe": "H4"
+    },
+    {
+      "n": 326,
+      "source_type": "fvg_events",
+      "timeframe": "H4"
+    },
+    {
+      "n": 247,
+      "source_type": "imbalance_variants",
+      "timeframe": "H4"
+    },
+    {
+      "n": 65,
+      "source_type": "liquidity_voids",
+      "timeframe": "H4"
+    },
+    {
+      "n": 19534,
+      "source_type": "bpr_relations",
+      "timeframe": "M1"
+    },
+    {
+      "n": 98034,
+      "source_type": "fvg_events",
+      "timeframe": "M1"
+    },
+    {
+      "n": 67390,
+      "source_type": "imbalance_variants",
+      "timeframe": "M1"
+    },
+    {
+      "n": 19952,
+      "source_type": "liquidity_voids",
+      "timeframe": "M1"
+    },
+    {
+      "n": 756,
+      "source_type": "bpr_relations",
+      "timeframe": "M15"
+    },
+    {
+      "n": 4642,
+      "source_type": "fvg_events",
+      "timeframe": "M15"
+    },
+    {
+      "n": 3187,
+      "source_type": "imbalance_variants",
+      "timeframe": "M15"
+    },
+    {
+      "n": 837,
+      "source_type": "liquidity_voids",
+      "timeframe": "M15"
+    },
+    {
+      "n": 287,
+      "source_type": "bpr_relations",
+      "timeframe": "M30"
+    },
+    {
+      "n": 2220,
+      "source_type": "fvg_events",
+      "timeframe": "M30"
+    },
+    {
+      "n": 1731,
+      "source_type": "imbalance_variants",
+      "timeframe": "M30"
+    },
+    {
+      "n": 395,
+      "source_type": "liquidity_voids",
+      "timeframe": "M30"
+    },
+    {
+      "n": 2309,
+      "source_type": "bpr_relations",
+      "timeframe": "M5"
+    },
+    {
+      "n": 15627,
+      "source_type": "fvg_events",
+      "timeframe": "M5"
+    },
+    {
+      "n": 9917,
+      "source_type": "imbalance_variants",
+      "timeframe": "M5"
+    },
+    {
+      "n": 2899,
+      "source_type": "liquidity_voids",
+      "timeframe": "M5"
+    }
+  ],
+  "observations": {
+    "authorization_changed": false,
+    "definitions_changed": false,
+    "diagnostic_only": true,
+    "engine_changed": false,
+    "no_lifecycle_semantics_inferred_by_probe": true,
+    "oos_2024_accessed": false,
+    "schema_changed": false,
+    "thresholds_changed": false,
+    "upstream_changed": false
+  },
+  "other_group6_boundary_state_distributions": {
+    "bpr_relations": [
+      {
+        "n": 3,
+        "state": "untouched",
+        "timeframe": "D1"
+      },
+      {
+        "n": 146,
+        "state": "untouched",
+        "timeframe": "H1"
+      },
+      {
+        "n": 81,
+        "state": "untouched",
+        "timeframe": "H4"
+      },
+      {
+        "n": 19534,
+        "state": "untouched",
+        "timeframe": "M1"
+      },
+      {
+        "n": 756,
+        "state": "untouched",
+        "timeframe": "M15"
+      },
+      {
+        "n": 287,
+        "state": "untouched",
+        "timeframe": "M30"
+      },
+      {
+        "n": 2309,
+        "state": "untouched",
+        "timeframe": "M5"
+      }
+    ],
+    "imbalance_variants": [
+      {
+        "classification": "non_classic_gap",
+        "n": 48,
+        "timeframe": "D1",
+        "variant_type": "weekend_gap"
+      },
+      {
+        "classification": "market_imbalance_variant",
+        "n": 33,
+        "timeframe": "D1",
+        "variant_type": "body_imbalance_candidate"
+      },
+      {
+        "classification": "opening_price_discontinuity",
+        "n": 4,
+        "timeframe": "D1",
+        "variant_type": "opening_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "D1",
+        "variant_type": "missing_bar_discontinuity"
+      },
+      {
+        "classification": "market_imbalance_variant",
+        "n": 682,
+        "timeframe": "H1",
+        "variant_type": "body_imbalance_candidate"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 205,
+        "timeframe": "H1",
+        "variant_type": "missing_bar_discontinuity"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 50,
+        "timeframe": "H1",
+        "variant_type": "weekend_gap"
+      },
+      {
+        "classification": "opening_price_discontinuity",
+        "n": 37,
+        "timeframe": "H1",
+        "variant_type": "opening_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "H1",
+        "variant_type": "broker_data_gap"
+      },
+      {
+        "classification": "market_imbalance_variant",
+        "n": 185,
+        "timeframe": "H4",
+        "variant_type": "body_imbalance_candidate"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 50,
+        "timeframe": "H4",
+        "variant_type": "weekend_gap"
+      },
+      {
+        "classification": "opening_price_discontinuity",
+        "n": 11,
+        "timeframe": "H4",
+        "variant_type": "opening_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "H4",
+        "variant_type": "broker_data_gap"
+      },
+      {
+        "classification": "market_imbalance_variant",
+        "n": 56197,
+        "timeframe": "M1",
+        "variant_type": "body_imbalance_candidate"
+      },
+      {
+        "classification": "opening_price_discontinuity",
+        "n": 10732,
+        "timeframe": "M1",
+        "variant_type": "opening_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 205,
+        "timeframe": "M1",
+        "variant_type": "missing_bar_discontinuity"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 205,
+        "timeframe": "M1",
+        "variant_type": "session_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 50,
+        "timeframe": "M1",
+        "variant_type": "weekend_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "M1",
+        "variant_type": "broker_data_gap"
+      },
+      {
+        "classification": "market_imbalance_variant",
+        "n": 2771,
+        "timeframe": "M15",
+        "variant_type": "body_imbalance_candidate"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 198,
+        "timeframe": "M15",
+        "variant_type": "missing_bar_discontinuity"
+      },
+      {
+        "classification": "opening_price_discontinuity",
+        "n": 160,
+        "timeframe": "M15",
+        "variant_type": "opening_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 50,
+        "timeframe": "M15",
+        "variant_type": "weekend_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 7,
+        "timeframe": "M15",
+        "variant_type": "session_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "M15",
+        "variant_type": "broker_data_gap"
+      },
+      {
+        "classification": "market_imbalance_variant",
+        "n": 1399,
+        "timeframe": "M30",
+        "variant_type": "body_imbalance_candidate"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 204,
+        "timeframe": "M30",
+        "variant_type": "missing_bar_discontinuity"
+      },
+      {
+        "classification": "opening_price_discontinuity",
+        "n": 76,
+        "timeframe": "M30",
+        "variant_type": "opening_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 50,
+        "timeframe": "M30",
+        "variant_type": "weekend_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "M30",
+        "variant_type": "broker_data_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "M30",
+        "variant_type": "session_gap"
+      },
+      {
+        "classification": "market_imbalance_variant",
+        "n": 9324,
+        "timeframe": "M5",
+        "variant_type": "body_imbalance_candidate"
+      },
+      {
+        "classification": "opening_price_discontinuity",
+        "n": 337,
+        "timeframe": "M5",
+        "variant_type": "opening_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 205,
+        "timeframe": "M5",
+        "variant_type": "session_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 50,
+        "timeframe": "M5",
+        "variant_type": "weekend_gap"
+      },
+      {
+        "classification": "non_classic_gap",
+        "n": 1,
+        "timeframe": "M5",
+        "variant_type": "broker_data_gap"
+      }
+    ],
+    "liquidity_voids": [
+      {
+        "n": 10,
+        "state": "unfilled",
+        "timeframe": "D1"
+      },
+      {
+        "n": 193,
+        "state": "unfilled",
+        "timeframe": "H1"
+      },
+      {
+        "n": 65,
+        "state": "unfilled",
+        "timeframe": "H4"
+      },
+      {
+        "n": 19952,
+        "state": "unfilled",
+        "timeframe": "M1"
+      },
+      {
+        "n": 837,
+        "state": "unfilled",
+        "timeframe": "M15"
+      },
+      {
+        "n": 395,
+        "state": "unfilled",
+        "timeframe": "M30"
+      },
+      {
+        "n": 2899,
+        "state": "unfilled",
+        "timeframe": "M5"
+      }
+    ]
+  },
+  "report_hash": "7fc11390048db7e3bfeaf6741250bbd2de78a485f21651372e9a545cc6ed76bb",
+  "scope": "GROUP6_PA7_LIFECYCLE_ROOT_CAUSE_2023_ONLY",
+  "sqlite_quick_check": "ok",
+  "status": "PASS"
+}
