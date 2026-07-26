@@ -1,0 +1,69 @@
+name: MoeBot Group 8 Lifecycle Patch Precheck
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_LIFECYCLE_PATCH_PRECHECK.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+
+jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Count exact hardening patch anchors
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          files={
+            "engine":root/"code/moebot_group8_engine_v0_8_0.py",
+            "audit":root/"code/group8_technical_candidate_audit.py",
+            "finalizer":root/"code/group8_finalize_engine_build.py",
+            "build_workflow":Path(".github/workflows/moebot-group8-engine-build.yml"),
+          }
+          texts={k:p.read_text() for k,p in files.items()}
+          anchors={
+            "pattern_state":("engine",'        self._insert_immutable("price_action_pattern_candidate", "candidate_id", cid, row, hash_column="candidate_hash", expected_hash=candidate_hash); self.definition_coverage[definition_id] += 1; return cid\n'),
+            "hypothesis_initial":("engine",'''        inserted = self._insert_immutable("narrative_hypothesis", "hypothesis_id", hid, row, hash_column="hypothesis_hash", expected_hash=h)\n        self.definition_coverage[definition_id] += 1\n        self._write_evidence_chain("narrative_hypothesis", hid, refs)\n        if inserted:\n            self._append_lifecycle(hid, initial_state, event_time=event_time, availability_time=availability_time, source_type=None, source_id=None, details={"creation": True})\n        return hid\n'''),
+            "structural_import":("engine",'    def process_structural_narratives(self) -> None:\n        states=[dict(r) for r in self.input.execute("SELECT * FROM group3__structure_states ORDER BY close_time,state_id")];'),
+            "continuation_guard":("engine",'                if later: self._write_hypothesis("pa_continuation_after_pullback"'),
+            "run_block":("engine",'''    def run(self) -> dict[str, Any]:\n        self.load_bars();self.process_base_price_action();self.process_dow();self.process_bounded_ranges();self.process_breakouts();self.process_context_rejections();self.process_failed_breakouts_and_retests();self.process_structural_narratives();self.process_wyckoff();self.process_ict();self.process_cross_school_and_mtf();report=self.audit(require_all_definitions_producible=False);self.out.execute("INSERT OR REPLACE INTO metadata(key,value) VALUES(?,?)",("engine_audit_hash",report["report_hash"]));self.out.commit();return report\n'''),
+            "audit_counts":("engine",'counts={t:self.out.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ["price_action_pattern_candidate","school_interpretation","narrative_hypothesis","hypothesis_lifecycle_event","shared_evidence","conflicting_evidence","multi_timeframe_context_relation","evidence_chain"]};'),
+            "audit_paths":("audit","    engine_path=root/'code/moebot_group8_engine_v0_8_0.py';materializer_path=root/'code/group8_materialize_inputs.py';test_path=root/'tests/test_group8_engine_v0_8_0.py'\n"),
+            "audit_texts":("audit","    engine_text=engine_path.read_text();materializer_text=materializer_path.read_text();future_refs=sorted(t for t in FORBIDDEN_TABLE_REFERENCES if t in engine_text or t in materializer_text)\n"),
+            "audit_hashes":("audit","    hashes={'engine_sha256':file_hash(engine_path),'materializer_sha256':file_hash(materializer_path),'tests_sha256':file_hash(test_path),'schema_sha256':file_hash(root/'02_SCHEMA.sql'),'definition_registry_file_sha256':file_hash(root/'01_DEFINITION_REGISTRY.json'),'frozen_config_file_sha256':file_hash(root/'FROZEN_CONFIG.json')}\n"),
+            "finalizer_files":("finalizer","    files={'engine':'code/moebot_group8_engine_v0_8_0.py','materializer':'code/group8_materialize_inputs.py','tests':'tests/test_group8_engine_v0_8_0.py','technical_audit':'reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json','schema':'02_SCHEMA.sql','definitions':'01_DEFINITION_REGISTRY.json','config':'FROZEN_CONFIG.json','upstream_contract':'contracts/UPSTREAM_INPUT_CONTRACT.json'}\n"),
+            "finalizer_status":("finalizer","    status['engine_build']={'status':'TECHNICAL_CANDIDATE_PASS','engine_version':ENGINE_VERSION,'schema_version':SCHEMA_VERSION,'config_id':CONFIG_ID,'engine_sha256':identities['engine']['sha256'],'materializer_sha256':identities['materializer']['sha256'],'technical_audit_hash':audit['report_hash'],'engine_build_manifest_hash':manifest['manifest_hash']}\n"),
+            "workflow_test":("build_workflow",'          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"\n'),
+            "workflow_materializer_artifact":("build_workflow",'            ${{ env.GROUP8_ROOT }}/code/group8_materialize_inputs.py\n'),
+            "workflow_test_artifact":("build_workflow",'            ${{ env.GROUP8_ROOT }}/tests/test_group8_engine_v0_8_0.py\n'),
+          }
+          counts={name:texts[key].count(anchor) for name,(key,anchor) in anchors.items()}
+          engine_sha=hashlib.sha256(files["engine"].read_bytes()).hexdigest()
+          status=json.loads((root/"STATUS.json").read_text())
+          report={"format_version":1,"status":"PASS" if all(v==1 for v in counts.values()) and engine_sha=="58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88" else "FAIL","engine_sha256":engine_sha,"anchor_counts":counts,"annual_execution_2023_authorized":status.get("annual_execution_2023_authorized"),"annual_execution_2024_authorized":status.get("annual_execution_2024_authorized")}
+          out=root/"reports/22_LIFECYCLE_PATCH_PRECHECK.json";out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n");print(json.dumps(report,indent=2,sort_keys=True))
+          PY
+      - name: Commit precheck evidence
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/22_LIFECYCLE_PATCH_PRECHECK.json"
+          git commit -m "Record Group 8 lifecycle patch precheck [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
