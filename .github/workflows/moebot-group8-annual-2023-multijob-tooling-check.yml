@@ -1,0 +1,102 @@
+name: MoeBot Group 8 Annual 2023 Multi-Job Tooling Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ANNUAL_2023_MULTIJOB_TOOLING_CHECK.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Parse workflow and prove real optimized trigger is absent
+        run: |
+          ruby -e 'require "yaml"; YAML.load_file(".github/workflows/moebot-group8-annual-2023-multijob-indexed.yml"); puts "YAML PASS"'
+          test ! -f "$GROUP8_ROOT/TRIGGER_ANNUAL_2023_MULTIJOB_INDEXED.txt"
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          t=Path('.github/workflows/moebot-group8-annual-2023-multijob-indexed.yml').read_text()
+          required=[
+            'first-pass:', 'rerun:', 'clean-reconstruction:', 'finalize:',
+            'timeout-minutes: 360', 'needs: first-pass', 'needs: [rerun, clean-reconstruction]',
+            'group8_ephemeral_staging_indexes.py', 'data_changes',
+            'STAGING_FINGERPRINT_INITIAL.json', 'STAGING_FINGERPRINT_RERUN.json', 'STAGING_FINGERPRINT_CLEAN.json',
+            'OUTPUT_FINGERPRINT_INITIAL.json', 'OUTPUT_FINGERPRINT_RERUN.json', 'OUTPUT_FINGERPRINT_CLEAN.json',
+            'multijob_reconstruction', 'locked_context_violations',
+            '61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8',
+            '0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293',
+            '--year 2023', 'annual_execution_2024_authorized',
+            'group8-annual-2023-candidate',
+          ]
+          missing=[x for x in required if x not in t]
+          if missing: raise SystemExit(f'missing multi-job guards:{missing}')
+          forbidden=['--year 2024','TRIGGER_ANNUAL_2024_OOS_VALIDATION.txt']
+          hits=[x for x in forbidden if x in t]
+          if hits: raise SystemExit(f'forbidden multi-job content:{hits}')
+
+          helper_path=Path('.github/scripts/group8_ephemeral_staging_indexes.py')
+          helper=helper_path.read_text()
+          tree=ast.parse(helper)
+          execute_literals=[]
+          for node in ast.walk(tree):
+              if not isinstance(node,ast.Call) or not isinstance(node.func,ast.Attribute) or node.func.attr!='execute' or not node.args:
+                  continue
+              arg=node.args[0]
+              if isinstance(arg,ast.Constant) and isinstance(arg.value,str):
+                  execute_literals.append(arg.value.strip().upper())
+          prohibited_prefixes=('INSERT','UPDATE','DELETE','ANALYZE','VACUUM','ALTER','DROP','REPLACE')
+          bad=[sql for sql in execute_literals if sql.startswith(prohibited_prefixes)]
+          if bad: raise SystemExit(f'ephemeral index helper executes prohibited mutation SQL:{bad}')
+          if 'CREATE INDEX IF NOT EXISTS' not in helper or 'total_changes' not in helper or 'foreign_key_check' not in helper:
+              raise SystemExit('ephemeral index helper audit controls incomplete')
+          print({'status':'PASS','real_trigger_absent':True,'jobs':4,'year':2023,'literal_execute_statements_checked':len(execute_literals)})
+          PY
+      - name: Compile multi-job infrastructure helper and tests
+        run: |
+          python -m py_compile \
+            .github/scripts/group8_ephemeral_staging_indexes.py \
+            .github/scripts/test_group8_ephemeral_staging_indexes.py
+      - name: Prove execution-only indexes preserve rows and values
+        run: |
+          python .github/scripts/test_group8_ephemeral_staging_indexes.py
+      - name: Re-run frozen technical lifecycle and annual tooling regressions
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
+      - name: Verify frozen technical identity is untouched by infrastructure branch
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');b=json.loads((root/'ENGINE_BUILD_MANIFEST.json').read_text());s=json.loads((root/'STATUS.json').read_text())
+          engine='61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8';validator='0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293'
+          if b.get('identities',{}).get('engine',{}).get('sha256')!=engine: raise SystemExit('engine identity drift')
+          if b.get('identities',{}).get('annual_validator',{}).get('sha256')!=validator: raise SystemExit('annual-validator identity drift')
+          if s.get('annual_execution_2023_authorized') is not True or s.get('annual_execution_2024_authorized') is not False: raise SystemExit('authorization drift')
+          if s.get('officially_closed') is not False: raise SystemExit('unexpected official closure')
+          print({'status':'PASS','engine_sha256':engine,'annual_validator_sha256':validator,'2023_authorized':True,'2024_authorized':False})
+          PY

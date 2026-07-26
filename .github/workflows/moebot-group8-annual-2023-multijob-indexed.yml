@@ -1,0 +1,394 @@
+name: MoeBot Group 8 Annual 2023 Multi-Job Indexed Validation
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ANNUAL_2023_MULTIJOB_INDEXED.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  first-pass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact frozen 2023 authorization
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text());b=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          if s.get("design_frozen") is not True or s.get("officially_closed") is not False: raise SystemExit("invalid Group 8 phase")
+          if s.get("annual_execution_2023_authorized") is not True or s.get("annual_execution_2024_authorized") is not False: raise SystemExit("invalid annual authorization")
+          if b.get("status")!="TECHNICAL_CANDIDATE_PASS" or b.get("manifest_hash")!=s.get("engine_build",{}).get("engine_build_manifest_hash"): raise SystemExit("technical candidate identity mismatch")
+          if b.get("identities",{}).get("engine",{}).get("sha256")!="61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8": raise SystemExit("unexpected engine identity")
+          if b.get("identities",{}).get("annual_validator",{}).get("sha256")!="0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293": raise SystemExit("unexpected annual-validator identity")
+          for name,ident in b["identities"].items():
+              p=root/ident["path"]
+              if not p.is_file() or p.stat().st_size!=int(ident["size_bytes"]) or hashlib.sha256(p.read_bytes()).hexdigest()!=ident["sha256"]: raise SystemExit(f"technical identity drift:{name}")
+          print({"status":"PASS","engine_sha256":b["identities"]["engine"]["sha256"],"annual_validator_sha256":b["identities"]["annual_validator"]["sha256"]})
+          PY
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            "$GROUP8_ROOT/code/group8_annual_validation.py" \
+            "$GROUP8_ROOT/code/group8_finalize_annual_2023.py" \
+            .github/scripts/group8_ephemeral_staging_indexes.py
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Materialize exact read-only 2023 staging
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-initial/work" "$RUNNER_TEMP/g8-initial/reports"
+          python "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-initial/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-initial/work" \
+            --report "$RUNNER_TEMP/g8-initial/reports/MATERIALIZATION.json"
+      - name: Add audited execution-only staging query indexes
+        run: |
+          python .github/scripts/group8_ephemeral_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-initial/staging.sqlite" --year 2023 --phase first-pass \
+            --output "$RUNNER_TEMP/g8-initial/reports/STAGING_INDEX_REPORT_INITIAL.json"
+      - name: Fingerprint indexed staging
+        run: |
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            --database "$RUNNER_TEMP/g8-initial/staging.sqlite" \
+            --output "$RUNNER_TEMP/g8-initial/reports/STAGING_FINGERPRINT_INITIAL.json"
+      - name: Execute annual engine first pass
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            --staging-db "$RUNNER_TEMP/g8-initial/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-initial/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --audit-output "$RUNNER_TEMP/g8-initial/reports/ENGINE_AUDIT_INITIAL.json"
+          python "$GROUP8_ROOT/code/group8_annual_validation.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --staging-db "$RUNNER_TEMP/g8-initial/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-initial/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" \
+            --materializer-report "$RUNNER_TEMP/g8-initial/reports/MATERIALIZATION.json" \
+            --engine-audit "$RUNNER_TEMP/g8-initial/reports/ENGINE_AUDIT_INITIAL.json" \
+            --year 2023 --output "$RUNNER_TEMP/g8-initial/reports/ANNUAL_VALIDATION_INITIAL.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            --database "$RUNNER_TEMP/g8-initial/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" \
+            --output "$RUNNER_TEMP/g8-initial/reports/OUTPUT_FINGERPRINT_INITIAL.json"
+      - name: Compress first-pass database for exact rerun handoff
+        run: |
+          zstd -q -3 -T0 -f "$RUNNER_TEMP/g8-initial/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" -o "$RUNNER_TEMP/g8-initial/output.sqlite.zst"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-2023-initial-state
+          path: |
+            ${{ runner.temp }}/g8-initial/output.sqlite.zst
+            ${{ runner.temp }}/g8-initial/reports
+          compression-level: 0
+          retention-days: 7
+      - name: Cleanup first-pass work data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-initial/work" "$RUNNER_TEMP/g8-initial/staging.sqlite" "$RUNNER_TEMP/g8-initial/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" || true
+
+  rerun:
+    needs: first-pass
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-2023-initial-state
+          path: ${{ runner.temp }}/g8-first
+      - name: Restore exact first-pass database
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-rerun/work" "$RUNNER_TEMP/g8-rerun/reports"
+          zstd -q -d -f "$RUNNER_TEMP/g8-first/output.sqlite.zst" -o "$RUNNER_TEMP/g8-rerun/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite"
+      - name: Re-materialize exact 2023 staging and indexes
+        run: |
+          python "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-rerun/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-rerun/work" \
+            --report "$RUNNER_TEMP/g8-rerun/reports/MATERIALIZATION_RERUN.json"
+          python .github/scripts/group8_ephemeral_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-rerun/staging.sqlite" --year 2023 --phase rerun \
+            --output "$RUNNER_TEMP/g8-rerun/reports/STAGING_INDEX_REPORT_RERUN.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            --database "$RUNNER_TEMP/g8-rerun/staging.sqlite" \
+            --output "$RUNNER_TEMP/g8-rerun/reports/STAGING_FINGERPRINT_RERUN.json"
+      - name: Verify rerun staging equals first-pass staging logically
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          first=Path(os.environ['RUNNER_TEMP'])/'g8-first/reports';rerun=Path(os.environ['RUNNER_TEMP'])/'g8-rerun/reports'
+          m1=json.loads((first/'MATERIALIZATION.json').read_text());m2=json.loads((rerun/'MATERIALIZATION_RERUN.json').read_text())
+          if m1.get('report_hash')!=m2.get('report_hash'): raise SystemExit('materialization report drift before rerun')
+          f1=json.loads((first/'STAGING_FINGERPRINT_INITIAL.json').read_text());f2=json.loads((rerun/'STAGING_FINGERPRINT_RERUN.json').read_text())
+          th=lambda d:{k:v['logical_sha256'] for k,v in d['tables'].items()}
+          if f1['logical_sha256']!=f2['logical_sha256'] or th(f1)!=th(f2): raise SystemExit('staging logical fingerprint drift before rerun')
+          print({'status':'PASS','staging_logical_sha256':f2['logical_sha256']})
+          PY
+      - name: Prove annual idempotence on identical output
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            --staging-db "$RUNNER_TEMP/g8-rerun/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-rerun/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --audit-output "$RUNNER_TEMP/g8-rerun/reports/ENGINE_AUDIT_RERUN.json"
+          python "$GROUP8_ROOT/code/group8_annual_validation.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --staging-db "$RUNNER_TEMP/g8-rerun/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-rerun/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" \
+            --materializer-report "$RUNNER_TEMP/g8-rerun/reports/MATERIALIZATION_RERUN.json" \
+            --engine-audit "$RUNNER_TEMP/g8-rerun/reports/ENGINE_AUDIT_RERUN.json" \
+            --year 2023 --output "$RUNNER_TEMP/g8-rerun/reports/ANNUAL_VALIDATION_RERUN.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            --database "$RUNNER_TEMP/g8-rerun/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" \
+            --output "$RUNNER_TEMP/g8-rerun/reports/OUTPUT_FINGERPRINT_RERUN.json"
+      - name: Compress rerun database for finalization
+        run: |
+          zstd -q -3 -T0 -f "$RUNNER_TEMP/g8-rerun/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" -o "$RUNNER_TEMP/g8-rerun/output.sqlite.zst"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-2023-rerun-state
+          path: |
+            ${{ runner.temp }}/g8-rerun/output.sqlite.zst
+            ${{ runner.temp }}/g8-rerun/reports
+          compression-level: 0
+          retention-days: 7
+      - name: Cleanup rerun work data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-rerun/work" "$RUNNER_TEMP/g8-rerun/staging.sqlite" "$RUNNER_TEMP/g8-rerun/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" "$RUNNER_TEMP/g8-first" || true
+
+  clean-reconstruction:
+    needs: first-pass
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-2023-initial-state
+          path: ${{ runner.temp }}/g8-first
+      - name: Re-materialize clean 2023 staging and indexes
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-clean/work" "$RUNNER_TEMP/g8-clean/reports"
+          python "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-clean/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-clean/work" \
+            --report "$RUNNER_TEMP/g8-clean/reports/MATERIALIZATION_CLEAN.json"
+          python .github/scripts/group8_ephemeral_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-clean/staging.sqlite" --year 2023 --phase clean-reconstruction \
+            --output "$RUNNER_TEMP/g8-clean/reports/STAGING_INDEX_REPORT_CLEAN.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            --database "$RUNNER_TEMP/g8-clean/staging.sqlite" \
+            --output "$RUNNER_TEMP/g8-clean/reports/STAGING_FINGERPRINT_CLEAN.json"
+      - name: Verify clean staging equals first-pass staging logically
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          first=Path(os.environ['RUNNER_TEMP'])/'g8-first/reports';clean=Path(os.environ['RUNNER_TEMP'])/'g8-clean/reports'
+          m1=json.loads((first/'MATERIALIZATION.json').read_text());m2=json.loads((clean/'MATERIALIZATION_CLEAN.json').read_text())
+          if m1.get('report_hash')!=m2.get('report_hash'): raise SystemExit('materialization report drift before clean reconstruction')
+          f1=json.loads((first/'STAGING_FINGERPRINT_INITIAL.json').read_text());f2=json.loads((clean/'STAGING_FINGERPRINT_CLEAN.json').read_text())
+          th=lambda d:{k:v['logical_sha256'] for k,v in d['tables'].items()}
+          if f1['logical_sha256']!=f2['logical_sha256'] or th(f1)!=th(f2): raise SystemExit('staging logical fingerprint drift before clean reconstruction')
+          print({'status':'PASS','staging_logical_sha256':f2['logical_sha256']})
+          PY
+      - name: Prove clean deterministic reconstruction
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            --staging-db "$RUNNER_TEMP/g8-clean/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-clean/clean.sqlite" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --audit-output "$RUNNER_TEMP/g8-clean/reports/ENGINE_AUDIT_CLEAN.json"
+          python "$GROUP8_ROOT/code/group8_annual_validation.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --staging-db "$RUNNER_TEMP/g8-clean/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-clean/clean.sqlite" \
+            --materializer-report "$RUNNER_TEMP/g8-clean/reports/MATERIALIZATION_CLEAN.json" \
+            --engine-audit "$RUNNER_TEMP/g8-clean/reports/ENGINE_AUDIT_CLEAN.json" \
+            --year 2023 --output "$RUNNER_TEMP/g8-clean/reports/ANNUAL_VALIDATION_CLEAN.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            --database "$RUNNER_TEMP/g8-clean/clean.sqlite" \
+            --output "$RUNNER_TEMP/g8-clean/reports/OUTPUT_FINGERPRINT_CLEAN.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-2023-clean-state
+          path: ${{ runner.temp }}/g8-clean/reports
+          retention-days: 7
+      - name: Cleanup clean work data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-clean/work" "$RUNNER_TEMP/g8-clean/staging.sqlite" "$RUNNER_TEMP/g8-clean/clean.sqlite" "$RUNNER_TEMP/g8-first" || true
+
+  finalize:
+    needs: [rerun, clean-reconstruction]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-2023-initial-state
+          path: ${{ runner.temp }}/g8-first
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-2023-rerun-state
+          path: ${{ runner.temp }}/g8-rerun
+      - uses: actions/download-artifact@v4
+        with:
+          name: group8-2023-clean-state
+          path: ${{ runner.temp }}/g8-clean
+      - name: Verify all three staging reconstructions and output fingerprints
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,shutil
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');tmp=Path(os.environ['RUNNER_TEMP'])
+          first=tmp/'g8-first/reports';rerun=tmp/'g8-rerun/reports';clean=tmp/'g8-clean/reports'
+          mats=[json.loads((p/n).read_text()) for p,n in [(first,'MATERIALIZATION.json'),(rerun,'MATERIALIZATION_RERUN.json'),(clean,'MATERIALIZATION_CLEAN.json')]]
+          if len({m['report_hash'] for m in mats})!=1: raise SystemExit('materialization report drift across jobs')
+          sfs=[json.loads((p/n).read_text()) for p,n in [(first,'STAGING_FINGERPRINT_INITIAL.json'),(rerun,'STAGING_FINGERPRINT_RERUN.json'),(clean,'STAGING_FINGERPRINT_CLEAN.json')]]
+          th=lambda d:{k:v['logical_sha256'] for k,v in d['tables'].items()}
+          if len({f['logical_sha256'] for f in sfs})!=1 or not (th(sfs[0])==th(sfs[1])==th(sfs[2])): raise SystemExit('staging logical reconstruction drift')
+          fps=[json.loads((p/n).read_text()) for p,n in [(first,'OUTPUT_FINGERPRINT_INITIAL.json'),(rerun,'OUTPUT_FINGERPRINT_RERUN.json'),(clean,'OUTPUT_FINGERPRINT_CLEAN.json')]]
+          if len({f['logical_sha256'] for f in fps})!=1 or not (th(fps[0])==th(fps[1])==th(fps[2])): raise SystemExit('annual output logical fingerprint drift')
+          idx=[json.loads((p/n).read_text()) for p,n in [(first,'STAGING_INDEX_REPORT_INITIAL.json'),(rerun,'STAGING_INDEX_REPORT_RERUN.json'),(clean,'STAGING_INDEX_REPORT_CLEAN.json')]]
+          if any(r.get('status')!='PASS' or r.get('data_changes')!=0 for r in idx): raise SystemExit('staging index audit failure')
+          report={'format_version':2,'status':'PASS','year':2023,'idempotence':'PASS','clean_reconstruction':'PASS','multijob_reconstruction':'PASS','staging_logical_sha256':sfs[0]['logical_sha256'],'logical_sha256':fps[1]['logical_sha256'],'initial_fingerprint_hash':fps[0]['report_hash'],'rerun_fingerprint_hash':fps[1]['report_hash'],'clean_fingerprint_hash':fps[2]['report_hash'],'initial_database_sha256':fps[0]['database_sha256'],'rerun_database_sha256':fps[1]['database_sha256'],'clean_database_sha256':fps[2]['database_sha256'],'staging_index_report_hashes':[r['report_hash'] for r in idx]}
+          report['report_hash']=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          (root/'reports').mkdir(parents=True,exist_ok=True)
+          shutil.copy2(first/'MATERIALIZATION.json',root/'reports/30_ANNUAL_2023_MATERIALIZATION.json')
+          shutil.copy2(rerun/'ENGINE_AUDIT_RERUN.json',root/'reports/31_ANNUAL_2023_ENGINE_AUDIT.json')
+          shutil.copy2(rerun/'ANNUAL_VALIDATION_RERUN.json',root/'reports/32_ANNUAL_2023_VALIDATION.json')
+          shutil.copy2(rerun/'OUTPUT_FINGERPRINT_RERUN.json',root/'reports/33_ANNUAL_2023_OUTPUT_FINGERPRINT.json')
+          shutil.copy2(first/'STAGING_INDEX_REPORT_INITIAL.json',root/'reports/30A_ANNUAL_2023_STAGING_INDEX_OPTIMIZATION.json')
+          (root/'reports/34_ANNUAL_2023_CLEAN_RECONSTRUCTION.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(report)
+          PY
+      - name: Restore rerun database and create final compressed annual asset
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-final"
+          zstd -q -d -f "$RUNNER_TEMP/g8-rerun/output.sqlite.zst" -o "$RUNNER_TEMP/g8-final/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite"
+          zstd -q -19 --long=31 -f "$RUNNER_TEMP/g8-final/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" -o "$RUNNER_TEMP/g8-final/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite.zst"
+      - name: Finalize 2023 annual manifest and revoke execution pending OOS freeze
+        run: |
+          python "$GROUP8_ROOT/code/group8_finalize_annual_2023.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --materializer-report "$GROUP8_ROOT/reports/30_ANNUAL_2023_MATERIALIZATION.json" \
+            --engine-audit "$GROUP8_ROOT/reports/31_ANNUAL_2023_ENGINE_AUDIT.json" \
+            --annual-initial "$RUNNER_TEMP/g8-first/reports/ANNUAL_VALIDATION_INITIAL.json" \
+            --annual-rerun "$GROUP8_ROOT/reports/32_ANNUAL_2023_VALIDATION.json" \
+            --annual-clean "$RUNNER_TEMP/g8-clean/reports/ANNUAL_VALIDATION_CLEAN.json" \
+            --fingerprint-initial "$RUNNER_TEMP/g8-first/reports/OUTPUT_FINGERPRINT_INITIAL.json" \
+            --fingerprint-rerun "$GROUP8_ROOT/reports/33_ANNUAL_2023_OUTPUT_FINGERPRINT.json" \
+            --fingerprint-clean "$RUNNER_TEMP/g8-clean/reports/OUTPUT_FINGERPRINT_CLEAN.json" \
+            --output-db "$RUNNER_TEMP/g8-final/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite" \
+            --compressed-output "$RUNNER_TEMP/g8-final/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite.zst" \
+            --validation-run-id "${{ github.run_id }}" \
+            --artifact-name "group8-annual-2023-candidate" \
+            --manifest-output "$GROUP8_ROOT/ANNUAL_2023_VALIDATION_MANIFEST.json"
+      - name: Independent final multi-job 2023 verification
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');s=json.loads((root/'STATUS.json').read_text());m=json.loads((root/'ANNUAL_2023_VALIDATION_MANIFEST.json').read_text());v=json.loads((root/'reports/32_ANNUAL_2023_VALIDATION.json').read_text());r=json.loads((root/'reports/34_ANNUAL_2023_CLEAN_RECONSTRUCTION.json').read_text());idx=json.loads((root/'reports/30A_ANNUAL_2023_STAGING_INDEX_OPTIMIZATION.json').read_text())
+          if m.get('status')!='ANNUAL_2023_PASS' or v.get('status')!='PASS' or r.get('status')!='PASS': raise SystemExit('2023 final evidence not PASS')
+          if int(v.get('locked_context_violations',-1))!=0: raise SystemExit('2023 locked-context violations')
+          if r.get('multijob_reconstruction')!='PASS' or idx.get('status')!='PASS' or idx.get('data_changes')!=0: raise SystemExit('multijob/index evidence invalid')
+          if s.get('status')!='ANNUAL_2023_PASS_OOS_FREEZE_REQUIRED': raise SystemExit('status phase mismatch')
+          if s.get('annual_execution_authorized') or s.get('annual_execution_2023_authorized') or s.get('annual_execution_2024_authorized'): raise SystemExit('annual execution must be revoked pending OOS freeze')
+          print({'status':'PASS','annual_2023_manifest_hash':m['manifest_hash'],'logical_fingerprint':m['logical_fingerprint'],'multijob_reconstruction':'PASS','staging_data_changes':0})
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-annual-2023-candidate
+          path: |
+            ${{ runner.temp }}/g8-final/MoeBot_Group8_XAUUSD_2023_v0.8.0.sqlite.zst
+            ${{ env.GROUP8_ROOT }}/reports/30_ANNUAL_2023_MATERIALIZATION.json
+            ${{ env.GROUP8_ROOT }}/reports/30A_ANNUAL_2023_STAGING_INDEX_OPTIMIZATION.json
+            ${{ env.GROUP8_ROOT }}/reports/31_ANNUAL_2023_ENGINE_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/reports/32_ANNUAL_2023_VALIDATION.json
+            ${{ env.GROUP8_ROOT }}/reports/33_ANNUAL_2023_OUTPUT_FINGERPRINT.json
+            ${{ env.GROUP8_ROOT }}/reports/34_ANNUAL_2023_CLEAN_RECONSTRUCTION.json
+            ${{ env.GROUP8_ROOT }}/ANNUAL_2023_VALIDATION_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          compression-level: 0
+          retention-days: 90
+      - name: Commit verified multi-job 2023 annual evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/reports/30_ANNUAL_2023_MATERIALIZATION.json" \
+            "$GROUP8_ROOT/reports/30A_ANNUAL_2023_STAGING_INDEX_OPTIMIZATION.json" \
+            "$GROUP8_ROOT/reports/31_ANNUAL_2023_ENGINE_AUDIT.json" \
+            "$GROUP8_ROOT/reports/32_ANNUAL_2023_VALIDATION.json" \
+            "$GROUP8_ROOT/reports/33_ANNUAL_2023_OUTPUT_FINGERPRINT.json" \
+            "$GROUP8_ROOT/reports/34_ANNUAL_2023_CLEAN_RECONSTRUCTION.json" \
+            "$GROUP8_ROOT/ANNUAL_2023_VALIDATION_MANIFEST.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Validate Group 8 annual 2023 multi-job [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
+      - name: Cleanup finalization data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-first" "$RUNNER_TEMP/g8-rerun" "$RUNNER_TEMP/g8-clean" "$RUNNER_TEMP/g8-final" || true
