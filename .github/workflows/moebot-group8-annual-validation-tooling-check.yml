@@ -1,0 +1,45 @@
+name: MoeBot Group 8 Annual Validation Tooling Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ANNUAL_TOOLING_VALIDATION.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  validate-tooling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile annual validation tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
+            "$GROUP8_ROOT/code/group8_annual_validation.py" \
+            "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+      - name: Run annual tooling synthetic validation
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+      - name: Regression technical and lifecycle matrices
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
