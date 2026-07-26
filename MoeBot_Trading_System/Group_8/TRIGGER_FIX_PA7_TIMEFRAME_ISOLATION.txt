@@ -1,0 +1,1 @@
+Apply and verify the minimal fail-closed fix for G8-PA7-CROSS-TIMEFRAME-006. Preserve frozen Group 8 design, definitions, thresholds, schema, config, upstream lineage and 2024 OOS isolation. Revoke stale annual authorization until the corrected engine passes the full technical regression matrix and a new exact technical re-freeze.
