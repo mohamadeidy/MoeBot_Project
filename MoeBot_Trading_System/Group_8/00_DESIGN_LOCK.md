@@ -488,4 +488,7 @@ Group 9 is forbidden before explicit official Group 8 closure.
 - Adaptive hash buckets may increase before a frozen run when a projected shard exceeds the frozen size target.
 - Global annual identity is the verified set-union manifest and streaming logical fingerprint across all shards; a monolithic SQLite file is no longer required for closure or Group 9 handoff.
 - 2024 OOS remains forbidden until complete 2023 sharded validation and OOS freeze.
+### 18.1 Causal partition-root revision
+
+Physical bucket assignment is frozen on the family causal partition root, not each descendant primary ID. For `pa7_chain`, the root is the exact immutable boundary identity and all PA7 variants plus PA8/PA9/root-linked descendants inherit that root bucket. This revision changes physical locality only; logical IDs, hashes, definitions, thresholds and causal timestamps are unchanged. Storage contract: `d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a`.
 
