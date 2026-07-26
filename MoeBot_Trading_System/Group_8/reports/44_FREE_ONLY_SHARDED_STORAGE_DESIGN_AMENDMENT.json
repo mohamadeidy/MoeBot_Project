@@ -1,0 +1,22 @@
+{
+  "amended_design_freeze_hash": "42364211a43b26df07dfc1dd6a841930ca985959af61dfeffa1691b65bef42d7",
+  "amended_engine_sha256": "bb4b4bcaf8882aad41e2456a25d10941b455c53ad77cba2bd2e6170ed284a255",
+  "approval": "FREE_ONLY_LOSSLESS_SHARDED_STORAGE",
+  "capacity_probe_hash": "c8822568f1a0d0aeef8b167a56fea564eca927b3a99cdf09db644dbc31b6da05",
+  "classification": "PHYSICAL_STORAGE_HANDOFF_CAPACITY",
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "format_version": 1,
+  "gap_id": "G8-FREE-STORAGE-CAPACITY-009",
+  "groups_1_7_changed": false,
+  "logical_semantics_changed": false,
+  "oos_2024_accessed": false,
+  "paid_cost_authorized": false,
+  "previous_design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "previous_engine_sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+  "report_hash": "9c39dd132a8df13b8ab8e66aa8e70947b3e8d7a81dfb19d1df502125df8d831b",
+  "schema_sql_changed": false,
+  "status": "PASS",
+  "storage_contract_hash": "5840ac5a7c6ef0c7b80c12a1e524b8d9bf35d477a27d18e52e9a37707f754e37",
+  "thresholds_changed": false,
+  "upstream_lineage_changed": false
+}

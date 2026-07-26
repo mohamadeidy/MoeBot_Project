@@ -1,0 +1,20 @@
+{
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "design_freeze_hash": "213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a",
+  "engine_sha256": "ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0",
+  "format_version": 1,
+  "gap_id": "G8-FREE-STORAGE-CAPACITY-009",
+  "groups_1_7_changed": false,
+  "logical_semantics_changed": false,
+  "oos_2024_accessed": false,
+  "paid_cost_authorized": false,
+  "previous_design_freeze_hash": "42364211a43b26df07dfc1dd6a841930ca985959af61dfeffa1691b65bef42d7",
+  "previous_engine_sha256": "bb4b4bcaf8882aad41e2456a25d10941b455c53ad77cba2bd2e6170ed284a255",
+  "previous_storage_contract_hash": "5840ac5a7c6ef0c7b80c12a1e524b8d9bf35d477a27d18e52e9a37707f754e37",
+  "report_hash": "03d5c9e0763d47d78d8b2e4af214c95681b99cc67a52dce5b054b7eb2d5dbf2f",
+  "revision": "CAUSAL_ROOT_BUCKETING",
+  "schema_sql_changed": false,
+  "status": "PASS",
+  "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
+  "thresholds_changed": false
+}

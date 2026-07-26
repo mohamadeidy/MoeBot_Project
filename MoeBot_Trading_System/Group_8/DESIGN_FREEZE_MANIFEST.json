@@ -26,9 +26,9 @@
     "upstream_lineage_changed": false
   },
   "design_contract_audit_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
-  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "design_freeze_hash": "213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a",
   "engine_version": "0.8.0",
-  "format_version": 5,
+  "format_version": 6,
   "group7_logic_source": {
     "closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
     "closure_tag": "moebot-group7-v0.7.5-closure",
@@ -45,6 +45,27 @@
   "schema_version": "8.0.0",
   "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
   "status": "FROZEN",
+  "storage_amendment": {
+    "amendment_id": "G8-FREE-LOSSLESS-SHARDED-STORAGE-AMENDMENT-001",
+    "amendment_version": 2,
+    "approved_execution_policy": "FREE_ONLY",
+    "approved_storage": "LOSSLESS_SHARDED_STORAGE_ARCHITECTURE",
+    "definition_registry_changed": false,
+    "gap_id": "G8-FREE-STORAGE-CAPACITY-009",
+    "groups_1_7_changed": false,
+    "logical_schema_changed": false,
+    "logical_semantics_changed": false,
+    "oos_2024_accessed": false,
+    "partition_root_revision": "CAUSAL_ROOT_BUCKETING",
+    "physical_storage_handoff_changed": true,
+    "previous_design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+    "previous_revision_design_freeze_hash": "42364211a43b26df07dfc1dd6a841930ca985959af61dfeffa1691b65bef42d7",
+    "previous_storage_contract_hash": "5840ac5a7c6ef0c7b80c12a1e524b8d9bf35d477a27d18e52e9a37707f754e37",
+    "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
+    "thresholds_changed": false,
+    "upstream_lineage_changed": false
+  },
+  "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
   "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a",
   "value_binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b"
 }

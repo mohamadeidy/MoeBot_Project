@@ -1,2 +1,2 @@
-Trigger exact PA7 transition storage feasibility proof on the lifecycle-corrected 2023 technical candidate.
-Retry with captured diagnostic log for any proof-stage failure.
+Apply the approved Group 8 free-only lossless sharded storage and handoff amendment.
+Final gate from stable head with causal-root bucketing; no paid runner/service and no 2024 OOS access.
