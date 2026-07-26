@@ -2,22 +2,29 @@
   "annual_execution_2023_authorized": true,
   "annual_execution_2024_authorized": false,
   "closed_blocking_gap": {
-    "corrected_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
-    "diagnostic_report_hash": "78ff7696f1140a7dc60b7f495db8898eba341201c1ae5036c37b771039915e81",
-    "gap_analysis_report_hash": "0b1a66e08aa2b065e9ac8b1bb1a3a832459d43a5dc4bf74318984142ea3eef86",
-    "gap_id": "G8-ICT-LOCKED-CONTEXT-005",
-    "previous_engine_sha256": "10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f"
+    "base_technical_audit_hash": "e3d6f1d85f6a5b3d19d363e8558f1f737f76fc743769de6917bc920981ca2f74",
+    "corrected_engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
+    "diagnostic_report_hash": "f2d1a10101aa76040cf322ccec2438daf20ec3e2fc4aee7b43165f7bcc23fee8",
+    "gap_analysis_report_hash": "b3b3fa7ec7503474d785f764478e63a8000d29748d06a2aeffcfed3eb47a26a6",
+    "gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
+    "previous_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
+    "supplemental_technical_audit_hash": "ed4e85b5d9592ccc8daf616829e00cd8ca784f38b8459299d7532379c3e4832b"
   },
   "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
   "definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
   "design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
   "engine_version": "0.8.0",
-  "format_version": 2,
+  "format_version": 3,
   "identities": {
     "annual_validator": {
       "path": "code/group8_annual_validation.py",
       "sha256": "0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293",
       "size_bytes": 18895
+    },
+    "breakout_cardinality_diagnostic": {
+      "path": "reports/31_BREAKOUT_CARDINALITY_DIAGNOSTIC.json",
+      "sha256": "43be90af430d24849320d107d0737e11fd6cc5eb23e8d490696f029a70eb38a8",
+      "size_bytes": 3205
     },
     "config": {
       "path": "FROZEN_CONFIG.json",
@@ -31,8 +38,8 @@
     },
     "engine": {
       "path": "code/moebot_group8_engine_v0_8_0.py",
-      "sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
-      "size_bytes": 91582
+      "sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
+      "size_bytes": 91613
     },
     "lifecycle_tests": {
       "path": "tests/test_group8_lifecycle_persistence_v0_8_0.py",
@@ -54,6 +61,26 @@
       "sha256": "bd6927c0195e0b3a8070f6921fe19b09ea5eb003e1053592d6b9551a8aaf901d",
       "size_bytes": 9717
     },
+    "pa7_timeframe_gap_analysis": {
+      "path": "reports/33_BREAKOUT_TIMEFRAME_GAP_ANALYSIS.json",
+      "sha256": "adbc39505badab7156c68e8b6d17f2ba456d29699dd0d79333b0a0cc21c20a9f",
+      "size_bytes": 1129
+    },
+    "pa7_timeframe_gap_diagnostic": {
+      "path": "reports/32_BREAKOUT_TIMEFRAME_GAP_DIAGNOSTIC.json",
+      "sha256": "52bb12d0ccaec48dbfcb36f581262899c5e40551929e8119e09e6f1e767151e4",
+      "size_bytes": 1321
+    },
+    "pa7_timeframe_technical_audit": {
+      "path": "reports/34_PA7_TIMEFRAME_TECHNICAL_AUDIT.json",
+      "sha256": "dc90a4db0d831de46adcef0730b4abcb0d5879959362a7fdb7a155cf1cebdace",
+      "size_bytes": 1951
+    },
+    "pa7_timeframe_tests": {
+      "path": "tests/test_group8_breakout_timeframe_isolation_v0_8_0.py",
+      "sha256": "d940a33c7e874c505e669ba875af0b632d17069d6d599c0d9eaf45284a6a6251",
+      "size_bytes": 4623
+    },
     "postprocessor": {
       "path": "code/group8_postprocess_v0_8_0.py",
       "sha256": "ed0ec59c7c357b28a52bfe15b368d1b33b0312a71f300d3cac658eb7d7bd19ef",
@@ -66,7 +93,7 @@
     },
     "technical_audit": {
       "path": "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json",
-      "sha256": "34dfc526f1326e785d4a51db59c0b753dc64f90a648e93b4325982bd5574fa7b",
+      "sha256": "bcfbc4a2fa24c80e7a765591cf637a7b31f02aa21f4b22602c5e0511f7b8af57",
       "size_bytes": 2274
     },
     "tests": {
@@ -80,10 +107,18 @@
       "size_bytes": 15382
     }
   },
-  "manifest_hash": "be29f8d088d7220222438863fe1dea5db8f208eb9fbd967f7561a1bfc106855c",
-  "policy": "2023 in-sample engineering validation re-authorized only after the locked-context blocking gap was fixed and exact technical identities re-frozen; 2024 remains forbidden until post-2023 OOS freeze.",
+  "manifest_hash": "1c7a6b700ebc0552c02e230be7404544606d2f576cd96f05d796531d863774b1",
+  "policy": "2023 in-sample engineering validation re-authorized only after PA7 cross-timeframe Group6 leakage was fixed, all prior technical/lifecycle regressions passed, the new same-timeframe regression passed, and exact corrected identities were independently audited and re-frozen. 2024 remains forbidden until post-2023 OOS freeze.",
+  "previous_closed_blocking_gap": {
+    "corrected_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
+    "diagnostic_report_hash": "78ff7696f1140a7dc60b7f495db8898eba341201c1ae5036c37b771039915e81",
+    "gap_analysis_report_hash": "0b1a66e08aa2b065e9ac8b1bb1a3a832459d43a5dc4bf74318984142ea3eef86",
+    "gap_id": "G8-ICT-LOCKED-CONTEXT-005",
+    "previous_engine_sha256": "10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f"
+  },
   "schema_version": "8.0.0",
   "status": "TECHNICAL_CANDIDATE_PASS",
-  "technical_audit_hash": "7abea1e44bccf3739b4348bbab43079d7d406ca289c64ae38321324ae516a594",
+  "supplemental_technical_audit_hash": "ed4e85b5d9592ccc8daf616829e00cd8ca784f38b8459299d7532379c3e4832b",
+  "technical_audit_hash": "e3d6f1d85f6a5b3d19d363e8558f1f737f76fc743769de6917bc920981ca2f74",
   "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a"
 }
