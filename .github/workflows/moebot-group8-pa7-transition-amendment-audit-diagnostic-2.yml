@@ -1,0 +1,71 @@
+name: MoeBot Group 8 PA7 Transition Amendment Audit Diagnostic 2
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_TRANSITION_EVENT_AMENDMENT.txt"
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+jobs:
+  pinpoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply amendment
+        run: python "$GROUP8_ROOT/code/group8_apply_pa7_transition_event_amendment.py" --group8-root "$GROUP8_ROOT"
+      - name: Exact state-key check
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("MoeBot_Trading_System/Group_8/01_DEFINITION_REGISTRY.json").read_text())
+          exp=["symbol","timeframe","direction","exact_boundary_identity","pa7_variant"]
+          for k in ("pa_breakout_exact","pa_breakout_atr_buffer","pa_breakout_point_buffer"):
+            print(k,r["definitions"][k].get("state_key")); assert r["definitions"][k].get("state_key")==exp
+          PY
+      - name: Exact transition-rule check
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("MoeBot_Trading_System/Group_8/01_DEFINITION_REGISTRY.json").read_text())
+          for k in ("pa_breakout_exact","pa_breakout_atr_buffer","pa_breakout_point_buffer"):
+            print(k,r["definitions"][k].get("transition_rule")); assert r["definitions"][k].get("transition_rule")=="NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY"
+          PY
+      - name: Exact OOS declarations check
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          rep=json.loads((root/"reports/37_PA7_TRANSITION_EVENT_DESIGN_AMENDMENT.json").read_text()); fr=json.loads((root/"DESIGN_FREEZE_MANIFEST.json").read_text())
+          print(rep.get("oos_2024_accessed"),fr.get("design_amendment",{}).get("oos_2024_accessed")); assert rep.get("oos_2024_accessed") is False; assert fr.get("design_amendment",{}).get("oos_2024_accessed") is False
+          PY
+      - name: Exact engine marker check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          t=Path("MoeBot_Trading_System/Group_8/code/moebot_group8_engine_v0_8_0.py").read_text()
+          for m in ("NOT_BEYOND_BOUNDARY","_pa7_window","_pa7_boundary_catalog","initialization_transition"):
+            print(m,t.count(m)); assert m in t
+          PY
+      - name: Exact frozen-diff check
+        run: |
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json"
