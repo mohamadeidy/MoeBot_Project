@@ -1,0 +1,36 @@
+{
+  "2024_accessed": false,
+  "base_technical_audit_hash": "775ddf2fdf1bfe052caae03623f18322bcd80f427cd47ae9130045a00a52112d",
+  "checks": {
+    "active_predicate_retirement_present": true,
+    "base_audit_pass": true,
+    "engine_identity": true,
+    "fail_closed_pre_refreeze": true,
+    "fix_evidence_identity": true,
+    "frozen_identity": true,
+    "fvg_causal_retirement_present": true,
+    "gap_evidence_identity": true,
+    "no_oos_logic_added": true,
+    "range_causal_retirement_present": true,
+    "regression_suite_present": true,
+    "right_censoring_preserved": true
+  },
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "engine_sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+  "failures": [],
+  "fix_report_hash": "b35cee4b2f1500ab5a20e8a1bfb8e0a928047d2875e6c5c2c627e8383af0fc8d",
+  "format_version": 1,
+  "gap_id": "G8-PA7-LIFECYCLE-RETIREMENT-008",
+  "gap_report_hash": "cdd862c7d725858be54c326300404811deee6245ddcb0da3d32a4be68b4122a8",
+  "hashes": {
+    "engine_sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+    "frozen_config_sha256": "d58015a0b99d0d38959cfc5089714aee6d19cf21d2b0eb6a38535dfe5f7ed727",
+    "regression_sha256": "a0cc3d3d4f195eaeb30098f02073c0619c77b8dcc87f86e3c85a2dadd3dd35d3",
+    "schema_sha256": "69382b60266857c0d5aa8662ee6d98d47ae20288bac4d76149aba438eec2d6c1",
+    "upstream_contract_sha256": "42a31b5002478c1ceeacd90ee49bfe926c4c87375b17cf90816bebe208225407"
+  },
+  "phase": "PA7_LIFECYCLE_RETIREMENT_TECHNICAL_AUDIT",
+  "report_hash": "e7e22f886ded11869e250f443200bf1c72f2135beaf2b10e5e5a39b767298ac3",
+  "status": "PASS"
+}

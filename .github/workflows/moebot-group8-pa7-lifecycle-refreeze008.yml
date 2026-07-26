@@ -1,0 +1,140 @@
+name: MoeBot Group 8 PA7 Lifecycle Gap008 Technical Refreeze
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_LIFECYCLE_REFREEZE008.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  audit-refreeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact Gap008 fixed fail-closed state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());e='44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b'
+          assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()==e
+          g=s['blocking_gap'];assert g['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and g['status']=='FIXED_PENDING_TECHNICAL_REFREEZE' and g['fixed_engine_sha256']==e
+          assert s['engine_build_authorized'] is False and s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','engine_sha256':e,'2023_authorized':False,'2024_authorized':False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+
+      - name: Compile audit/refreeze and regression tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            "$GROUP8_ROOT/code/group8_pa7_lifecycle_technical_audit.py" \
+            "$GROUP8_ROOT/code/group8_refreeze_after_pa7_lifecycle.py" \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py"
+
+      - name: Retest full technical and PA7 regression matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py"
+
+      - name: Run independent base technical audit
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --output "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json"
+
+      - name: Run independent PA7 lifecycle technical audit
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_pa7_lifecycle_technical_audit.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --base-technical-audit "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            --output "$GROUP8_ROOT/reports/42_PA7_LIFECYCLE_RETIREMENT_TECHNICAL_AUDIT.json"
+
+      - name: Re-freeze exact fixed engine and authorize 2023 only
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_refreeze_after_pa7_lifecycle.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --base-technical-audit "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            --lifecycle-technical-audit "$GROUP8_ROOT/reports/42_PA7_LIFECYCLE_RETIREMENT_TECHNICAL_AUDIT.json" \
+            --manifest-output "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+
+      - name: Independent exact refreeze verification
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python - <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');sys.path.insert(0,str(root/'code'));from moebot_group8_engine_v0_8_0 import stable_hash
+          s=json.loads((root/'STATUS.json').read_text());m=json.loads((root/'ENGINE_BUILD_MANIFEST.json').read_text());b=json.loads((root/'reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json').read_text());l=json.loads((root/'reports/42_PA7_LIFECYCLE_RETIREMENT_TECHNICAL_AUDIT.json').read_text());e='44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b'
+          for rec,name in ((b,'base'),(l,'life')):
+              q=dict(rec);h=q.pop('report_hash');assert stable_hash(q)==h,name
+          q=dict(m);h=q.pop('manifest_hash');assert stable_hash(q)==h
+          assert m['format_version']==5 and m['status']=='TECHNICAL_CANDIDATE_PASS' and m['identities']['engine']['sha256']==e
+          assert m['closed_blocking_gap']['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and m['closed_blocking_gap']['resolution']=='CAUSAL_BOUNDARY_LIFECYCLE_RETIREMENT'
+          assert m['previous_closed_blocking_gap']['gap_id']=='G8-PA7-ENUMERATION-EXPLOSION-007'
+          for name,ident in m['identities'].items():
+              p=root/ident['path'];assert p.is_file() and p.stat().st_size==int(ident['size_bytes']) and hashlib.sha256(p.read_bytes()).hexdigest()==ident['sha256'],name
+          assert s['engine_build']['engine_build_manifest_hash']==m['manifest_hash'] and s['engine_build']['engine_sha256']==e and s['blocking_gap']['status']=='CLOSED_BY_TECHNICAL_REFREEZE'
+          assert s['engine_build_authorized'] is True and s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','manifest_hash':m['manifest_hash'],'engine_sha256':e,'2023_authorized':True,'2024_authorized':False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-pa7-lifecycle-refreeze008-evidence
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/reports/42_PA7_LIFECYCLE_RETIREMENT_TECHNICAL_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/ENGINE_BUILD_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 30
+
+      - name: Commit exact refrozen technical state
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" "$GROUP8_ROOT/reports/42_PA7_LIFECYCLE_RETIREMENT_TECHNICAL_AUDIT.json" "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Re-freeze Group 8 after PA7 lifecycle Gap008 [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"

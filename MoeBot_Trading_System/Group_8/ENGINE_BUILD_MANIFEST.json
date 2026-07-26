@@ -2,22 +2,21 @@
   "annual_execution_2023_authorized": true,
   "annual_execution_2024_authorized": false,
   "closed_blocking_gap": {
-    "amended_definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
-    "amended_design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
-    "amended_engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
-    "base_technical_audit_hash": "65fc359c2faa394cfb0677ab26c626beb4cac52f8a406d02f5e95680867c84f5",
-    "classification": "FROZEN_DESIGN_CARDINALITY_CONTRADICTION",
-    "design_amendment_report_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
-    "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
-    "resolution": "PA7_TRANSITION_EVENT_ENUMERATION",
-    "supplemental_technical_audit_hash": "c9a2e96eb50621fdc060be00dadbe4e45997437c772665264f5d3b06988a1733"
+    "base_technical_audit_hash": "775ddf2fdf1bfe052caae03623f18322bcd80f427cd47ae9130045a00a52112d",
+    "classification": "FROZEN_IMPLEMENTATION_SEMANTIC_VIOLATION",
+    "fix_report_hash": "b35cee4b2f1500ab5a20e8a1bfb8e0a928047d2875e6c5c2c627e8383af0fc8d",
+    "fixed_engine_sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+    "gap_id": "G8-PA7-LIFECYCLE-RETIREMENT-008",
+    "gap_report_hash": "cdd862c7d725858be54c326300404811deee6245ddcb0da3d32a4be68b4122a8",
+    "resolution": "CAUSAL_BOUNDARY_LIFECYCLE_RETIREMENT",
+    "supplemental_technical_audit_hash": "e7e22f886ded11869e250f443200bf1c72f2135beaf2b10e5e5a39b767298ac3"
   },
   "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
   "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
   "design_amendment_report_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
   "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
   "engine_version": "0.8.0",
-  "format_version": 4,
+  "format_version": 5,
   "identities": {
     "annual_validator": {
       "path": "code/group8_annual_validation.py",
@@ -41,8 +40,8 @@
     },
     "engine": {
       "path": "code/moebot_group8_engine_v0_8_0.py",
-      "sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
-      "size_bytes": 102374
+      "sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+      "size_bytes": 104121
     },
     "lifecycle_tests": {
       "path": "tests/test_group8_lifecycle_persistence_v0_8_0.py",
@@ -64,30 +63,35 @@
       "sha256": "6c26ecac3d76ef70d7caeac8c19e7c0e2250b58befa3ca4052b39ecab9575810",
       "size_bytes": 4030
     },
-    "pa7_timeframe_technical_audit_historical": {
-      "path": "reports/34_PA7_TIMEFRAME_TECHNICAL_AUDIT.json",
-      "sha256": "dc90a4db0d831de46adcef0730b4abcb0d5879959362a7fdb7a155cf1cebdace",
-      "size_bytes": 1951
+    "pa7_lifecycle_fix": {
+      "path": "reports/41_PA7_LIFECYCLE_RETIREMENT_FIX.json",
+      "sha256": "6f0fa1fa6e7f6e8b40dd39ee4e5f4b93149d25a31f9b5a71dcd919e52df695d0",
+      "size_bytes": 1243
+    },
+    "pa7_lifecycle_gap": {
+      "path": "reports/40_PA7_LIFECYCLE_RETIREMENT_GAP.json",
+      "sha256": "a31aad7b4dd7bc501b18d4802b379d260ab364406c131ac810c7352e41f7e0c3",
+      "size_bytes": 3632
+    },
+    "pa7_lifecycle_retirement_tests": {
+      "path": "tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py",
+      "sha256": "a0cc3d3d4f195eaeb30098f02073c0619c77b8dcc87f86e3c85a2dadd3dd35d3",
+      "size_bytes": 7468
+    },
+    "pa7_lifecycle_technical_audit": {
+      "path": "reports/42_PA7_LIFECYCLE_RETIREMENT_TECHNICAL_AUDIT.json",
+      "sha256": "039479bfc42a95cec684330f8df95a3ab3860e6392ecf9aa13e9c850a82b605a",
+      "size_bytes": 1775
     },
     "pa7_timeframe_tests": {
       "path": "tests/test_group8_breakout_timeframe_isolation_v0_8_0.py",
       "sha256": "d940a33c7e874c505e669ba875af0b632d17069d6d599c0d9eaf45284a6a6251",
       "size_bytes": 4623
     },
-    "pa7_transition_technical_audit": {
-      "path": "reports/38_PA7_TRANSITION_EVENT_TECHNICAL_AUDIT.json",
-      "sha256": "9e2aacdeccb44ed4d8de3d9c2a86d958f8568712f9c5554284b63121229d0166",
-      "size_bytes": 2394
-    },
     "pa7_transition_tests": {
       "path": "tests/test_group8_pa7_transition_event_v0_8_0.py",
       "sha256": "303d1d5aaea2912c5d149c963cebb1f83ab9dbb66f5a29e1a8ccf7b2fe306f10",
       "size_bytes": 7904
-    },
-    "postfix_cardinality_diagnostic": {
-      "path": "reports/35_POSTFIX_BREAKOUT_CARDINALITY_DIAGNOSTIC.json",
-      "sha256": "155ba01c1108f741bbb0aef9c3d1b7519f7f7341d60e3e639a39c567480443b7",
-      "size_bytes": 10850
     },
     "postprocessor": {
       "path": "code/group8_postprocess_v0_8_0.py",
@@ -101,7 +105,7 @@
     },
     "technical_audit": {
       "path": "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json",
-      "sha256": "05aa77fcd188c4e960943ec85d62925b3d059ff59cc3fb0f4b439e5e983ea1b0",
+      "sha256": "5f4e82ff94788727513c567b75397395e478f887256002990bb24118a792488e",
       "size_bytes": 2274
     },
     "tests": {
@@ -109,26 +113,33 @@
       "sha256": "287af92a7411eec212dd80b205aebe413d04dd3656a2f8c310fe7e62c5807dc3",
       "size_bytes": 25160
     },
+    "transition_count_diagnostic": {
+      "path": "reports/39A_PA7_TRANSITION_COUNTONLY_DIAGNOSTIC.json",
+      "sha256": "ca5333c4d8cbb11fad47d2902f430fc5c3eb06e894b5791328b65b7f55e962ba",
+      "size_bytes": 2090
+    },
     "upstream_contract": {
       "path": "contracts/UPSTREAM_INPUT_CONTRACT.json",
       "sha256": "42a31b5002478c1ceeacd90ee49bfe926c4c87375b17cf90816bebe208225407",
       "size_bytes": 15382
     }
   },
-  "manifest_hash": "2c89bce52ef8473d55fdc612249f85026554b41666a2ee1595736edab14ed032",
-  "policy": "2023 engineering validation is re-authorized only after the approved PA7 transition-event Design Amendment, full legacy/lifecycle/timeframe/transition regressions, independent base audit, independent PA7 transition audit, and exact identity refreeze. 2024 remains forbidden until successful 2023 validation and explicit OOS freeze.",
+  "manifest_hash": "e7b5eaac95747f0f7e6e3d7a88b4b104a14e4c7dbe9f7f0ae4f2b401e2743b39",
+  "policy": "2023 engineering validation is re-authorized only after Gap008 causal lifecycle retirement fix, complete regression matrices, independent base audit, independent PA7 lifecycle audit, and exact identity refreeze. 2024 remains forbidden until successful 2023 validation and explicit OOS freeze.",
   "previous_closed_blocking_gap": {
-    "base_technical_audit_hash": "e3d6f1d85f6a5b3d19d363e8558f1f737f76fc743769de6917bc920981ca2f74",
-    "corrected_engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
-    "diagnostic_report_hash": "f2d1a10101aa76040cf322ccec2438daf20ec3e2fc4aee7b43165f7bcc23fee8",
-    "gap_analysis_report_hash": "b3b3fa7ec7503474d785f764478e63a8000d29748d06a2aeffcfed3eb47a26a6",
-    "gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
-    "previous_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
-    "supplemental_technical_audit_hash": "ed4e85b5d9592ccc8daf616829e00cd8ca784f38b8459299d7532379c3e4832b"
+    "amended_definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+    "amended_design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+    "amended_engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+    "base_technical_audit_hash": "65fc359c2faa394cfb0677ab26c626beb4cac52f8a406d02f5e95680867c84f5",
+    "classification": "FROZEN_DESIGN_CARDINALITY_CONTRADICTION",
+    "design_amendment_report_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
+    "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
+    "resolution": "PA7_TRANSITION_EVENT_ENUMERATION",
+    "supplemental_technical_audit_hash": "c9a2e96eb50621fdc060be00dadbe4e45997437c772665264f5d3b06988a1733"
   },
   "schema_version": "8.0.0",
   "status": "TECHNICAL_CANDIDATE_PASS",
-  "supplemental_technical_audit_hash": "c9a2e96eb50621fdc060be00dadbe4e45997437c772665264f5d3b06988a1733",
-  "technical_audit_hash": "65fc359c2faa394cfb0677ab26c626beb4cac52f8a406d02f5e95680867c84f5",
+  "supplemental_technical_audit_hash": "e7e22f886ded11869e250f443200bf1c72f2135beaf2b10e5e5a39b767298ac3",
+  "technical_audit_hash": "775ddf2fdf1bfe052caae03623f18322bcd80f427cd47ae9130045a00a52112d",
   "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a"
 }
