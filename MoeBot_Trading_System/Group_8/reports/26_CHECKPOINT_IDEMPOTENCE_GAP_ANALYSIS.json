@@ -1,0 +1,17 @@
+{
+  "annual_authorization_changed_by_this_fix": false,
+  "design_changed": false,
+  "evidence_report_hash": "5dff59af4b0e3456348296c7b08c8e5624a0270bc2e5252b20d02831d808ee77",
+  "format_version": 1,
+  "gap_id": "G8-ENGINE-CHECKPOINT-IDEMPOTENCE-004",
+  "minimal_correct_fix": "Define checkpoint snapshot identity from immutable input frontier and frozen engine/schema/config identity only: input bar count, first/last bar IDs and availability times, stage, symbol and timeframe.",
+  "parent_gap_id": "G8-ENGINE-LIFECYCLE-002",
+  "phase": "ENGINE_BUILD_REVIEW_GAP_ANALYSIS",
+  "regression": "Existing extended idempotence requires exact checkpoint rows to remain byte-for-byte stable across identical reruns; missing-bar fixtures retain distinct input-frontier identity through input_bar_count.",
+  "report_hash": "62e036a3e4f32ca56b278e4f6e5f05eba6ead587943a3d4b6ba270d680b72e33",
+  "root_cause": "processing_checkpoint snapshot hashes included cumulative output-table counts. On an identical rerun, lifecycle outputs from the previous completed run already existed before early stages, so checkpoint hashes changed even though the input processing frontier was identical.",
+  "severity": "BLOCKING",
+  "status": "BLOCKING_GAP_FIXED_PENDING_RETEST",
+  "thresholds_changed": false,
+  "upstream_changed": false
+}

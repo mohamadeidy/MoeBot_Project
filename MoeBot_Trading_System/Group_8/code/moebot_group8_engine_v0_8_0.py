@@ -272,7 +272,11 @@ class Group8Engine:
         feature_payload = json_safe(features or {}); refs = [json_safe(r) for r in upstream_refs]; creation = {"definition_id": definition_id, "symbol": symbol, "timeframe": timeframe, "direction": direction, "source_bar_id": source_bar_id, "related_source_bar_id": related_source_bar_id, "event_time": int(event_time), "confirmation_time": int(confirmation_time), "availability_time": int(availability_time), "lower": lower, "upper": upper, "intrinsic_pass": bool(intrinsic_pass), "ambiguous": bool(ambiguous), "reasons": list(reasons), "features": feature_payload, "upstream_refs": refs, "engine_version": ENGINE_VERSION, "schema_version": SCHEMA_VERSION, "config_id": CONFIG_ID}
         cid = deterministic_id("g8p", creation); feature_hash = stable_hash(feature_payload); candidate_hash = stable_hash(creation)
         row = {"candidate_id": cid, "definition_id": definition_id, "symbol": symbol, "timeframe": timeframe, "direction": direction, "source_bar_id": source_bar_id, "related_source_bar_id": related_source_bar_id, "event_time": int(event_time), "confirmation_time": int(confirmation_time), "availability_time": int(availability_time), "lower": lower, "upper": upper, "intrinsic_pass": 1 if intrinsic_pass else 0, "ambiguous": 1 if ambiguous else 0, "reasons_json": canonical_json(list(reasons)), "features_json": canonical_json(feature_payload), "upstream_refs_json": canonical_json(refs), "feature_hash": feature_hash, "candidate_hash": candidate_hash}
-        self._insert_immutable("price_action_pattern_candidate", "candidate_id", cid, row, hash_column="candidate_hash", expected_hash=candidate_hash); self.definition_coverage[definition_id] += 1; return cid
+        self._insert_immutable("price_action_pattern_candidate", "candidate_id", cid, row, hash_column="candidate_hash", expected_hash=candidate_hash)
+        self.definition_coverage[definition_id] += 1
+        from group8_postprocess_v0_8_0 import ensure_pattern_creation_state
+        ensure_pattern_creation_state(self, cid)
+        return cid
 
     def _write_interpretation(self, definition_id: str, *, symbol: str, timeframe: str, direction: str, event_time: int, confirmation_time: int, availability_time: int, upstream_refs: Sequence[Mapping[str, Any]], reasons: Sequence[str] = (), ambiguous: bool = False, complete: bool = True, support_count: int | None = None, conflict_count: int = 0, evidence_strength: Mapping[str, Any] | None = None, lifecycle_state: str | None = None) -> str:
         definition = self.def_registry["definitions"][definition_id]
@@ -292,11 +296,11 @@ class Group8Engine:
         creation = {"definition_id": definition_id, "school": definition["school"], "symbol": symbol, "timeframe": timeframe, "direction": direction, "event_time": int(event_time), "confirmation_time": int(confirmation_time), "availability_time": int(availability_time), "initial_state": initial_state, "mandatory_evidence_complete": bool(complete), "ambiguous": bool(ambiguous), "supporting_evidence_count": support_count, "conflicting_evidence_count": int(conflict_count), "evidence_strength": json_safe(evidence_strength or {}), "upstream_refs": refs, "reasons": list(reasons), "engine_version": ENGINE_VERSION, "schema_version": SCHEMA_VERSION, "config_id": CONFIG_ID}
         hid = deterministic_id("g8h", creation); h = stable_hash(creation)
         row = {"hypothesis_id": hid, "definition_id": definition_id, "school_id": SCHOOL_IDS[definition["school"]], "symbol": symbol, "timeframe": timeframe, "direction": direction, "event_time": int(event_time), "confirmation_time": int(confirmation_time), "availability_time": int(availability_time), "initial_state": initial_state, "mandatory_evidence_complete": 1 if complete else 0, "ambiguous": 1 if ambiguous else 0, "supporting_evidence_count": support_count, "conflicting_evidence_count": int(conflict_count), "evidence_strength_json": canonical_json(json_safe(evidence_strength or {})), "upstream_refs_json": canonical_json(refs), "reasons_json": canonical_json(list(reasons)), "hypothesis_hash": h}
-        inserted = self._insert_immutable("narrative_hypothesis", "hypothesis_id", hid, row, hash_column="hypothesis_hash", expected_hash=h)
+        self._insert_immutable("narrative_hypothesis", "hypothesis_id", hid, row, hash_column="hypothesis_hash", expected_hash=h)
         self.definition_coverage[definition_id] += 1
         self._write_evidence_chain("narrative_hypothesis", hid, refs)
-        if inserted:
-            self._append_lifecycle(hid, initial_state, event_time=event_time, availability_time=availability_time, source_type=None, source_id=None, details={"creation": True})
+        from group8_postprocess_v0_8_0 import ensure_initial_hypothesis_lifecycle
+        ensure_initial_hypothesis_lifecycle(self, hid, initial_state, event_time=int(event_time), availability_time=int(availability_time))
         return hid
 
     def _append_lifecycle(self, hypothesis_id: str, state: str, *, event_time: int, availability_time: int, source_type: str | None, source_id: str | None, details: Mapping[str, Any]) -> str:
@@ -468,6 +472,7 @@ class Group8Engine:
         sql = """SELECT l.*,v.validation_id,v.confirmation_time AS validation_confirmation_time,v.availability_time AS validation_availability,v.result AS validation_result FROM group6__displacement_legs l JOIN group6__displacement_validation_events v ON v.leg_id=l.leg_id WHERE lower(COALESCE(v.result,'')) IN ('pass','validated','true','1','accepted','valid') OR lower(COALESCE(v.validation_type,'')) LIKE '%valid%' ORDER BY v.availability_time,l.leg_id"""; yield from self.input.execute(sql)
 
     def process_structural_narratives(self) -> None:
+        from group8_postprocess_v0_8_0 import continuation_structure_valid
         states=[dict(r) for r in self.input.execute("SELECT * FROM group3__structure_states ORDER BY close_time,state_id")]; legs=[dict(r) for r in self._validated_legs()]; symbols=sorted({s for s,_ in self.bars_by_tf}); default_symbol=symbols[0] if len(symbols)==1 else "UNKNOWN"
         for st in states:
             sd=normalize_direction(st["active_bias"] if st["active_bias"] not in (None,"unknown","transition") else st["sequence_bias"])
@@ -482,7 +487,7 @@ class Group8Engine:
                 hid=self._write_hypothesis("pa_structural_pullback",symbol=st["symbol"] or default_symbol,timeframe=st["timeframe"],direction=sd,event_time=int(leg["end_time"]),confirmation_time=int(leg["validation_confirmation_time"]),availability_time=max_time(st["close_time"],leg["validation_availability"]),upstream_refs=refs,evidence_strength={"counter_direction_displacement":1,"structure_layer":st["layer"]}); dow_def="dow_advancing_structure" if sd=="bullish" else "dow_declining_structure"; dow=self.out.execute("SELECT * FROM school_interpretation WHERE definition_id=? AND timeframe=? AND json_extract(upstream_refs_json,'$[0].source_id')=? ORDER BY availability_time LIMIT 1",(dow_def,st["timeframe"],st["state_id"])).fetchone()
                 if dow: self._write_interpretation("dow_protected_pullback",symbol=st["symbol"] or default_symbol,timeframe=st["timeframe"],direction=sd,event_time=int(leg["end_time"]),confirmation_time=int(leg["validation_confirmation_time"]),availability_time=max_time(dow["availability_time"],leg["validation_availability"]),upstream_refs=[self._ref("group8","school_interpretation",dow["interpretation_id"],dow["availability_time"]),self._ref("group8","narrative_hypothesis",hid,max_time(st["close_time"],leg["validation_availability"]))])
                 later=next((x for x in legs if x["timeframe"]==st["timeframe"] and normalize_direction(x["direction"])==sd and int(x["validation_availability"])>int(leg["validation_availability"])),None)
-                if later: self._write_hypothesis("pa_continuation_after_pullback",symbol=st["symbol"] or default_symbol,timeframe=st["timeframe"],direction=sd,event_time=int(leg["end_time"]),confirmation_time=int(later["validation_confirmation_time"]),availability_time=max_time(st["close_time"],leg["validation_availability"],later["validation_availability"]),upstream_refs=[self._ref("group8","narrative_hypothesis",hid,max_time(st["close_time"],leg["validation_availability"])),self._ref("group6","displacement_legs",later["leg_id"],later["availability_time"],event_time=later["end_time"],timeframe=later["timeframe"]),self._ref("group6","displacement_validation_events",later["validation_id"],later["validation_availability"],event_time=later["validation_confirmation_time"],timeframe=later["timeframe"])])
+                if later and continuation_structure_valid(self, st, leg, later, sd): self._write_hypothesis("pa_continuation_after_pullback",symbol=st["symbol"] or default_symbol,timeframe=st["timeframe"],direction=sd,event_time=int(leg["end_time"]),confirmation_time=int(later["validation_confirmation_time"]),availability_time=max_time(st["close_time"],leg["validation_availability"],later["validation_availability"]),upstream_refs=[self._ref("group8","narrative_hypothesis",hid,max_time(st["close_time"],leg["validation_availability"])),self._ref("group6","displacement_legs",later["leg_id"],later["availability_time"],event_time=later["end_time"],timeframe=later["timeframe"]),self._ref("group6","displacement_validation_events",later["validation_id"],later["validation_availability"],event_time=later["validation_confirmation_time"],timeframe=later["timeframe"])])
         for fb in self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id='pa_failed_breakout'").fetchall():
             rej=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id IN ('pa_pin_bar_like','pa_rejection_close') AND source_bar_id=? AND direction=? ORDER BY candidate_id LIMIT 1",(fb["source_bar_id"],fb["direction"])).fetchone()
             if rej: self._write_hypothesis("pa_exhaustion_failed_breakout",symbol=fb["symbol"],timeframe=fb["timeframe"],direction=fb["direction"],event_time=int(fb["event_time"]),confirmation_time=max_time(fb["confirmation_time"],rej["confirmation_time"]),availability_time=max_time(fb["availability_time"],rej["availability_time"]),upstream_refs=[self._ref("group8","price_action_pattern_candidate",fb["candidate_id"],fb["availability_time"]),self._ref("group8","price_action_pattern_candidate",rej["candidate_id"],rej["availability_time"])])
@@ -626,14 +631,39 @@ class Group8Engine:
         if require_all_definitions_producible:
             missing_rows=sorted(k for k,v in self.definition_coverage.items() if v==0)
             if missing_rows:failures.append(f"synthetic_fixture_missing_definition_rows:{missing_rows}")
-        counts={t:self.out.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ["price_action_pattern_candidate","school_interpretation","narrative_hypothesis","hypothesis_lifecycle_event","shared_evidence","conflicting_evidence","multi_timeframe_context_relation","evidence_chain"]};report={"format_version":1,"status":"PASS" if not failures else "FAIL","engine_version":ENGINE_VERSION,"schema_version":SCHEMA_VERSION,"config_id":CONFIG_ID,"year":self.year,"counts":counts,"definition_coverage":dict(sorted(self.definition_coverage.items())),"evaluator_count":len(evaluators),"failures":failures};report["report_hash"]=stable_hash(report);return report
+        counts={t:self.out.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ["price_action_pattern_candidate","price_action_pattern_state","school_interpretation","narrative_hypothesis","hypothesis_lifecycle_event","invalidation_record","group8_audit_evidence","processing_checkpoint","shared_evidence","conflicting_evidence","multi_timeframe_context_relation","evidence_chain"]};report={"format_version":1,"status":"PASS" if not failures else "FAIL","engine_version":ENGINE_VERSION,"schema_version":SCHEMA_VERSION,"config_id":CONFIG_ID,"year":self.year,"counts":counts,"definition_coverage":dict(sorted(self.definition_coverage.items())),"evaluator_count":len(evaluators),"failures":failures};report["report_hash"]=stable_hash(report);return report
 
     @staticmethod
     def evaluator_registry() -> Mapping[str, str]:
         return {"pa_candle_anatomy":"process_base_price_action","pa_inside_bar_edge":"process_base_price_action","pa_inside_bar_strict":"process_base_price_action","pa_outside_bar_edge":"process_base_price_action","pa_outside_bar_strict":"process_base_price_action","pa_body_engulfing":"process_base_price_action","pa_directional_body_engulfing":"process_base_price_action","pa_full_range_engulfing":"process_base_price_action","pa_doji_strict":"process_base_price_action","pa_doji_broad":"process_base_price_action","pa_pin_bar_like":"process_base_price_action","pa_rejection_close":"process_base_price_action","pa_bounded_range_context":"process_bounded_ranges","pa_breakout_exact":"process_breakouts","pa_breakout_point_buffer":"process_breakouts","pa_breakout_atr_buffer":"process_breakouts","pa_context_linked_rejection":"process_context_rejections","pa_failed_breakout":"process_failed_breakouts_and_retests","pa_retest":"process_failed_breakouts_and_retests","pa_structural_pullback":"process_structural_narratives","pa_continuation_after_pullback":"process_structural_narratives","pa_exhaustion_failed_breakout":"process_structural_narratives","dow_advancing_structure":"process_dow","dow_declining_structure":"process_dow","dow_indeterminate_structure":"process_dow","dow_bullish_transition":"process_dow","dow_bearish_transition":"process_dow","dow_protected_pullback":"process_structural_narratives","wyckoff_range_context":"process_wyckoff","wyckoff_spring_candidate":"process_wyckoff","wyckoff_upthrust_candidate":"process_wyckoff","wyckoff_sign_of_strength":"process_wyckoff","wyckoff_sign_of_weakness":"process_wyckoff","wyckoff_last_point_of_support":"process_wyckoff","wyckoff_last_point_of_supply":"process_wyckoff","wyckoff_accumulation_hypothesis":"process_wyckoff","wyckoff_distribution_hypothesis":"process_wyckoff","wyckoff_reaccumulation_hypothesis":"process_wyckoff","wyckoff_redistribution_hypothesis":"process_wyckoff","ict_liquidity_sweep_displacement":"process_ict","ict_mss_fvg_delivery":"process_ict","ict_premium_discount_context":"process_ict","ict_return_to_imbalance":"process_ict","ict_block_delivery_context":"process_ict","ict_draw_on_liquidity_context":"process_ict"}
 
     def run(self) -> dict[str, Any]:
-        self.load_bars();self.process_base_price_action();self.process_dow();self.process_bounded_ranges();self.process_breakouts();self.process_context_rejections();self.process_failed_breakouts_and_retests();self.process_structural_narratives();self.process_wyckoff();self.process_ict();self.process_cross_school_and_mtf();report=self.audit(require_all_definitions_producible=False);self.out.execute("INSERT OR REPLACE INTO metadata(key,value) VALUES(?,?)",("engine_audit_hash",report["report_hash"]));self.out.commit();return report
+        from group8_postprocess_v0_8_0 import checkpoint, finalize_postprocessing, persist_audit_evidence
+        stages = [
+            ("load_bars", self.load_bars),
+            ("base_price_action", self.process_base_price_action),
+            ("dow", self.process_dow),
+            ("bounded_ranges", self.process_bounded_ranges),
+            ("breakouts", self.process_breakouts),
+            ("context_rejections", self.process_context_rejections),
+            ("failed_breakouts_retests", self.process_failed_breakouts_and_retests),
+            ("structural_narratives", self.process_structural_narratives),
+            ("wyckoff", self.process_wyckoff),
+            ("ict", self.process_ict),
+            ("cross_school_mtf", self.process_cross_school_and_mtf),
+        ]
+        for stage_name, stage_fn in stages:
+            stage_fn()
+            checkpoint(self, stage_name)
+        persistence_report = finalize_postprocessing(self)
+        checkpoint(self, "lifecycle_persistence")
+        report = self.audit(require_all_definitions_producible=False)
+        persist_audit_evidence(self, report, persistence_report)
+        checkpoint(self, "final_audit")
+        report = self.audit(require_all_definitions_producible=False)
+        self.out.execute("INSERT OR REPLACE INTO metadata(key,value) VALUES(?,?)",("engine_audit_hash",report["report_hash"]))
+        self.out.commit()
+        return report
 
 
 def main() -> int:

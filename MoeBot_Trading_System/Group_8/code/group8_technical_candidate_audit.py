@@ -41,8 +41,11 @@ def main()->int:
         if hits:schema_hits.append({'table':table,'tokens':hits})
     checks['prohibited_output_schema_absent']=not schema_hits
     if schema_hits:failures.append({'prohibited_schema':schema_hits})
-    engine_path=root/'code/moebot_group8_engine_v0_8_0.py';materializer_path=root/'code/group8_materialize_inputs.py';test_path=root/'tests/test_group8_engine_v0_8_0.py'
-    engine_text=engine_path.read_text();materializer_text=materializer_path.read_text();future_refs=sorted(t for t in FORBIDDEN_TABLE_REFERENCES if t in engine_text or t in materializer_text)
+    engine_path=root/'code/moebot_group8_engine_v0_8_0.py';materializer_path=root/'code/group8_materialize_inputs.py';postprocessor_path=root/'code/group8_postprocess_v0_8_0.py';test_path=root/'tests/test_group8_engine_v0_8_0.py';lifecycle_test_path=root/'tests/test_group8_lifecycle_persistence_v0_8_0.py'
+    engine_text=engine_path.read_text();materializer_text=materializer_path.read_text();postprocessor_text=postprocessor_path.read_text();future_refs=sorted(t for t in FORBIDDEN_TABLE_REFERENCES if t in engine_text or t in materializer_text or t in postprocessor_text)
+    lifecycle_markers=['ensure_pattern_creation_state','ensure_initial_hypothesis_lifecycle','continuation_structure_valid','finalize_postprocessing','processing_checkpoint','invalidation_record','group8_audit_evidence','right_censored','completed_descriptive','contradicted']
+    checks['lifecycle_persistence_hardening_present']=all(x in engine_text+postprocessor_text for x in lifecycle_markers)
+    if not checks['lifecycle_persistence_hardening_present']:failures.append({'lifecycle_persistence_markers_missing':[x for x in lifecycle_markers if x not in engine_text+postprocessor_text]})
     checks['future_outcome_tables_not_consumed']=not future_refs
     if future_refs:failures.append({'future_outcome_table_reference':future_refs})
     tree=ast.parse(engine_text);bad_functions=[]
@@ -72,7 +75,7 @@ def main()->int:
     if not checks['deterministic_identity_present']:failures.append('deterministic_identity_guards_missing')
     checks['2024_execution_not_embedded']=('2024' not in re.sub(r'EXPECTED_DEFINITION_COUNT\s*=\s*45','',engine_text))
     if not checks['2024_execution_not_embedded']:failures.append('engine_contains_2024_specific_execution_logic')
-    hashes={'engine_sha256':file_hash(engine_path),'materializer_sha256':file_hash(materializer_path),'tests_sha256':file_hash(test_path),'schema_sha256':file_hash(root/'02_SCHEMA.sql'),'definition_registry_file_sha256':file_hash(root/'01_DEFINITION_REGISTRY.json'),'frozen_config_file_sha256':file_hash(root/'FROZEN_CONFIG.json')}
+    hashes={'engine_sha256':file_hash(engine_path),'materializer_sha256':file_hash(materializer_path),'postprocessor_sha256':file_hash(postprocessor_path),'tests_sha256':file_hash(test_path),'lifecycle_tests_sha256':file_hash(lifecycle_test_path),'schema_sha256':file_hash(root/'02_SCHEMA.sql'),'definition_registry_file_sha256':file_hash(root/'01_DEFINITION_REGISTRY.json'),'frozen_config_file_sha256':file_hash(root/'FROZEN_CONFIG.json')}
     report={'format_version':1,'phase':'ENGINE_TECHNICAL_CANDIDATE_AUDIT','status':'PASS' if not failures else 'FAIL','engine_version':ENGINE_VERSION,'schema_version':SCHEMA_VERSION,'config_id':CONFIG_ID,'definition_count':len(frozen),'checks':checks,'hashes':hashes,'failures':failures};report['report_hash']=stable_hash(report);a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps(report,indent=2,sort_keys=True));return 0 if not failures else 1
 
 if __name__=='__main__':raise SystemExit(main())

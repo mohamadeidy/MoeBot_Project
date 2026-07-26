@@ -56,14 +56,19 @@ class Group8LifecyclePersistenceTests(unittest.TestCase):
             ]
             con = sqlite3.connect(output)
             before = {t: con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tables}
+            audit_before = con.execute("SELECT check_name,scope,checked_at,status,audit_id,audit_hash FROM group8_audit_evidence ORDER BY check_name,scope,checked_at,audit_id").fetchall()
             checkpoints_before = con.execute("SELECT symbol,timeframe,stage,status,last_bar_id,last_time,snapshot_hash,updated_at FROM processing_checkpoint ORDER BY symbol,timeframe,stage").fetchall()
             con.close()
             self._run(stage, output)
             con = sqlite3.connect(output)
             after = {t: con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tables}
+            audit_after = con.execute("SELECT check_name,scope,checked_at,status,audit_id,audit_hash FROM group8_audit_evidence ORDER BY check_name,scope,checked_at,audit_id").fetchall()
+            duplicate_audit_keys = con.execute("SELECT check_name,scope,checked_at,COUNT(*) FROM group8_audit_evidence GROUP BY check_name,scope,checked_at HAVING COUNT(*)>1").fetchall()
             checkpoints_after = con.execute("SELECT symbol,timeframe,stage,status,last_bar_id,last_time,snapshot_hash,updated_at FROM processing_checkpoint ORDER BY symbol,timeframe,stage").fetchall()
             con.close()
             self.assertEqual(before, after)
+            self.assertEqual(audit_before, audit_after)
+            self.assertEqual(duplicate_audit_keys, [])
             self.assertEqual(checkpoints_before, checkpoints_after)
 
     def test_initial_lifecycle_helper_repairs_interruption_without_duplicate(self):

@@ -1,0 +1,19 @@
+{
+  "annual_authorization_changed_by_this_fix": false,
+  "design_changed": false,
+  "evidence_report_hash": "3e398fbbbfc72db1545a44e5a88ec449535541348cccf537731d31052a90e6df",
+  "format_version": 1,
+  "gap_id": "G8-ENGINE-LIFECYCLE-AUDIT-IDEMPOTENCE-003",
+  "minimal_correct_fix": "Fail closed on multiple pre-existing audit identities, preserve the first immutable row for the same check_name/scope/checked_at when status is unchanged, and reject conflicting rerun status.",
+  "observed_after_rerun_count": 7,
+  "observed_before_count": 4,
+  "parent_gap_id": "G8-ENGINE-LIFECYCLE-002",
+  "phase": "ENGINE_BUILD_REVIEW_GAP_ANALYSIS",
+  "regression": "Extended idempotence now compares exact audit rows and asserts no duplicate check_name/scope/checked_at keys.",
+  "report_hash": "399b51c106257dbc61b30fb9c253a054c94c1c745ebd2966170919232469c7cb",
+  "root_cause": "group8_audit_evidence deterministic IDs included mutable rerun audit details; identical annual reruns therefore appended new audit rows instead of preserving one immutable identity per check/scope/checked_at.",
+  "severity": "BLOCKING",
+  "status": "BLOCKING_GAP_FIXED_PENDING_RETEST",
+  "thresholds_changed": false,
+  "upstream_changed": false
+}
