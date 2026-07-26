@@ -1,0 +1,141 @@
+name: MoeBot Group 8 PA7 Transition Event Design Amendment
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_TRANSITION_EVENT_AMENDMENT.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  design-amendment-build-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact Gap 007 decision state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text())
+          expected="f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d"
+          actual=hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest()
+          gap=status.get("blocking_gap",{})
+          if actual!=expected: raise SystemExit("unexpected pre-amendment engine bytes")
+          if gap.get("gap_id")!="G8-PA7-ENUMERATION-EXPLOSION-007" or gap.get("status")!="OPEN_DESIGN_DECISION_REQUIRED": raise SystemExit("Gap 007 is not the authoritative open blocker")
+          if status.get("annual_execution_2023_authorized") or status.get("annual_execution_2024_authorized") or status.get("officially_closed"): raise SystemExit("fail-closed precondition violated")
+          print({"status":"PASS","gap_id":gap["gap_id"],"engine_sha256":actual,"oos_2024_authorized":False})
+          PY
+
+      - name: Apply approved formal PA7 transition-event design amendment
+        run: |
+          python "$GROUP8_ROOT/code/group8_apply_pa7_transition_event_amendment.py" --group8-root "$GROUP8_ROOT"
+
+      - name: Compile amended implementation and regressions
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_apply_pa7_transition_event_amendment.py" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py"
+
+      - name: Run original Group 8 technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+
+      - name: Run lifecycle and locked-context regression matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+
+      - name: Run PA7 same-timeframe regression
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py"
+
+      - name: Run PA7 transition re-arm variant isolation and idempotence regression
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py"
+
+      - name: Independent amendment and no-OOS verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          reg=json.loads((root/"01_DEFINITION_REGISTRY.json").read_text())
+          freeze=json.loads((root/"DESIGN_FREEZE_MANIFEST.json").read_text())
+          status=json.loads((root/"STATUS.json").read_text())
+          report=json.loads((root/"reports/37_PA7_TRANSITION_EVENT_DESIGN_AMENDMENT.json").read_text())
+          def canon(x): return json.dumps(x,sort_keys=True,separators=(",",":"),ensure_ascii=False)
+          def stable(x): return hashlib.sha256(canon(x).encode()).hexdigest()
+          def selfhash(x,k): y=dict(x);y.pop(k,None);return stable(y)
+          rr=dict(report); saved=rr.pop("report_hash")
+          if stable(rr)!=saved: raise SystemExit("amendment report self-hash mismatch")
+          if selfhash(reg,"registry_hash")!=reg["registry_hash"]: raise SystemExit("amended definition registry self-hash mismatch")
+          if selfhash(freeze,"design_freeze_hash")!=freeze["design_freeze_hash"]: raise SystemExit("amended design freeze self-hash mismatch")
+          expected={"pa_breakout_exact":"PA7E.2","pa_breakout_atr_buffer":"PA7A.2","pa_breakout_point_buffer":"PA7P.2"}
+          for k,v in expected.items():
+              d=reg["definitions"][k]
+              if d.get("version")!=v or d.get("persistent_state_records_forbidden") is not True or d.get("transition_rule")!="NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY": raise SystemExit(f"{k} amendment mismatch")
+              if d.get("state_key")!=["symbol","timeframe","direction","exact_boundary_identity","pa7_variant"]: raise SystemExit(f"{k} state key mismatch")
+          if freeze.get("definition_registry_hash")!=reg.get("registry_hash"): raise SystemExit("freeze/registry lineage mismatch")
+          if freeze.get("design_amendment",{}).get("gap_id")!="G8-PA7-ENUMERATION-EXPLOSION-007": raise SystemExit("freeze amendment gap mismatch")
+          if report.get("oos_2024_accessed") is not False or freeze["design_amendment"].get("oos_2024_accessed") is not False: raise SystemExit("2024 OOS access declared")
+          if status.get("annual_execution_2024_authorized") or status.get("annual_execution_2023_authorized") or status.get("engine_build_authorized"): raise SystemExit("execution reauthorized before technical refreeze")
+          if status.get("blocking_gap",{}).get("status")!="FIXED_PENDING_TECHNICAL_REFREEZE": raise SystemExit("status phase mismatch")
+          if status.get("blocking_gap",{}).get("decision_required") is not False: raise SystemExit("approved decision still marked pending")
+          engine=(root/"code/moebot_group8_engine_v0_8_0.py").read_text()
+          for marker in ("NOT_BEYOND_BOUNDARY","_pa7_window","_pa7_boundary_catalog","initialization_transition"):
+              if marker not in engine: raise SystemExit(f"engine transition marker missing: {marker}")
+          print({"status":"PASS","registry_hash":reg["registry_hash"],"design_freeze_hash":freeze["design_freeze_hash"],"engine_sha256":hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest(),"2024_accessed":False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-pa7-transition-event-amendment-evidence
+          path: ${{ env.GROUP8_ROOT }}/reports/37_PA7_TRANSITION_EVENT_DESIGN_AMENDMENT.json
+          retention-days: 30
+
+      - name: Commit amended frozen design and candidate to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/STATUS.json" \
+            "$GROUP8_ROOT/reports/37_PA7_TRANSITION_EVENT_DESIGN_AMENDMENT.json"
+          git diff --cached --check
+          git commit -m "Apply Group 8 PA7 transition-event design amendment [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
