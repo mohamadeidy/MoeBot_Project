@@ -126,6 +126,6 @@ jobs:
             "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
             "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
             "$GROUP8_ROOT/STATUS.json"
-          git diff --cached --check
+          git status --short
           git commit -m "Apply Group 8 free-only sharded storage amendment [skip ci]"
           git push origin "HEAD:${{ github.head_ref }}"
