@@ -1,0 +1,145 @@
+{
+  "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+  "format_version": 1,
+  "group5_database_sha256": "50368ddd9be75aaed5c13e2d0c353f259449fbf7407a00d78c5aa5d097acea9e",
+  "group5_database_size_bytes": 82915328,
+  "liquidity_event_distribution": [
+    {
+      "event_type": "reclaim",
+      "n": 4249,
+      "resolution": "same_bar_reclaim",
+      "resolved": 4249
+    },
+    {
+      "event_type": "taken_without_reclaim",
+      "n": 2406,
+      "resolution": "window_expired",
+      "resolved": 2406
+    },
+    {
+      "event_type": "stop_run",
+      "n": 2255,
+      "resolution": "same_bar_reclaim",
+      "resolved": 2255
+    },
+    {
+      "event_type": "reclaim",
+      "n": 2080,
+      "resolution": "multi_bar_reclaim",
+      "resolved": 2080
+    },
+    {
+      "event_type": "liquidity_grab",
+      "n": 1994,
+      "resolution": "same_bar_reclaim",
+      "resolved": 1994
+    },
+    {
+      "event_type": "stop_run",
+      "n": 1981,
+      "resolution": "multi_bar_reclaim",
+      "resolved": 1981
+    },
+    {
+      "event_type": "false_breakout",
+      "n": 99,
+      "resolution": "multi_bar_reclaim",
+      "resolved": 99
+    }
+  ],
+  "observations": {
+    "authorization_changed": false,
+    "definitions_changed": false,
+    "diagnostic_only": true,
+    "engine_changed": false,
+    "no_lifecycle_rule_inferred_by_probe": true,
+    "oos_2024_accessed": false,
+    "schema_changed": false,
+    "thresholds_changed": false,
+    "upstream_changed": false
+  },
+  "pool_status_by_timeframe": [
+    {
+      "n": 2055,
+      "status": "swept",
+      "timeframe": "H1",
+      "with_expires": 2025,
+      "with_first_sweep": 2055
+    },
+    {
+      "n": 913,
+      "status": "unswept",
+      "timeframe": "H1",
+      "with_expires": 884,
+      "with_first_sweep": 0
+    },
+    {
+      "n": 1318,
+      "status": "swept",
+      "timeframe": "H4",
+      "with_expires": 1289,
+      "with_first_sweep": 1318
+    },
+    {
+      "n": 752,
+      "status": "unswept",
+      "timeframe": "H4",
+      "with_expires": 730,
+      "with_first_sweep": 0
+    },
+    {
+      "n": 5362,
+      "status": "swept",
+      "timeframe": "M15",
+      "with_expires": 5338,
+      "with_first_sweep": 5362
+    },
+    {
+      "n": 1461,
+      "status": "unswept",
+      "timeframe": "M15",
+      "with_expires": 1438,
+      "with_first_sweep": 0
+    }
+  ],
+  "pool_status_distribution": [
+    {
+      "max_first_sweep": 1703865600,
+      "min_first_sweep": 1672727400,
+      "n": 8735,
+      "status": "swept",
+      "with_expires": 8652,
+      "with_first_event": 8735,
+      "with_first_sweep": 8735
+    },
+    {
+      "max_first_sweep": null,
+      "min_first_sweep": null,
+      "n": 3126,
+      "status": "unswept",
+      "with_expires": 3052,
+      "with_first_event": 0,
+      "with_first_sweep": 0
+    }
+  ],
+  "pool_timing_consistency": [
+    {
+      "n": 8735,
+      "status": "swept",
+      "sweep_after_avail": 8735,
+      "sweep_after_expiry": 0,
+      "sweep_before_or_at_expiry": 8652
+    },
+    {
+      "n": 3126,
+      "status": "unswept",
+      "sweep_after_avail": 0,
+      "sweep_after_expiry": 0,
+      "sweep_before_or_at_expiry": 0
+    }
+  ],
+  "report_hash": "98e0621ba60924da8739584d1b49bfc0636bb7eda7e8e41be31175a8fd12282d",
+  "scope": "GROUP5_POOL_LIFECYCLE_2023_ONLY",
+  "sqlite_quick_check": "ok",
+  "status": "PASS"
+}
