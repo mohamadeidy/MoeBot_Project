@@ -1,0 +1,1 @@
+Measure the exact residual authorized-2023 PA7 workload after G8-PA7-CROSS-TIMEFRAME-006 using corrected engine SHA f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d. Use only exact source/Group4/Group6 slices required for the diagnostic, preserve all frozen state, and do not access 2024.

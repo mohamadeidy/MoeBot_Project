@@ -1,0 +1,348 @@
+{
+  "atr_buffer_breakout_fraction": 0.1,
+  "bar_count": 466723,
+  "engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
+  "format_version": 1,
+  "group6_by_table_and_timeframe": {
+    "group6__bpr_relations": {
+      "D1": {
+        "atr_buffer_candidates": 127,
+        "boundary_rows": 3,
+        "candidate_total": 255,
+        "enumerations": 129,
+        "exact_candidates": 128,
+        "point_buffer_candidates": 0
+      },
+      "H1": {
+        "atr_buffer_candidates": 416447,
+        "boundary_rows": 146,
+        "candidate_total": 834605,
+        "enumerations": 420578,
+        "exact_candidates": 418158,
+        "point_buffer_candidates": 0
+      },
+      "H4": {
+        "atr_buffer_candidates": 57855,
+        "boundary_rows": 81,
+        "candidate_total": 116211,
+        "enumerations": 59226,
+        "exact_candidates": 58356,
+        "point_buffer_candidates": 0
+      },
+      "M1": {
+        "atr_buffer_candidates": 3258112348,
+        "boundary_rows": 19534,
+        "candidate_total": 6517634337,
+        "enumerations": 3261821358,
+        "exact_candidates": 3259521989,
+        "point_buffer_candidates": 0
+      },
+      "M15": {
+        "atr_buffer_candidates": 8829152,
+        "boundary_rows": 756,
+        "candidate_total": 17676311,
+        "enumerations": 8874616,
+        "exact_candidates": 8847159,
+        "point_buffer_candidates": 0
+      },
+      "M30": {
+        "atr_buffer_candidates": 1665044,
+        "boundary_rows": 287,
+        "candidate_total": 3334580,
+        "enumerations": 1675297,
+        "exact_candidates": 1669536,
+        "point_buffer_candidates": 0
+      },
+      "M5": {
+        "atr_buffer_candidates": 77958335,
+        "boundary_rows": 2309,
+        "candidate_total": 156008639,
+        "enumerations": 78179259,
+        "exact_candidates": 78050304,
+        "point_buffer_candidates": 0
+      }
+    },
+    "group6__fvg_events": {
+      "D1": {
+        "atr_buffer_candidates": 6017,
+        "boundary_rows": 53,
+        "candidate_total": 12154,
+        "enumerations": 6306,
+        "exact_candidates": 6137,
+        "point_buffer_candidates": 0
+      },
+      "H1": {
+        "atr_buffer_candidates": 3129781,
+        "boundary_rows": 1051,
+        "candidate_total": 6272591,
+        "enumerations": 3178618,
+        "exact_candidates": 3142810,
+        "point_buffer_candidates": 0
+      },
+      "H4": {
+        "atr_buffer_candidates": 248208,
+        "boundary_rows": 326,
+        "candidate_total": 498404,
+        "enumerations": 256449,
+        "exact_candidates": 250196,
+        "point_buffer_candidates": 0
+      },
+      "M1": {
+        "atr_buffer_candidates": 17047101358,
+        "boundary_rows": 98034,
+        "candidate_total": 34101553901,
+        "enumerations": 17076075310,
+        "exact_candidates": 17054452543,
+        "point_buffer_candidates": 0
+      },
+      "M15": {
+        "atr_buffer_candidates": 54629037,
+        "boundary_rows": 4642,
+        "candidate_total": 109367741,
+        "enumerations": 55014563,
+        "exact_candidates": 54738704,
+        "point_buffer_candidates": 0
+      },
+      "M30": {
+        "atr_buffer_candidates": 13166319,
+        "boundary_rows": 2220,
+        "candidate_total": 26370747,
+        "enumerations": 13301315,
+        "exact_candidates": 13204428,
+        "point_buffer_candidates": 0
+      },
+      "M5": {
+        "atr_buffer_candidates": 545372929,
+        "boundary_rows": 15627,
+        "candidate_total": 1091355272,
+        "enumerations": 547505126,
+        "exact_candidates": 545982343,
+        "point_buffer_candidates": 0
+      }
+    },
+    "group6__imbalance_variants": {
+      "D1": {
+        "atr_buffer_candidates": 11585,
+        "boundary_rows": 86,
+        "candidate_total": 23435,
+        "enumerations": 12372,
+        "exact_candidates": 11850,
+        "point_buffer_candidates": 0
+      },
+      "H1": {
+        "atr_buffer_candidates": 2812280,
+        "boundary_rows": 975,
+        "candidate_total": 5636228,
+        "enumerations": 2883103,
+        "exact_candidates": 2823948,
+        "point_buffer_candidates": 0
+      },
+      "H4": {
+        "atr_buffer_candidates": 181250,
+        "boundary_rows": 247,
+        "candidate_total": 364058,
+        "enumerations": 191481,
+        "exact_candidates": 182808,
+        "point_buffer_candidates": 0
+      },
+      "M1": {
+        "atr_buffer_candidates": 11466108377,
+        "boundary_rows": 67390,
+        "candidate_total": 22937178424,
+        "enumerations": 11498755248,
+        "exact_candidates": 11471070047,
+        "point_buffer_candidates": 0
+      },
+      "M15": {
+        "atr_buffer_candidates": 37467406,
+        "boundary_rows": 3187,
+        "candidate_total": 75009913,
+        "enumerations": 37956619,
+        "exact_candidates": 37542507,
+        "point_buffer_candidates": 0
+      },
+      "M30": {
+        "atr_buffer_candidates": 10040013,
+        "boundary_rows": 1731,
+        "candidate_total": 20109088,
+        "enumerations": 10224842,
+        "exact_candidates": 10069075,
+        "point_buffer_candidates": 0
+      },
+      "M5": {
+        "atr_buffer_candidates": 347832803,
+        "boundary_rows": 9917,
+        "candidate_total": 696053652,
+        "enumerations": 350431716,
+        "exact_candidates": 348220849,
+        "point_buffer_candidates": 0
+      }
+    },
+    "group6__liquidity_voids": {
+      "D1": {
+        "atr_buffer_candidates": 1068,
+        "boundary_rows": 10,
+        "candidate_total": 2154,
+        "enumerations": 1222,
+        "exact_candidates": 1086,
+        "point_buffer_candidates": 0
+      },
+      "H1": {
+        "atr_buffer_candidates": 542478,
+        "boundary_rows": 193,
+        "candidate_total": 1087215,
+        "enumerations": 579946,
+        "exact_candidates": 544737,
+        "point_buffer_candidates": 0
+      },
+      "H4": {
+        "atr_buffer_candidates": 46773,
+        "boundary_rows": 65,
+        "candidate_total": 93929,
+        "enumerations": 51916,
+        "exact_candidates": 47156,
+        "point_buffer_candidates": 0
+      },
+      "M1": {
+        "atr_buffer_candidates": 3458708226,
+        "boundary_rows": 19952,
+        "candidate_total": 6918901618,
+        "enumerations": 3483293888,
+        "exact_candidates": 3460193392,
+        "point_buffer_candidates": 0
+      },
+      "M15": {
+        "atr_buffer_candidates": 9668381,
+        "boundary_rows": 837,
+        "candidate_total": 19356220,
+        "enumerations": 9982744,
+        "exact_candidates": 9687839,
+        "point_buffer_candidates": 0
+      },
+      "M30": {
+        "atr_buffer_candidates": 2207334,
+        "boundary_rows": 395,
+        "candidate_total": 4421345,
+        "enumerations": 2319757,
+        "exact_candidates": 2214011,
+        "point_buffer_candidates": 0
+      },
+      "M5": {
+        "atr_buffer_candidates": 100846469,
+        "boundary_rows": 2899,
+        "candidate_total": 201806107,
+        "enumerations": 102614755,
+        "exact_candidates": 100959638,
+        "point_buffer_candidates": 0
+      }
+    }
+  },
+  "group6_enumeration_reduction_fraction": 0.3687162122819372,
+  "group6_same_timeframe_totals": {
+    "atr_buffer_candidates": 36447167400,
+    "boundary_rows": 252953,
+    "candidate_total": 72911079134,
+    "enumerations": 36545667759,
+    "exact_candidates": 36463911734,
+    "point_buffer_candidates": 0
+  },
+  "group8_bounded_range_by_series": {
+    "XAUUSD_::D1": {
+      "atr_buffer_candidates": 0,
+      "boundary_rows": 0,
+      "candidate_total": 0,
+      "enumerations": 0,
+      "exact_candidates": 0,
+      "point_buffer_candidates": 0
+    },
+    "XAUUSD_::H1": {
+      "atr_buffer_candidates": 49183791,
+      "boundary_rows": 17896,
+      "candidate_total": 98575131,
+      "enumerations": 52019313,
+      "exact_candidates": 49391340,
+      "point_buffer_candidates": 0
+    },
+    "XAUUSD_::H4": {
+      "atr_buffer_candidates": 2974722,
+      "boundary_rows": 4227,
+      "candidate_total": 5974669,
+      "enumerations": 3249812,
+      "exact_candidates": 2999947,
+      "point_buffer_candidates": 0
+    },
+    "XAUUSD_::M1": {
+      "atr_buffer_candidates": 0,
+      "boundary_rows": 0,
+      "candidate_total": 0,
+      "enumerations": 0,
+      "exact_candidates": 0,
+      "point_buffer_candidates": 0
+    },
+    "XAUUSD_::M15": {
+      "atr_buffer_candidates": 791657696,
+      "boundary_rows": 71711,
+      "candidate_total": 1584936419,
+      "enumerations": 833040732,
+      "exact_candidates": 793278723,
+      "point_buffer_candidates": 0
+    },
+    "XAUUSD_::M30": {
+      "atr_buffer_candidates": 0,
+      "boundary_rows": 0,
+      "candidate_total": 0,
+      "enumerations": 0,
+      "exact_candidates": 0,
+      "point_buffer_candidates": 0
+    },
+    "XAUUSD_::M5": {
+      "atr_buffer_candidates": 0,
+      "boundary_rows": 0,
+      "candidate_total": 0,
+      "enumerations": 0,
+      "exact_candidates": 0,
+      "point_buffer_candidates": 0
+    }
+  },
+  "group8_bounded_range_totals": {
+    "atr_buffer_candidates": 843816209,
+    "boundary_rows": 93834,
+    "candidate_total": 1689486219,
+    "enumerations": 888309857,
+    "exact_candidates": 845670010,
+    "point_buffer_candidates": 0
+  },
+  "method": {
+    "group6": "exact corrected same-timeframe availability predicates plus exact close-through/point-buffer/ATR-buffer predicates reproduced by offline Fenwick sweep",
+    "group8_bounded_ranges": "exact frozen process_bounded_ranges output followed by exact current availability and breakout predicates reproduced by offline Fenwick sweep",
+    "lower_bound": "Group4, Group5 and Group7 are intentionally excluded; therefore candidate and enumeration totals are a strict lower bound for complete PA7 workload"
+  },
+  "minimum_group6_plus_group8_workload": {
+    "atr_buffer_candidates": 37290983609,
+    "boundary_rows": 346787,
+    "candidate_total": 74600565353,
+    "enumerations": 37433977616,
+    "exact_candidates": 37309581744,
+    "point_buffer_candidates": 0
+  },
+  "observations": {
+    "authorization_changed": false,
+    "candidate_counts_are_exact_for_group6_and_group8_sources": true,
+    "definitions_changed": false,
+    "engine_changed": false,
+    "group4_group5_group7_not_included_in_candidate_lower_bound": true,
+    "oos_2024_accessed": false,
+    "same_timeframe_filter_measured": true,
+    "schema_changed": false,
+    "thresholds_changed": false,
+    "upstream_changed": false
+  },
+  "post_fix_group6_same_timeframe_enumerations": 36545667759,
+  "pre_fix_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
+  "pre_fix_group6_unfiltered_enumerations": 57891028520,
+  "report_hash": "6308c8b0e614fd81bc73f64fbc86f037cdd9ff5dc28696bfe3111997db031dbc",
+  "scope": "POST_G8_PA7_CROSS_TIMEFRAME_006_DIAGNOSTIC_ONLY",
+  "series_count": 7,
+  "status": "PASS",
+  "year": 2023
+}
