@@ -1,0 +1,3708 @@
+{
+  "annual_report_hashes": {
+    "2023": {
+      "group2": "c88b30b6fb10fa77e17e36ca53d611af7c37e75019185ba578ca8307b3b750aa",
+      "group3": "d04b1063b45c45b92eca5bc88fb58897ad5d30c92708019f32bbc5fab306c2e1",
+      "group4": "fc998d4c218bb029ddd99c918e1e7a8279683509b8bf8871ee7fba7d73f952ee",
+      "group5": "fcaa261c28b72b641904532e796cc1702958c51390ab6cc9ff136f6a519716d0",
+      "group6": "7a6b2ce1229985870fd6bf4a20b51169398160b1f7743896bff122406e0a9236",
+      "group7": "581b5ef095136268cf0246f15729dd7d46780a232be2ca3bcc1573a75a23ef00",
+      "source": "73e4a44f076821b16670481fb78b0c7c3ffb83e8772bd6ce5ec2dc9caf939c82"
+    },
+    "2024": {
+      "group2": "ed09b14ce4f831ef3c01c41a502b239aa9a2e05fbbc56a51b2bbc67f72400f14",
+      "group3": "8deed235f667b353c30081b898a8adb9557fd522ca3a2e4d1d40fb6f9b7f8ab1",
+      "group4": "062f38b5f9485ad9c7da5aa534e6ca5143cd913552915f03eaa9a5875b228e8a",
+      "group5": "4e7334ec5214ac636b97f5b035ef18448b48ff1a010541288e7b9349b44eeca9",
+      "group6": "af4c3abf78b013efe2e64329025f227f014538348214f41a68077b2dbabdb6f3",
+      "group7": "ad0f4b181d784a422664a763c86c9c7f7ffbbeae1b78e7a400c47ec912559021",
+      "source": "ed910f93b98d16f31c2c811630bf14fbc7241d1e55f2e2ef99387b9dbb709030"
+    }
+  },
+  "cross_year": {
+    "group2": {
+      "regime_states": {
+        "baseline_mature": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "direction_code": {
+          "2023": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "2024": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "union": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        "phase_code": {
+          "2023": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ],
+          "2024": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+            "18"
+          ],
+          "union": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ]
+        },
+        "raw_label_code": {
+          "2023": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            14,
+            15,
+            19
+          ],
+          "2024": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            14,
+            15,
+            19
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "1",
+            "14",
+            "15",
+            "19",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9"
+          ],
+          "union": [
+            1,
+            14,
+            15,
+            19,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ]
+        },
+        "stable_label_code": {
+          "2023": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            14,
+            15,
+            19
+          ],
+          "2024": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            14,
+            15
+          ],
+          "only_2023": [
+            19
+          ],
+          "only_2024": [],
+          "present_both_years": [
+            "1",
+            "14",
+            "15",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9"
+          ],
+          "union": [
+            1,
+            14,
+            15,
+            19,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ]
+        },
+        "uncertain": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "volatility_code": {
+          "2023": [
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "2024": [
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "10",
+            "6",
+            "7",
+            "8",
+            "9"
+          ],
+          "union": [
+            10,
+            6,
+            7,
+            8,
+            9
+          ]
+        }
+      },
+      "timeframe_dictionary": {
+        "parent_timeframe_code": {
+          "2023": [
+            null,
+            2,
+            3,
+            5,
+            6,
+            7
+          ],
+          "2024": [
+            null,
+            2,
+            3,
+            5,
+            6,
+            7
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "2",
+            "3",
+            "5",
+            "6",
+            "7",
+            "null"
+          ],
+          "union": [
+            2,
+            3,
+            5,
+            6,
+            7,
+            null
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        },
+        "timeframe_code": {
+          "2023": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "2024": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7"
+          ],
+          "union": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        }
+      }
+    },
+    "group3": {
+      "break_events": {
+        "break_kind": {
+          "2023": [
+            "continuation",
+            "reversal"
+          ],
+          "2024": [
+            "continuation",
+            "reversal"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"continuation\"",
+            "\"reversal\""
+          ],
+          "union": [
+            "continuation",
+            "reversal"
+          ]
+        },
+        "direction": {
+          "2023": [
+            "down",
+            "up"
+          ],
+          "2024": [
+            "down",
+            "up"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"down\"",
+            "\"up\""
+          ],
+          "union": [
+            "down",
+            "up"
+          ]
+        },
+        "event_type": {
+          "2023": [
+            "BOS",
+            "CHOCH",
+            "FAILED_BREAK",
+            "MSS"
+          ],
+          "2024": [
+            "BOS",
+            "CHOCH",
+            "FAILED_BREAK",
+            "MSS"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"BOS\"",
+            "\"CHOCH\"",
+            "\"FAILED_BREAK\"",
+            "\"MSS\""
+          ],
+          "union": [
+            "BOS",
+            "CHOCH",
+            "FAILED_BREAK",
+            "MSS"
+          ]
+        },
+        "layer": {
+          "2023": [
+            "external",
+            "internal"
+          ],
+          "2024": [
+            "external",
+            "internal"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"external\"",
+            "\"internal\""
+          ],
+          "union": [
+            "external",
+            "internal"
+          ]
+        },
+        "outcome": {
+          "2023": [
+            "accepted",
+            "failed"
+          ],
+          "2024": [
+            "accepted",
+            "failed"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"accepted\"",
+            "\"failed\""
+          ],
+          "union": [
+            "accepted",
+            "failed"
+          ]
+        },
+        "strong_break": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        }
+      },
+      "structure_states": {
+        "active_bias": {
+          "2023": [
+            "bearish",
+            "bullish",
+            "unknown"
+          ],
+          "2024": [
+            "bearish",
+            "bullish",
+            "unknown"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\"",
+            "\"unknown\""
+          ],
+          "union": [
+            "bearish",
+            "bullish",
+            "unknown"
+          ]
+        },
+        "last_event_type": {
+          "2023": [
+            "BOS",
+            "CHOCH",
+            "FAILED_BREAK",
+            "MSS",
+            "none"
+          ],
+          "2024": [
+            "BOS",
+            "CHOCH",
+            "FAILED_BREAK",
+            "MSS",
+            "none"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"BOS\"",
+            "\"CHOCH\"",
+            "\"FAILED_BREAK\"",
+            "\"MSS\"",
+            "\"none\""
+          ],
+          "union": [
+            "BOS",
+            "CHOCH",
+            "FAILED_BREAK",
+            "MSS",
+            "none"
+          ]
+        },
+        "layer": {
+          "2023": [
+            "external",
+            "internal"
+          ],
+          "2024": [
+            "external",
+            "internal"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"external\"",
+            "\"internal\""
+          ],
+          "union": [
+            "external",
+            "internal"
+          ]
+        },
+        "leg": {
+          "2023": [
+            "down",
+            "unknown",
+            "up"
+          ],
+          "2024": [
+            "down",
+            "unknown",
+            "up"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"down\"",
+            "\"unknown\"",
+            "\"up\""
+          ],
+          "union": [
+            "down",
+            "unknown",
+            "up"
+          ]
+        },
+        "sequence_bias": {
+          "2023": [
+            "bearish",
+            "bullish",
+            "transition",
+            "unknown"
+          ],
+          "2024": [
+            "bearish",
+            "bullish",
+            "transition",
+            "unknown"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\"",
+            "\"transition\"",
+            "\"unknown\""
+          ],
+          "union": [
+            "bearish",
+            "bullish",
+            "transition",
+            "unknown"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        }
+      },
+      "swings": {
+        "layer": {
+          "2023": [
+            "external",
+            "internal"
+          ],
+          "2024": [
+            "external",
+            "internal"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"external\"",
+            "\"internal\""
+          ],
+          "union": [
+            "external",
+            "internal"
+          ]
+        },
+        "relation": {
+          "2023": [
+            "HH",
+            "HL",
+            "INITIAL",
+            "LH",
+            "LL"
+          ],
+          "2024": [
+            "HH",
+            "HL",
+            "INITIAL",
+            "LH",
+            "LL"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"HH\"",
+            "\"HL\"",
+            "\"INITIAL\"",
+            "\"LH\"",
+            "\"LL\""
+          ],
+          "union": [
+            "HH",
+            "HL",
+            "INITIAL",
+            "LH",
+            "LL"
+          ]
+        },
+        "swing_type": {
+          "2023": [
+            "high",
+            "low"
+          ],
+          "2024": [
+            "high",
+            "low"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"high\"",
+            "\"low\""
+          ],
+          "union": [
+            "high",
+            "low"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        }
+      }
+    },
+    "group4": {
+      "zone_interactions": {
+        "event_type": {
+          "2023": [
+            "break_confirmed",
+            "flip_retest",
+            "touch"
+          ],
+          "2024": [
+            "break_confirmed",
+            "flip_retest",
+            "touch"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"break_confirmed\"",
+            "\"flip_retest\"",
+            "\"touch\""
+          ],
+          "union": [
+            "break_confirmed",
+            "flip_retest",
+            "touch"
+          ]
+        },
+        "role_after": {
+          "2023": [
+            "resistance",
+            "support"
+          ],
+          "2024": [
+            "resistance",
+            "support"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"resistance\"",
+            "\"support\""
+          ],
+          "union": [
+            "resistance",
+            "support"
+          ]
+        },
+        "status_after": {
+          "2023": [
+            "broken",
+            "flipped",
+            "mitigated",
+            "tested"
+          ],
+          "2024": [
+            "broken",
+            "flipped",
+            "mitigated",
+            "tested"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"broken\"",
+            "\"flipped\"",
+            "\"mitigated\"",
+            "\"tested\""
+          ],
+          "union": [
+            "broken",
+            "flipped",
+            "mitigated",
+            "tested"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M15"
+          ]
+        }
+      },
+      "zone_transitions": {
+        "from_status": {
+          "2023": [
+            "broken",
+            "flipped",
+            "fresh",
+            "mitigated",
+            "tested"
+          ],
+          "2024": [
+            "broken",
+            "flipped",
+            "fresh",
+            "mitigated",
+            "tested"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"broken\"",
+            "\"flipped\"",
+            "\"fresh\"",
+            "\"mitigated\"",
+            "\"tested\""
+          ],
+          "union": [
+            "broken",
+            "flipped",
+            "fresh",
+            "mitigated",
+            "tested"
+          ]
+        },
+        "reason": {
+          "2023": [
+            "200_source_bars_elapsed",
+            "2_closes_beyond",
+            "distinct_zone_visit",
+            "next_reference_available",
+            "role_reversal_hold_above",
+            "role_reversal_hold_below"
+          ],
+          "2024": [
+            "200_source_bars_elapsed",
+            "2_closes_beyond",
+            "distinct_zone_visit",
+            "next_reference_available",
+            "role_reversal_hold_above",
+            "role_reversal_hold_below"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"200_source_bars_elapsed\"",
+            "\"2_closes_beyond\"",
+            "\"distinct_zone_visit\"",
+            "\"next_reference_available\"",
+            "\"role_reversal_hold_above\"",
+            "\"role_reversal_hold_below\""
+          ],
+          "union": [
+            "200_source_bars_elapsed",
+            "2_closes_beyond",
+            "distinct_zone_visit",
+            "next_reference_available",
+            "role_reversal_hold_above",
+            "role_reversal_hold_below"
+          ]
+        },
+        "role_after": {
+          "2023": [
+            "resistance",
+            "support"
+          ],
+          "2024": [
+            "resistance",
+            "support"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"resistance\"",
+            "\"support\""
+          ],
+          "union": [
+            "resistance",
+            "support"
+          ]
+        },
+        "to_status": {
+          "2023": [
+            "broken",
+            "expired",
+            "flipped",
+            "mitigated",
+            "superseded",
+            "tested"
+          ],
+          "2024": [
+            "broken",
+            "expired",
+            "flipped",
+            "mitigated",
+            "superseded",
+            "tested"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"broken\"",
+            "\"expired\"",
+            "\"flipped\"",
+            "\"mitigated\"",
+            "\"superseded\"",
+            "\"tested\""
+          ],
+          "union": [
+            "broken",
+            "expired",
+            "flipped",
+            "mitigated",
+            "superseded",
+            "tested"
+          ]
+        }
+      },
+      "zones": {
+        "broken_direction": {
+          "2023": [
+            "",
+            "down",
+            "up"
+          ],
+          "2024": [
+            "",
+            "down",
+            "up"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"\"",
+            "\"down\"",
+            "\"up\""
+          ],
+          "union": [
+            "",
+            "down",
+            "up"
+          ]
+        },
+        "current_role": {
+          "2023": [
+            "resistance",
+            "support"
+          ],
+          "2024": [
+            "resistance",
+            "support"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"resistance\"",
+            "\"support\""
+          ],
+          "union": [
+            "resistance",
+            "support"
+          ]
+        },
+        "initial_role": {
+          "2023": [
+            "resistance",
+            "support"
+          ],
+          "2024": [
+            "resistance",
+            "support"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"resistance\"",
+            "\"support\""
+          ],
+          "union": [
+            "resistance",
+            "support"
+          ]
+        },
+        "layer": {
+          "2023": [
+            "external",
+            "internal",
+            "reference"
+          ],
+          "2024": [
+            "external",
+            "internal",
+            "reference"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"external\"",
+            "\"internal\"",
+            "\"reference\""
+          ],
+          "union": [
+            "external",
+            "internal",
+            "reference"
+          ]
+        },
+        "source_timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M15"
+          ]
+        },
+        "status": {
+          "2023": [
+            "broken",
+            "expired",
+            "flipped",
+            "fresh",
+            "mitigated",
+            "superseded",
+            "tested"
+          ],
+          "2024": [
+            "broken",
+            "expired",
+            "flipped",
+            "fresh",
+            "mitigated",
+            "superseded",
+            "tested"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"broken\"",
+            "\"expired\"",
+            "\"flipped\"",
+            "\"fresh\"",
+            "\"mitigated\"",
+            "\"superseded\"",
+            "\"tested\""
+          ],
+          "union": [
+            "broken",
+            "expired",
+            "flipped",
+            "fresh",
+            "mitigated",
+            "superseded",
+            "tested"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M15"
+          ]
+        },
+        "zone_class": {
+          "2023": [
+            "demand",
+            "london_session_high",
+            "london_session_low",
+            "newyork_session_high",
+            "newyork_session_low",
+            "previous_day_high",
+            "previous_day_low",
+            "previous_week_high",
+            "previous_week_low",
+            "supply",
+            "swing_resistance",
+            "swing_support"
+          ],
+          "2024": [
+            "demand",
+            "london_session_high",
+            "london_session_low",
+            "newyork_session_high",
+            "newyork_session_low",
+            "previous_day_high",
+            "previous_day_low",
+            "previous_week_high",
+            "previous_week_low",
+            "supply",
+            "swing_resistance",
+            "swing_support"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"demand\"",
+            "\"london_session_high\"",
+            "\"london_session_low\"",
+            "\"newyork_session_high\"",
+            "\"newyork_session_low\"",
+            "\"previous_day_high\"",
+            "\"previous_day_low\"",
+            "\"previous_week_high\"",
+            "\"previous_week_low\"",
+            "\"supply\"",
+            "\"swing_resistance\"",
+            "\"swing_support\""
+          ],
+          "union": [
+            "demand",
+            "london_session_high",
+            "london_session_low",
+            "newyork_session_high",
+            "newyork_session_low",
+            "previous_day_high",
+            "previous_day_low",
+            "previous_week_high",
+            "previous_week_low",
+            "supply",
+            "swing_resistance",
+            "swing_support"
+          ]
+        }
+      }
+    },
+    "group5": {
+      "draw_states": {
+        "active_bias": {
+          "2023": [
+            "bearish",
+            "bullish",
+            "unknown"
+          ],
+          "2024": [
+            "bearish",
+            "bullish",
+            "unknown"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\"",
+            "\"unknown\""
+          ],
+          "union": [
+            "bearish",
+            "bullish",
+            "unknown"
+          ]
+        },
+        "draw_side": {
+          "2023": [
+            "balanced_uncertain",
+            "buy_side",
+            "none",
+            "sell_side"
+          ],
+          "2024": [
+            "balanced_uncertain",
+            "buy_side",
+            "none",
+            "sell_side"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"balanced_uncertain\"",
+            "\"buy_side\"",
+            "\"none\"",
+            "\"sell_side\""
+          ],
+          "union": [
+            "balanced_uncertain",
+            "buy_side",
+            "none",
+            "sell_side"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M15"
+          ]
+        }
+      },
+      "inducements": {
+        "direction": {
+          "2023": [
+            "buy_side",
+            "sell_side"
+          ],
+          "2024": [
+            "buy_side",
+            "sell_side"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"buy_side\"",
+            "\"sell_side\""
+          ],
+          "union": [
+            "buy_side",
+            "sell_side"
+          ]
+        },
+        "status": {
+          "2023": [
+            "censored",
+            "confirmed",
+            "expired"
+          ],
+          "2024": [
+            "censored",
+            "confirmed",
+            "expired"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"censored\"",
+            "\"confirmed\"",
+            "\"expired\""
+          ],
+          "union": [
+            "censored",
+            "confirmed",
+            "expired"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M15"
+          ]
+        }
+      },
+      "liquidity_events": {
+        "closed_beyond": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "event_type": {
+          "2023": [
+            "false_breakout",
+            "liquidity_grab",
+            "reclaim",
+            "stop_run",
+            "taken_without_reclaim"
+          ],
+          "2024": [
+            "censored_pending",
+            "false_breakout",
+            "liquidity_grab",
+            "reclaim",
+            "stop_run",
+            "taken_without_reclaim"
+          ],
+          "only_2023": [],
+          "only_2024": [
+            "censored_pending"
+          ],
+          "present_both_years": [
+            "\"false_breakout\"",
+            "\"liquidity_grab\"",
+            "\"reclaim\"",
+            "\"stop_run\"",
+            "\"taken_without_reclaim\""
+          ],
+          "union": [
+            "censored_pending",
+            "false_breakout",
+            "liquidity_grab",
+            "reclaim",
+            "stop_run",
+            "taken_without_reclaim"
+          ]
+        },
+        "is_false_breakout": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "is_liquidity_grab": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "is_stop_run": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "is_sweep": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "reclaimed": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "resolution": {
+          "2023": [
+            "multi_bar_reclaim",
+            "same_bar_reclaim",
+            "window_expired"
+          ],
+          "2024": [
+            "multi_bar_reclaim",
+            "right_censored",
+            "same_bar_reclaim",
+            "window_expired"
+          ],
+          "only_2023": [],
+          "only_2024": [
+            "right_censored"
+          ],
+          "present_both_years": [
+            "\"multi_bar_reclaim\"",
+            "\"same_bar_reclaim\"",
+            "\"window_expired\""
+          ],
+          "union": [
+            "multi_bar_reclaim",
+            "right_censored",
+            "same_bar_reclaim",
+            "window_expired"
+          ]
+        },
+        "same_bar": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "side": {
+          "2023": [
+            "buy_side",
+            "sell_side"
+          ],
+          "2024": [
+            "buy_side",
+            "sell_side"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"buy_side\"",
+            "\"sell_side\""
+          ],
+          "union": [
+            "buy_side",
+            "sell_side"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M15"
+          ]
+        }
+      },
+      "liquidity_pools": {
+        "layer": {
+          "2023": [
+            "external",
+            "internal",
+            "reference"
+          ],
+          "2024": [
+            "external",
+            "internal",
+            "reference"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"external\"",
+            "\"internal\"",
+            "\"reference\""
+          ],
+          "union": [
+            "external",
+            "internal",
+            "reference"
+          ]
+        },
+        "pool_class": {
+          "2023": [
+            "london_session_high",
+            "london_session_low",
+            "newyork_session_high",
+            "newyork_session_low",
+            "previous_day_high",
+            "previous_day_low",
+            "previous_week_high",
+            "previous_week_low",
+            "relative_equal_highs",
+            "relative_equal_lows",
+            "structural_high",
+            "structural_low"
+          ],
+          "2024": [
+            "london_session_high",
+            "london_session_low",
+            "newyork_session_high",
+            "newyork_session_low",
+            "previous_day_high",
+            "previous_day_low",
+            "previous_week_high",
+            "previous_week_low",
+            "relative_equal_highs",
+            "relative_equal_lows",
+            "structural_high",
+            "structural_low"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"london_session_high\"",
+            "\"london_session_low\"",
+            "\"newyork_session_high\"",
+            "\"newyork_session_low\"",
+            "\"previous_day_high\"",
+            "\"previous_day_low\"",
+            "\"previous_week_high\"",
+            "\"previous_week_low\"",
+            "\"relative_equal_highs\"",
+            "\"relative_equal_lows\"",
+            "\"structural_high\"",
+            "\"structural_low\""
+          ],
+          "union": [
+            "london_session_high",
+            "london_session_low",
+            "newyork_session_high",
+            "newyork_session_low",
+            "previous_day_high",
+            "previous_day_low",
+            "previous_week_high",
+            "previous_week_low",
+            "relative_equal_highs",
+            "relative_equal_lows",
+            "structural_high",
+            "structural_low"
+          ]
+        },
+        "side": {
+          "2023": [
+            "buy_side",
+            "sell_side"
+          ],
+          "2024": [
+            "buy_side",
+            "sell_side"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"buy_side\"",
+            "\"sell_side\""
+          ],
+          "union": [
+            "buy_side",
+            "sell_side"
+          ]
+        },
+        "status": {
+          "2023": [
+            "swept",
+            "unswept"
+          ],
+          "2024": [
+            "swept",
+            "unswept"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"swept\"",
+            "\"unswept\""
+          ],
+          "union": [
+            "swept",
+            "unswept"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M15"
+          ]
+        }
+      },
+      "liquidity_voids": {
+        "direction": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "status": {
+          "2023": [
+            "filled",
+            "partial",
+            "unfilled"
+          ],
+          "2024": [
+            "filled",
+            "partial",
+            "unfilled"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"filled\"",
+            "\"partial\"",
+            "\"unfilled\""
+          ],
+          "union": [
+            "filled",
+            "partial",
+            "unfilled"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M15"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M15"
+          ]
+        }
+      }
+    },
+    "group6": {
+      "bpr_relations": {
+        "second_fvg_direction": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "state": {
+          "2023": [
+            "untouched"
+          ],
+          "2024": [
+            "untouched"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"untouched\""
+          ],
+          "union": [
+            "untouched"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        }
+      },
+      "displacement_legs": {
+        "direction": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "initial_classification": {
+          "2023": [
+            "candidate",
+            "validated"
+          ],
+          "2024": [
+            "candidate",
+            "validated"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"candidate\"",
+            "\"validated\""
+          ],
+          "union": [
+            "candidate",
+            "validated"
+          ]
+        },
+        "leg_kind": {
+          "2023": [
+            "multi_candle",
+            "single_candle"
+          ],
+          "2024": [
+            "multi_candle",
+            "single_candle"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"multi_candle\"",
+            "\"single_candle\""
+          ],
+          "union": [
+            "multi_candle",
+            "single_candle"
+          ]
+        },
+        "origin_label": {
+          "2023": [
+            "origin_reference_only_not_order_block"
+          ],
+          "2024": [
+            "origin_reference_only_not_order_block"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"origin_reference_only_not_order_block\""
+          ],
+          "union": [
+            "origin_reference_only_not_order_block"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        },
+        "uncertain": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        }
+      },
+      "displacement_validation_events": {
+        "result": {
+          "2023": [
+            "validated"
+          ],
+          "2024": [
+            "validated"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"validated\""
+          ],
+          "union": [
+            "validated"
+          ]
+        },
+        "validation_type": {
+          "2023": [
+            "classic_fvg_confirmation",
+            "direct_strength",
+            "multi_leg_confirmation"
+          ],
+          "2024": [
+            "classic_fvg_confirmation",
+            "direct_strength",
+            "multi_leg_confirmation"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"classic_fvg_confirmation\"",
+            "\"direct_strength\"",
+            "\"multi_leg_confirmation\""
+          ],
+          "union": [
+            "classic_fvg_confirmation",
+            "direct_strength",
+            "multi_leg_confirmation"
+          ]
+        }
+      },
+      "fvg_events": {
+        "clean_displacement": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "direction": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "formation_quality": {
+          "2023": [
+            "clean_displacement",
+            "noise_or_unlinked"
+          ],
+          "2024": [
+            "clean_displacement",
+            "noise_or_unlinked"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"clean_displacement\"",
+            "\"noise_or_unlinked\""
+          ],
+          "union": [
+            "clean_displacement",
+            "noise_or_unlinked"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        }
+      },
+      "fvg_lifecycle_summary": {
+        "directional_validity": {
+          "2023": [
+            "invalidated",
+            "valid"
+          ],
+          "2024": [
+            "invalidated",
+            "valid"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"invalidated\"",
+            "\"valid\""
+          ],
+          "union": [
+            "invalidated",
+            "valid"
+          ]
+        },
+        "fill_state": {
+          "2023": [
+            "ce_reached",
+            "first_touched",
+            "fully_filled",
+            "partially_filled",
+            "untouched"
+          ],
+          "2024": [
+            "ce_reached",
+            "first_touched",
+            "fully_filled",
+            "partially_filled",
+            "untouched"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"ce_reached\"",
+            "\"first_touched\"",
+            "\"fully_filled\"",
+            "\"partially_filled\"",
+            "\"untouched\""
+          ],
+          "union": [
+            "ce_reached",
+            "first_touched",
+            "fully_filled",
+            "partially_filled",
+            "untouched"
+          ]
+        }
+      },
+      "group6_evidence": {
+        "relation_type": {
+          "2023": [
+            "associated_bos_mss_choch",
+            "associated_liquidity_pool",
+            "bos_mss_choch_evidence",
+            "created_fvg",
+            "created_liquidity_void",
+            "inducement_context",
+            "member_fvg",
+            "parent_zone_overlap",
+            "preceding_liquidity_event",
+            "regime_context",
+            "source_liquidity_pool",
+            "structure_context",
+            "upstream_liquidity_void_overlap"
+          ],
+          "2024": [
+            "associated_bos_mss_choch",
+            "associated_liquidity_pool",
+            "bos_mss_choch_evidence",
+            "created_fvg",
+            "created_liquidity_void",
+            "inducement_context",
+            "member_fvg",
+            "parent_zone_overlap",
+            "preceding_liquidity_event",
+            "regime_context",
+            "source_liquidity_pool",
+            "structure_context",
+            "upstream_liquidity_void_overlap"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"associated_bos_mss_choch\"",
+            "\"associated_liquidity_pool\"",
+            "\"bos_mss_choch_evidence\"",
+            "\"created_fvg\"",
+            "\"created_liquidity_void\"",
+            "\"inducement_context\"",
+            "\"member_fvg\"",
+            "\"parent_zone_overlap\"",
+            "\"preceding_liquidity_event\"",
+            "\"regime_context\"",
+            "\"source_liquidity_pool\"",
+            "\"structure_context\"",
+            "\"upstream_liquidity_void_overlap\""
+          ],
+          "union": [
+            "associated_bos_mss_choch",
+            "associated_liquidity_pool",
+            "bos_mss_choch_evidence",
+            "created_fvg",
+            "created_liquidity_void",
+            "inducement_context",
+            "member_fvg",
+            "parent_zone_overlap",
+            "preceding_liquidity_event",
+            "regime_context",
+            "source_liquidity_pool",
+            "structure_context",
+            "upstream_liquidity_void_overlap"
+          ]
+        },
+        "source_group": {
+          "2023": [
+            "fvg",
+            "group2",
+            "group3",
+            "group4",
+            "group5",
+            "liquidity_void"
+          ],
+          "2024": [
+            "fvg",
+            "group2",
+            "group3",
+            "group4",
+            "group5",
+            "liquidity_void"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"fvg\"",
+            "\"group2\"",
+            "\"group3\"",
+            "\"group4\"",
+            "\"group5\"",
+            "\"liquidity_void\""
+          ],
+          "union": [
+            "fvg",
+            "group2",
+            "group3",
+            "group4",
+            "group5",
+            "liquidity_void"
+          ]
+        },
+        "source_timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        },
+        "subject_type": {
+          "2023": [
+            "displacement_leg",
+            "fvg",
+            "liquidity_void"
+          ],
+          "2024": [
+            "displacement_leg",
+            "fvg",
+            "liquidity_void"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"displacement_leg\"",
+            "\"fvg\"",
+            "\"liquidity_void\""
+          ],
+          "union": [
+            "displacement_leg",
+            "fvg",
+            "liquidity_void"
+          ]
+        }
+      },
+      "imbalance_variants": {
+        "classification": {
+          "2023": [
+            "market_imbalance_variant",
+            "non_classic_gap",
+            "opening_price_discontinuity"
+          ],
+          "2024": [
+            "market_imbalance_variant",
+            "non_classic_gap",
+            "opening_price_discontinuity"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"market_imbalance_variant\"",
+            "\"non_classic_gap\"",
+            "\"opening_price_discontinuity\""
+          ],
+          "union": [
+            "market_imbalance_variant",
+            "non_classic_gap",
+            "opening_price_discontinuity"
+          ]
+        },
+        "direction": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "separation_reason": {
+          "2023": [
+            "excluded_from_classic_fvg",
+            "separate_from_classic_fvg"
+          ],
+          "2024": [
+            "excluded_from_classic_fvg",
+            "separate_from_classic_fvg"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"excluded_from_classic_fvg\"",
+            "\"separate_from_classic_fvg\""
+          ],
+          "union": [
+            "excluded_from_classic_fvg",
+            "separate_from_classic_fvg"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        },
+        "variant_type": {
+          "2023": [
+            "body_imbalance_candidate",
+            "broker_data_gap",
+            "missing_bar_discontinuity",
+            "opening_gap",
+            "session_gap",
+            "weekend_gap"
+          ],
+          "2024": [
+            "body_imbalance_candidate",
+            "broker_data_gap",
+            "missing_bar_discontinuity",
+            "opening_gap",
+            "session_gap",
+            "weekend_gap"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"body_imbalance_candidate\"",
+            "\"broker_data_gap\"",
+            "\"missing_bar_discontinuity\"",
+            "\"opening_gap\"",
+            "\"session_gap\"",
+            "\"weekend_gap\""
+          ],
+          "union": [
+            "body_imbalance_candidate",
+            "broker_data_gap",
+            "missing_bar_discontinuity",
+            "opening_gap",
+            "session_gap",
+            "weekend_gap"
+          ]
+        }
+      },
+      "inversion_fvg_relations": {
+        "direction_after": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "direction_before": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "inversion_status": {
+          "2023": [
+            "candidate_on_traverse"
+          ],
+          "2024": [
+            "candidate_on_traverse"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"candidate_on_traverse\""
+          ],
+          "union": [
+            "candidate_on_traverse"
+          ]
+        }
+      },
+      "liquidity_voids": {
+        "direction": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "state": {
+          "2023": [
+            "unfilled"
+          ],
+          "2024": [
+            "unfilled"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"unfilled\""
+          ],
+          "union": [
+            "unfilled"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        }
+      },
+      "mtf_imbalance_relations": {
+        "child_timeframe": {
+          "2023": [
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        },
+        "child_type": {
+          "2023": [
+            "fvg"
+          ],
+          "2024": [
+            "fvg"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"fvg\""
+          ],
+          "union": [
+            "fvg"
+          ]
+        },
+        "direction_alignment": {
+          "2023": [
+            "opposing_imbalance",
+            "same_direction"
+          ],
+          "2024": [
+            "opposing_imbalance",
+            "same_direction"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"opposing_imbalance\"",
+            "\"same_direction\""
+          ],
+          "union": [
+            "opposing_imbalance",
+            "same_direction"
+          ]
+        },
+        "parent_timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        },
+        "parent_type": {
+          "2023": [
+            "fvg",
+            "liquidity_void"
+          ],
+          "2024": [
+            "fvg",
+            "liquidity_void"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"fvg\"",
+            "\"liquidity_void\""
+          ],
+          "union": [
+            "fvg",
+            "liquidity_void"
+          ]
+        },
+        "relation_type": {
+          "2023": [
+            "contained_inside",
+            "ltf_refinement_inside_htf_void",
+            "partial_overlap"
+          ],
+          "2024": [
+            "contained_inside",
+            "ltf_refinement_inside_htf_void",
+            "partial_overlap"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"contained_inside\"",
+            "\"ltf_refinement_inside_htf_void\"",
+            "\"partial_overlap\""
+          ],
+          "union": [
+            "contained_inside",
+            "ltf_refinement_inside_htf_void",
+            "partial_overlap"
+          ]
+        }
+      }
+    },
+    "group7": {
+      "definition_registry": {
+        "definition_id": {
+          "2023": [
+            "breaker_block",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_demand_origin"
+          ],
+          "2024": [
+            "breaker_block",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_demand_origin"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"breaker_block\"",
+            "\"last_opposing_candle\"",
+            "\"loose_order_block\"",
+            "\"mitigation_block\"",
+            "\"propulsion_block\"",
+            "\"rejection_block\"",
+            "\"strict_order_block\"",
+            "\"supply_demand_origin\""
+          ],
+          "union": [
+            "breaker_block",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_demand_origin"
+          ]
+        },
+        "definition_version": {
+          "2023": [
+            "D1.0",
+            "D2.0",
+            "D3.0",
+            "D4.0",
+            "D5.0",
+            "D6.0",
+            "D7.0",
+            "D8.0"
+          ],
+          "2024": [
+            "D1.0",
+            "D2.0",
+            "D3.0",
+            "D4.0",
+            "D5.0",
+            "D6.0",
+            "D7.0",
+            "D8.0"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1.0\"",
+            "\"D2.0\"",
+            "\"D3.0\"",
+            "\"D4.0\"",
+            "\"D5.0\"",
+            "\"D6.0\"",
+            "\"D7.0\"",
+            "\"D8.0\""
+          ],
+          "union": [
+            "D1.0",
+            "D2.0",
+            "D3.0",
+            "D4.0",
+            "D5.0",
+            "D6.0",
+            "D7.0",
+            "D8.0"
+          ]
+        },
+        "derived": {
+          "2023": [
+            0,
+            1
+          ],
+          "2024": [
+            0,
+            1
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "0",
+            "1"
+          ],
+          "union": [
+            0,
+            1
+          ]
+        },
+        "invalidation_closes": {
+          "2023": [
+            1,
+            2
+          ],
+          "2024": [
+            1,
+            2
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "1",
+            "2"
+          ],
+          "union": [
+            1,
+            2
+          ]
+        },
+        "range_policy": {
+          "2023": [
+            "dominant_rejection_wick_segment",
+            "exact_last_opposing_candle_body",
+            "exact_last_opposing_candle_full_range",
+            "first_impulse_candle_body",
+            "inherited_parent_range",
+            "neutral_origin_window_full_range",
+            "parent_later_origin_intersection"
+          ],
+          "2024": [
+            "dominant_rejection_wick_segment",
+            "exact_last_opposing_candle_body",
+            "exact_last_opposing_candle_full_range",
+            "first_impulse_candle_body",
+            "inherited_parent_range",
+            "neutral_origin_window_full_range",
+            "parent_later_origin_intersection"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"dominant_rejection_wick_segment\"",
+            "\"exact_last_opposing_candle_body\"",
+            "\"exact_last_opposing_candle_full_range\"",
+            "\"first_impulse_candle_body\"",
+            "\"inherited_parent_range\"",
+            "\"neutral_origin_window_full_range\"",
+            "\"parent_later_origin_intersection\""
+          ],
+          "union": [
+            "dominant_rejection_wick_segment",
+            "exact_last_opposing_candle_body",
+            "exact_last_opposing_candle_full_range",
+            "first_impulse_candle_body",
+            "inherited_parent_range",
+            "neutral_origin_window_full_range",
+            "parent_later_origin_intersection"
+          ]
+        }
+      },
+      "institutional_zones": {
+        "definition_id": {
+          "2023": [
+            "breaker_block",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_demand_origin"
+          ],
+          "2024": [
+            "breaker_block",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_demand_origin"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"breaker_block\"",
+            "\"last_opposing_candle\"",
+            "\"loose_order_block\"",
+            "\"mitigation_block\"",
+            "\"propulsion_block\"",
+            "\"rejection_block\"",
+            "\"strict_order_block\"",
+            "\"supply_demand_origin\""
+          ],
+          "union": [
+            "breaker_block",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_demand_origin"
+          ]
+        },
+        "direction": {
+          "2023": [
+            "bearish",
+            "bullish"
+          ],
+          "2024": [
+            "bearish",
+            "bullish"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"bearish\"",
+            "\"bullish\""
+          ],
+          "union": [
+            "bearish",
+            "bullish"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        },
+        "zone_label": {
+          "2023": [
+            "breaker_block",
+            "demand_origin",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_origin"
+          ],
+          "2024": [
+            "breaker_block",
+            "demand_origin",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_origin"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"breaker_block\"",
+            "\"demand_origin\"",
+            "\"last_opposing_candle\"",
+            "\"loose_order_block\"",
+            "\"mitigation_block\"",
+            "\"propulsion_block\"",
+            "\"rejection_block\"",
+            "\"strict_order_block\"",
+            "\"supply_origin\""
+          ],
+          "union": [
+            "breaker_block",
+            "demand_origin",
+            "last_opposing_candle",
+            "loose_order_block",
+            "mitigation_block",
+            "propulsion_block",
+            "rejection_block",
+            "strict_order_block",
+            "supply_origin"
+          ]
+        }
+      },
+      "zone_evidence": {
+        "evidence_type": {
+          "2023": [
+            "confirming_leg",
+            "fvg",
+            "liquidity",
+            "parent_zone",
+            "source_bar",
+            "source_leg",
+            "structure",
+            "validation"
+          ],
+          "2024": [
+            "confirming_leg",
+            "fvg",
+            "liquidity",
+            "parent_zone",
+            "source_bar",
+            "source_leg",
+            "structure",
+            "validation"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"confirming_leg\"",
+            "\"fvg\"",
+            "\"liquidity\"",
+            "\"parent_zone\"",
+            "\"source_bar\"",
+            "\"source_leg\"",
+            "\"structure\"",
+            "\"validation\""
+          ],
+          "union": [
+            "confirming_leg",
+            "fvg",
+            "liquidity",
+            "parent_zone",
+            "source_bar",
+            "source_leg",
+            "structure",
+            "validation"
+          ]
+        },
+        "relation_type": {
+          "2023": [
+            "associated_fvg",
+            "associated_liquidity_pool",
+            "causal_bos_or_mss",
+            "classic_fvg_confirmation",
+            "classified_from_frozen_displacement_leg",
+            "derived_after_parent_first_visit",
+            "derived_after_parent_invalidation",
+            "direct_strength",
+            "exact_referenced_bar",
+            "multi_leg_confirmation",
+            "opposite_bos_or_mss_after_parent_invalidation",
+            "preceding_liquidity_event",
+            "same_direction_validated_departure"
+          ],
+          "2024": [
+            "associated_fvg",
+            "associated_liquidity_pool",
+            "causal_bos_or_mss",
+            "classic_fvg_confirmation",
+            "classified_from_frozen_displacement_leg",
+            "derived_after_parent_first_visit",
+            "derived_after_parent_invalidation",
+            "direct_strength",
+            "exact_referenced_bar",
+            "multi_leg_confirmation",
+            "opposite_bos_or_mss_after_parent_invalidation",
+            "preceding_liquidity_event",
+            "same_direction_validated_departure"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"associated_fvg\"",
+            "\"associated_liquidity_pool\"",
+            "\"causal_bos_or_mss\"",
+            "\"classic_fvg_confirmation\"",
+            "\"classified_from_frozen_displacement_leg\"",
+            "\"derived_after_parent_first_visit\"",
+            "\"derived_after_parent_invalidation\"",
+            "\"direct_strength\"",
+            "\"exact_referenced_bar\"",
+            "\"multi_leg_confirmation\"",
+            "\"opposite_bos_or_mss_after_parent_invalidation\"",
+            "\"preceding_liquidity_event\"",
+            "\"same_direction_validated_departure\""
+          ],
+          "union": [
+            "associated_fvg",
+            "associated_liquidity_pool",
+            "causal_bos_or_mss",
+            "classic_fvg_confirmation",
+            "classified_from_frozen_displacement_leg",
+            "derived_after_parent_first_visit",
+            "derived_after_parent_invalidation",
+            "direct_strength",
+            "exact_referenced_bar",
+            "multi_leg_confirmation",
+            "opposite_bos_or_mss_after_parent_invalidation",
+            "preceding_liquidity_event",
+            "same_direction_validated_departure"
+          ]
+        },
+        "source_group": {
+          "2023": [
+            "group1",
+            "group3",
+            "group5",
+            "group6",
+            "group7"
+          ],
+          "2024": [
+            "group1",
+            "group3",
+            "group5",
+            "group6",
+            "group7"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"group1\"",
+            "\"group3\"",
+            "\"group5\"",
+            "\"group6\"",
+            "\"group7\""
+          ],
+          "union": [
+            "group1",
+            "group3",
+            "group5",
+            "group6",
+            "group7"
+          ]
+        }
+      },
+      "zone_lifecycle_summary": {
+        "freshness": {
+          "2023": [
+            "fresh",
+            "invalidated",
+            "tested"
+          ],
+          "2024": [
+            "fresh",
+            "invalidated",
+            "tested"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"fresh\"",
+            "\"invalidated\"",
+            "\"tested\""
+          ],
+          "union": [
+            "fresh",
+            "invalidated",
+            "tested"
+          ]
+        },
+        "status": {
+          "2023": [
+            "fresh_valid",
+            "invalidated",
+            "tested_valid"
+          ],
+          "2024": [
+            "fresh_valid",
+            "invalidated",
+            "tested_valid"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"fresh_valid\"",
+            "\"invalidated\"",
+            "\"tested_valid\""
+          ],
+          "union": [
+            "fresh_valid",
+            "invalidated",
+            "tested_valid"
+          ]
+        }
+      },
+      "zone_relations": {
+        "relation_type": {
+          "2023": [
+            "breaker_of",
+            "independent_definition_overlap",
+            "mitigation_of"
+          ],
+          "2024": [
+            "breaker_of",
+            "independent_definition_overlap",
+            "mitigation_of"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"breaker_of\"",
+            "\"independent_definition_overlap\"",
+            "\"mitigation_of\""
+          ],
+          "union": [
+            "breaker_of",
+            "independent_definition_overlap",
+            "mitigation_of"
+          ]
+        }
+      },
+      "zone_state_transitions": {
+        "event_type": {
+          "2023": [
+            "created",
+            "first_touch",
+            "invalidated",
+            "invalidation_candidate",
+            "invalidation_candidate_reset",
+            "mitigation_count_incremented",
+            "penetration_advanced",
+            "revisit",
+            "visit_ended",
+            "visit_right_censored"
+          ],
+          "2024": [
+            "created",
+            "first_touch",
+            "invalidated",
+            "invalidation_candidate",
+            "invalidation_candidate_reset",
+            "mitigation_count_incremented",
+            "penetration_advanced",
+            "revisit",
+            "visit_ended",
+            "visit_right_censored"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"created\"",
+            "\"first_touch\"",
+            "\"invalidated\"",
+            "\"invalidation_candidate\"",
+            "\"invalidation_candidate_reset\"",
+            "\"mitigation_count_incremented\"",
+            "\"penetration_advanced\"",
+            "\"revisit\"",
+            "\"visit_ended\"",
+            "\"visit_right_censored\""
+          ],
+          "union": [
+            "created",
+            "first_touch",
+            "invalidated",
+            "invalidation_candidate",
+            "invalidation_candidate_reset",
+            "mitigation_count_incremented",
+            "penetration_advanced",
+            "revisit",
+            "visit_ended",
+            "visit_right_censored"
+          ]
+        },
+        "freshness": {
+          "2023": [
+            "fresh",
+            "invalidated",
+            "tested"
+          ],
+          "2024": [
+            "fresh",
+            "invalidated",
+            "tested"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"fresh\"",
+            "\"invalidated\"",
+            "\"tested\""
+          ],
+          "union": [
+            "fresh",
+            "invalidated",
+            "tested"
+          ]
+        },
+        "status": {
+          "2023": [
+            "fresh_valid",
+            "invalidated",
+            "tested_valid"
+          ],
+          "2024": [
+            "fresh_valid",
+            "invalidated",
+            "tested_valid"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"fresh_valid\"",
+            "\"invalidated\"",
+            "\"tested_valid\""
+          ],
+          "union": [
+            "fresh_valid",
+            "invalidated",
+            "tested_valid"
+          ]
+        }
+      }
+    },
+    "source": {
+      "bars": {
+        "symbol": {
+          "2023": [
+            "XAUUSD_"
+          ],
+          "2024": [
+            "XAUUSD_"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"XAUUSD_\""
+          ],
+          "union": [
+            "XAUUSD_"
+          ]
+        },
+        "time_confidence": {
+          "2023": [
+            "provider_utc"
+          ],
+          "2024": [
+            "provider_utc"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"provider_utc\""
+          ],
+          "union": [
+            "provider_utc"
+          ]
+        },
+        "timeframe": {
+          "2023": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "2024": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ],
+          "only_2023": [],
+          "only_2024": [],
+          "present_both_years": [
+            "\"D1\"",
+            "\"H1\"",
+            "\"H4\"",
+            "\"M1\"",
+            "\"M15\"",
+            "\"M30\"",
+            "\"M5\""
+          ],
+          "union": [
+            "D1",
+            "H1",
+            "H4",
+            "M1",
+            "M15",
+            "M30",
+            "M5"
+          ]
+        }
+      }
+    }
+  },
+  "dictionary_hash": "924173aec9086dc692a20539eadde9b7f92218dc94e7b13c629f7aef454a579b",
+  "failures": [],
+  "format_version": 1,
+  "groups": [
+    "group2",
+    "group3",
+    "group4",
+    "group5",
+    "group6",
+    "group7",
+    "source"
+  ],
+  "status": "PASS",
+  "unknown_value_policy": "Unknown values are preserved raw and cannot be coerced into a frozen semantic binding."
+}

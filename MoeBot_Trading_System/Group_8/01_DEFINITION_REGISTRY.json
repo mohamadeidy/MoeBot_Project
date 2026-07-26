@@ -1,0 +1,624 @@
+{
+  "adapter_map_hash": "cc76916214be35474134376c16299728db3e0a5d07ddcb58860ec5c9c3244d77",
+  "categorical_dictionary_hash": "924173aec9086dc692a20539eadde9b7f92218dc94e7b13c629f7aef454a579b",
+  "coherent_lineage_amendment_hash": "a18d75a61c1ce981f6c5c784145d6cb41482ad75dce015ea9a901d9e22dd3160",
+  "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
+  "definitions": {
+    "dow_advancing_structure": {
+      "availability": "state causal availability",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "causally_latest_group3_structure_state_per_layer",
+        "UPSTREAM_VALUE_BINDINGS.group3.advancing_bias_values"
+      ],
+      "pass_rule": "state active_bias or sequence_bias is in frozen advancing binding",
+      "rediscovery_forbidden": true,
+      "school": "dow_theory",
+      "version": "DOW1B.1"
+    },
+    "dow_bearish_transition": {
+      "availability": "resolved event causal availability",
+      "invalidation_rule": "later opposite structural transition or protected bearish structure invalidation",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "group3_break_event",
+        "UPSTREAM_VALUE_BINDINGS.group3.bearish_transition_event_types",
+        "UPSTREAM_VALUE_BINDINGS.group3.bearish_direction_values"
+      ],
+      "pass_rule": "event type and direction are in exact frozen bindings and event outcome is accepted by frozen adapter",
+      "school": "dow_theory",
+      "version": "DOW2S.1"
+    },
+    "dow_bullish_transition": {
+      "availability": "resolved event causal availability",
+      "invalidation_rule": "later opposite structural transition or protected bullish structure invalidation",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "group3_break_event",
+        "UPSTREAM_VALUE_BINDINGS.group3.bullish_transition_event_types",
+        "UPSTREAM_VALUE_BINDINGS.group3.bullish_direction_values"
+      ],
+      "pass_rule": "event type and direction are in exact frozen bindings and event outcome is accepted by frozen adapter",
+      "school": "dow_theory",
+      "version": "DOW2B.1"
+    },
+    "dow_declining_structure": {
+      "availability": "state causal availability",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "causally_latest_group3_structure_state_per_layer",
+        "UPSTREAM_VALUE_BINDINGS.group3.declining_bias_values"
+      ],
+      "pass_rule": "state active_bias or sequence_bias is in frozen declining binding",
+      "rediscovery_forbidden": true,
+      "school": "dow_theory",
+      "version": "DOW1S.1"
+    },
+    "dow_indeterminate_structure": {
+      "availability": "state causal availability",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "causally_latest_group3_structure_state_per_layer",
+        "UPSTREAM_VALUE_BINDINGS.group3.indeterminate_bias_values"
+      ],
+      "pass_rule": "state active_bias or sequence_bias is in frozen indeterminate binding",
+      "school": "dow_theory",
+      "version": "DOW1I.1"
+    },
+    "dow_protected_pullback": {
+      "availability": "max inputs",
+      "invalidation_rule": "referenced protected structure invalidates",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "one_of(dow_advancing_structure,dow_declining_structure)",
+        "pa_structural_pullback"
+      ],
+      "pass_rule": "both records reference the same Group3 state/protected structure identity",
+      "school": "dow_theory",
+      "version": "DOW3.1"
+    },
+    "ict_block_delivery_context": {
+      "availability": "max inputs",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "group7_definition_candidate_match_or_institutional_zone",
+        "exact_group7_zone_evidence_or_source_leg_relation"
+      ],
+      "pass_rule": "stored Group7 source IDs prove the relation to Group6 delivery; every qualifying Group7 definition remains independent",
+      "preferred_block_definition_forbidden": true,
+      "school": "ict_smc",
+      "version": "ICT5.1"
+    },
+    "ict_draw_on_liquidity_context": {
+      "availability": "max inputs",
+      "future_reach_label_forbidden": true,
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "group5_draw_state_with_selected_pool_id",
+        "resolved_group5_liquidity_pool",
+        "causally_latest_group3_structure_state_same_timeframe"
+      ],
+      "pass_rule": "draw state and target pool are already available; store location/direction relation only, never whether target will later be reached",
+      "school": "ict_smc",
+      "version": "ICT6.1"
+    },
+    "ict_liquidity_sweep_displacement": {
+      "availability": "max inputs",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "group6_validated_displacement_leg",
+        "group6_evidence_link_to_group5_liquidity_event"
+      ],
+      "pass_rule": "Group6 evidence source_group/source_id resolves to exact available Group5 event and post-sweep displacement direction is stored without future outcome claim",
+      "rediscovery_forbidden": true,
+      "school": "ict_smc",
+      "version": "ICT1.1"
+    },
+    "ict_mss_fvg_delivery": {
+      "availability": "max inputs",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "group6_fvg_with_associated_group3_event_id",
+        "resolved_group3_event",
+        "UPSTREAM_VALUE_BINDINGS.group3.mss_or_bos_event_types"
+      ],
+      "pass_rule": "associated Group3 event exists, is causally available and event_type is in frozen MSS/BOS binding; FVG belongs to its stored displacement leg",
+      "rediscovery_forbidden": true,
+      "school": "ict_smc",
+      "version": "ICT2.1"
+    },
+    "ict_premium_discount_context": {
+      "availability": "max inputs",
+      "directional_signal_forbidden": true,
+      "enumeration_rule": "one interpretation per exact (bounded_range_context_id,bar_id); no preferred dealing range",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "pa_bounded_range_context",
+        "closed_bar_within_same_locked_context"
+      ],
+      "pass_rule": "range upper > lower; close < midpoint => discount; close > midpoint => premium; exact equality => equilibrium",
+      "school": "ict_smc",
+      "version": "ICT3.1"
+    },
+    "ict_return_to_imbalance": {
+      "availability": "lifecycle availability",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "group6_fvg_bpr_void_ce_or_inversion_object",
+        "later_causal_group6_lifecycle_touch_or_visit"
+      ],
+      "pass_rule": "lifecycle record references exact Group6 object and occurs strictly after object availability",
+      "rediscovery_forbidden": true,
+      "school": "ict_smc",
+      "version": "ICT4.1"
+    },
+    "pa_body_engulfing": {
+      "availability": "max input availability",
+      "kind": "bar_relation",
+      "mandatory_inputs": [
+        "current_closed_bar",
+        "immediately_previous_closed_bar_same_timeframe"
+      ],
+      "pass_rule": "current.body_lower <= previous.body_lower and current.body_upper >= previous.body_upper and current.body > 0",
+      "school": "classical_price_action",
+      "version": "PA4B.1"
+    },
+    "pa_bounded_range_context": {
+      "availability": "max(reference bar, both zones, causal state evidence)",
+      "causal_status_rule": "zone availability and only zone interactions/transitions available by reference_bar.available_at determine active state; final year-end status may not be read as historical state",
+      "enumeration_rule": "within each Group4 layer independently, select the causally active zone with greatest upper strictly below reference close and the causally active zone with smallest lower strictly above reference close; ties create all tied pairs; lower_zone.upper < upper_zone.lower required",
+      "invalidation_rule": "first later available transition/break event that invalidates either locked boundary",
+      "kind": "derived_context",
+      "mandatory_inputs": [
+        "closed_reference_bar",
+        "causally_active_group4_zones_same_timeframe"
+      ],
+      "pass_rule": "both boundaries exist and upper_boundary > lower_boundary",
+      "right_censor_rule": "annual end if no invalidation",
+      "school": "classical_price_action",
+      "stored_bounds": "lower_boundary=lower_zone.upper; upper_boundary=upper_zone.lower; midpoint=(lower+upper)/2",
+      "version": "PA6G.1"
+    },
+    "pa_breakout_atr_buffer": {
+      "availability": "max inputs",
+      "enumeration_rule": "same independent boundary enumeration as pa_breakout_exact",
+      "kind": "boundary_event",
+      "mandatory_inputs": [
+        "closed_bar",
+        "locked_boundary",
+        "causal_atr14"
+      ],
+      "pass_rule": "bullish close >= upper + config.breakout_atr_buffer * ATR; bearish close <= lower - buffer",
+      "school": "classical_price_action",
+      "version": "PA7A.1"
+    },
+    "pa_breakout_exact": {
+      "availability": "max(bar, locked boundary)",
+      "boundary_sources": [
+        "group4_zone_edge",
+        "group5_pool_anchor_or_edge",
+        "group6_imbalance_edge",
+        "group7_zone_edge",
+        "pa_bounded_range_edge"
+      ],
+      "enumeration_rule": "one record per qualifying (bar_id,boundary_source_id,boundary_side); all boundaries are evaluated independently",
+      "kind": "boundary_event",
+      "mandatory_inputs": [
+        "closed_bar",
+        "one_locked_causally_available_boundary"
+      ],
+      "pass_rule": "bullish: close > locked upper boundary; bearish: close < locked lower boundary",
+      "school": "classical_price_action",
+      "version": "PA7E.1",
+      "wick_only_pass": false
+    },
+    "pa_breakout_point_buffer": {
+      "availability": "max inputs",
+      "enumeration_rule": "same independent boundary enumeration as pa_breakout_exact",
+      "kind": "boundary_event",
+      "mandatory_inputs": [
+        "closed_bar",
+        "locked_boundary",
+        "verified_price_increment"
+      ],
+      "pass_rule": "bullish close >= upper + one increment; bearish close <= lower - one increment",
+      "school": "classical_price_action",
+      "version": "PA7P.1"
+    },
+    "pa_candle_anatomy": {
+      "availability": "bar.available_at",
+      "degenerate_rule": "zero_range stores ratio features null and degenerate=true",
+      "enumeration_rule": "one record per eligible closed source bar",
+      "features": [
+        "full_range",
+        "body",
+        "upper_wick",
+        "lower_wick",
+        "body_to_range",
+        "upper_wick_to_range",
+        "lower_wick_to_range",
+        "open_location",
+        "close_location",
+        "range_to_atr",
+        "body_to_atr",
+        "overlap_with_previous"
+      ],
+      "kind": "base_pattern",
+      "mandatory_inputs": [
+        "closed_source_bar"
+      ],
+      "pass_rule": "full_range >= 0",
+      "school": "classical_price_action",
+      "version": "PA1.1"
+    },
+    "pa_context_linked_rejection": {
+      "availability": "max(pattern availability, source object availability)",
+      "enumeration_rule": "one record per qualifying (rejection_pattern_id, upstream_object_id); no nearest/best selection",
+      "kind": "context_pattern",
+      "mandatory_inputs": [
+        "one_of(pa_pin_bar_like,pa_rejection_close)",
+        "one_causally_available_upstream_price_object"
+      ],
+      "pass_rule": "pattern range overlaps source object or minimum distance <= max(one verified price increment, config.context_proximity_atr * causal_atr14)",
+      "permitted_upstream_objects": [
+        "group4_zone",
+        "group5_liquidity_pool",
+        "group6_imbalance_fvg_void_bpr",
+        "group7_institutional_zone"
+      ],
+      "school": "classical_price_action",
+      "version": "PA6C.1"
+    },
+    "pa_continuation_after_pullback": {
+      "availability": "max inputs",
+      "invalidation_rule": "protected structure invalidation or opposite Group3 transition before completion",
+      "kind": "narrative_hypothesis",
+      "mandatory_inputs": [
+        "active_pa_structural_pullback",
+        "later_same_direction_validated_group6_displacement",
+        "referenced_group3_structure_still_valid"
+      ],
+      "resolution_rule": "the first qualifying later validated displacement completes the continuation hypothesis; additional later qualifying legs are stored as evidence only",
+      "school": "classical_price_action",
+      "version": "PA11.1"
+    },
+    "pa_directional_body_engulfing": {
+      "availability": "max input availability",
+      "kind": "bar_relation",
+      "mandatory_inputs": [
+        "pa_body_engulfing",
+        "current_closed_bar",
+        "previous_closed_bar"
+      ],
+      "pass_rule": "body engulfing passed and current/previous directions are opposite and non-neutral",
+      "school": "classical_price_action",
+      "version": "PA4D.1"
+    },
+    "pa_doji_broad": {
+      "availability": "anatomy availability",
+      "kind": "candle_shape",
+      "mandatory_inputs": [
+        "pa_candle_anatomy"
+      ],
+      "pass_rule": "not degenerate and body_to_range <= config.doji_broad_body_ratio",
+      "school": "classical_price_action",
+      "version": "PA5B.1"
+    },
+    "pa_doji_strict": {
+      "availability": "anatomy availability",
+      "kind": "candle_shape",
+      "mandatory_inputs": [
+        "pa_candle_anatomy"
+      ],
+      "pass_rule": "not degenerate and body_to_range <= config.doji_strict_body_ratio",
+      "school": "classical_price_action",
+      "version": "PA5S.1"
+    },
+    "pa_exhaustion_failed_breakout": {
+      "availability": "max inputs",
+      "enumeration_rule": "one hypothesis per exact failed-breakout/rejection tuple that references the same locked boundary interaction",
+      "invalidation_rule": "later valid close-through breakout of the same locked boundary",
+      "kind": "narrative_hypothesis",
+      "mandatory_inputs": [
+        "pa_failed_breakout",
+        "one_of(pa_pin_bar_like,pa_rejection_close)"
+      ],
+      "pass_rule": "directions are consistent with rejection back through the failed boundary",
+      "school": "classical_price_action",
+      "version": "PA12F.1"
+    },
+    "pa_failed_breakout": {
+      "availability": "resolving bar availability",
+      "creation_mutation": false,
+      "kind": "derived_boundary_event",
+      "mandatory_inputs": [
+        "one_breakout_variant",
+        "later_closed_bars_same_timeframe"
+      ],
+      "ordering_rule": "resolving bar close_time and availability_time are strictly greater than breakout availability",
+      "resolution_rule": "resolve at the first strictly later closed bar whose close crosses the same locked boundary back to the pre-break side; no maximum bar horizon",
+      "right_censor_rule": "annual end when no qualifying return occurs",
+      "school": "classical_price_action",
+      "version": "PA8.1"
+    },
+    "pa_full_range_engulfing": {
+      "availability": "max input availability",
+      "kind": "bar_relation",
+      "mandatory_inputs": [
+        "current_closed_bar",
+        "immediately_previous_closed_bar_same_timeframe"
+      ],
+      "pass_rule": "current.high >= previous.high and current.low <= previous.low",
+      "school": "classical_price_action",
+      "version": "PA4R.1"
+    },
+    "pa_inside_bar_edge": {
+      "availability": "max input availability",
+      "enumeration_rule": "one record per passing adjacent-bar tuple",
+      "kind": "bar_relation",
+      "mandatory_inputs": [
+        "current_closed_bar",
+        "immediately_previous_closed_bar_same_timeframe"
+      ],
+      "pass_rule": "current.high <= previous.high and current.low >= previous.low",
+      "school": "classical_price_action",
+      "version": "PA2E.1"
+    },
+    "pa_inside_bar_strict": {
+      "availability": "max input availability",
+      "enumeration_rule": "one record per passing adjacent-bar tuple",
+      "kind": "bar_relation",
+      "mandatory_inputs": [
+        "current_closed_bar",
+        "immediately_previous_closed_bar_same_timeframe"
+      ],
+      "pass_rule": "current.high < previous.high and current.low > previous.low",
+      "school": "classical_price_action",
+      "version": "PA2S.1"
+    },
+    "pa_outside_bar_edge": {
+      "availability": "max input availability",
+      "enumeration_rule": "one record per passing adjacent-bar tuple",
+      "kind": "bar_relation",
+      "mandatory_inputs": [
+        "current_closed_bar",
+        "immediately_previous_closed_bar_same_timeframe"
+      ],
+      "pass_rule": "current.high >= previous.high and current.low <= previous.low",
+      "school": "classical_price_action",
+      "version": "PA3E.1"
+    },
+    "pa_outside_bar_strict": {
+      "availability": "max input availability",
+      "enumeration_rule": "one record per passing adjacent-bar tuple",
+      "kind": "bar_relation",
+      "mandatory_inputs": [
+        "current_closed_bar",
+        "immediately_previous_closed_bar_same_timeframe"
+      ],
+      "pass_rule": "current.high > previous.high and current.low < previous.low",
+      "school": "classical_price_action",
+      "version": "PA3S.1"
+    },
+    "pa_pin_bar_like": {
+      "availability": "anatomy availability",
+      "direction_rule": "lower dominant wick => bullish_rejection_shape; upper dominant wick => bearish_rejection_shape; equality => ambiguous_no_direction",
+      "kind": "candle_shape",
+      "mandatory_inputs": [
+        "pa_candle_anatomy"
+      ],
+      "pass_rule": "not degenerate and dominant_wick_to_range >= config.pin_dominant_wick_ratio and body_to_range <= config.pin_max_body_ratio and opposite_wick_to_range <= config.pin_max_opposite_wick_ratio",
+      "school": "classical_price_action",
+      "version": "PA6P.1"
+    },
+    "pa_rejection_close": {
+      "availability": "anatomy availability",
+      "direction_rule": "lower rejection wick => bullish_rejection_shape; upper rejection wick => bearish_rejection_shape",
+      "kind": "candle_shape",
+      "mandatory_inputs": [
+        "pa_candle_anatomy"
+      ],
+      "pass_rule": "not degenerate and rejection_wick_to_range >= config.rejection_min_wick_ratio and close is in the opposite outer config.rejection_close_outer_fraction of range",
+      "school": "classical_price_action",
+      "version": "PA6R.1"
+    },
+    "pa_retest": {
+      "availability": "first eligible retest bar availability",
+      "eligibility_rule": "at least one fully intervening later bar has no overlap with the locked boundary/buffer band",
+      "kind": "visit_event",
+      "mandatory_inputs": [
+        "one_breakout_variant",
+        "later_closed_bars_same_timeframe"
+      ],
+      "resolution_rule": "first later eligible bar whose range overlaps the locked boundary or original locked buffer band; no maximum horizon",
+      "right_censor_rule": "annual end if no eligible retest",
+      "school": "classical_price_action",
+      "stored_features": [
+        "touch",
+        "penetration",
+        "close_side",
+        "duration_bars",
+        "max_penetration",
+        "right_censored"
+      ],
+      "version": "PA9.1"
+    },
+    "pa_structural_pullback": {
+      "availability": "max inputs",
+      "enumeration_rule": "one hypothesis per qualifying (group3_state_id, group6_leg_id) within each Group3 layer; no preferred layer",
+      "invalidation_rule": "referenced protected structure invalidates or later Group3 structural transition in opposite regime becomes available",
+      "kind": "narrative_hypothesis",
+      "mandatory_inputs": [
+        "causally_latest_group3_structure_state_per_timeframe_layer",
+        "opposite_direction_group6_displacement_leg"
+      ],
+      "pass_rule": "counter-direction leg availability occurs while referenced protected structure has no already-available invalidation",
+      "school": "classical_price_action",
+      "version": "PA10.1"
+    },
+    "wyckoff_accumulation_hypothesis": {
+      "availability": "max inputs",
+      "intent_claim_forbidden": true,
+      "kind": "narrative_hypothesis",
+      "mandatory_inputs": [
+        "wyckoff_range_context",
+        "wyckoff_spring_candidate",
+        "later_wyckoff_sign_of_strength"
+      ],
+      "pass_rule": "spring availability strictly precedes sign-of-strength availability within same immutable range context",
+      "school": "wyckoff",
+      "version": "WYC5A.1"
+    },
+    "wyckoff_distribution_hypothesis": {
+      "availability": "max inputs",
+      "intent_claim_forbidden": true,
+      "kind": "narrative_hypothesis",
+      "mandatory_inputs": [
+        "wyckoff_range_context",
+        "wyckoff_upthrust_candidate",
+        "later_wyckoff_sign_of_weakness"
+      ],
+      "pass_rule": "upthrust availability strictly precedes sign-of-weakness availability within same immutable range context",
+      "school": "wyckoff",
+      "version": "WYC5D.1"
+    },
+    "wyckoff_last_point_of_supply": {
+      "availability": "max inputs",
+      "invalidation_rule": "later failed breakout above same lower boundary",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "active_wyckoff_sign_of_weakness",
+        "first_later_pa_retest_of_same_lower_boundary"
+      ],
+      "pass_rule": "retest close is on breakout side and no failed breakout was already available",
+      "school": "wyckoff",
+      "version": "WYC4S.1"
+    },
+    "wyckoff_last_point_of_support": {
+      "availability": "max inputs",
+      "invalidation_rule": "later failed breakout below same upper boundary",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "active_wyckoff_sign_of_strength",
+        "first_later_pa_retest_of_same_upper_boundary"
+      ],
+      "pass_rule": "retest close is on breakout side and no failed breakout was already available",
+      "school": "wyckoff",
+      "version": "WYC4B.1"
+    },
+    "wyckoff_range_context": {
+      "availability": "max inputs",
+      "enumeration_rule": "one interpretation per exact bounded-range/Dow-state tuple; no preferred range",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "pa_bounded_range_context",
+        "dow_indeterminate_structure_same_timeframe_layer"
+      ],
+      "pass_rule": "range and structure contexts overlap in symbol,timeframe,layer and causal time scope",
+      "school": "wyckoff",
+      "version": "WYC1.1"
+    },
+    "wyckoff_reaccumulation_hypothesis": {
+      "availability": "max inputs",
+      "kind": "narrative_hypothesis",
+      "mandatory_inputs": [
+        "wyckoff_accumulation_hypothesis",
+        "causally_prior_dow_advancing_structure"
+      ],
+      "pass_rule": "advancing context availability precedes range-context availability",
+      "school": "wyckoff",
+      "version": "WYC5RA.1"
+    },
+    "wyckoff_redistribution_hypothesis": {
+      "availability": "max inputs",
+      "kind": "narrative_hypothesis",
+      "mandatory_inputs": [
+        "wyckoff_distribution_hypothesis",
+        "causally_prior_dow_declining_structure"
+      ],
+      "pass_rule": "declining context availability precedes range-context availability",
+      "school": "wyckoff",
+      "version": "WYC5RD.1"
+    },
+    "wyckoff_sign_of_strength": {
+      "availability": "max inputs",
+      "invalidation_rule": "later pa_failed_breakout of same upper boundary",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "active_wyckoff_range_context",
+        "bullish_validated_group6_displacement",
+        "bullish_pa_breakout_exact_of_locked_upper_range_boundary"
+      ],
+      "pass_rule": "displacement and breakout share timeframe context and breakout occurs at or after displacement causal availability",
+      "school": "wyckoff",
+      "version": "WYC3B.1"
+    },
+    "wyckoff_sign_of_weakness": {
+      "availability": "max inputs",
+      "invalidation_rule": "later pa_failed_breakout of same lower boundary",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "active_wyckoff_range_context",
+        "bearish_validated_group6_displacement",
+        "bearish_pa_breakout_exact_of_locked_lower_range_boundary"
+      ],
+      "pass_rule": "displacement and breakout share timeframe context and breakout occurs at or after displacement causal availability",
+      "school": "wyckoff",
+      "version": "WYC3S.1"
+    },
+    "wyckoff_spring_candidate": {
+      "availability": "max inputs",
+      "invalidation_rule": "later exact close-through below same locked lower boundary",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "active_wyckoff_range_context",
+        "group5_liquidity_event",
+        "group5_pool"
+      ],
+      "pass_rule": "event source pool anchor/range is within frozen proximity of locked lower range boundary; one of is_sweep/is_stop_run/is_false_breakout is true; reclaimed=1; resolution is causally available",
+      "school": "wyckoff",
+      "version": "WYC2B.1"
+    },
+    "wyckoff_upthrust_candidate": {
+      "availability": "max inputs",
+      "invalidation_rule": "later exact close-through above same locked upper boundary",
+      "kind": "school_interpretation",
+      "mandatory_inputs": [
+        "active_wyckoff_range_context",
+        "group5_liquidity_event",
+        "group5_pool"
+      ],
+      "pass_rule": "event source pool anchor/range is within frozen proximity of locked upper range boundary; one of is_sweep/is_stop_run/is_false_breakout is true; reclaimed=1; resolution is causally available",
+      "school": "wyckoff",
+      "version": "WYC2S.1"
+    }
+  },
+  "design_contract_audit_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
+  "engine_version": "0.8.0",
+  "engine_version_candidate": "0.8.0",
+  "format_version": 2,
+  "global_rules": [
+    "Definitions are evaluated independently; passing one never implies another passed.",
+    "Create one record for every qualifying evidence tuple unless a definition explicitly states first-qualifying resolution; never select a preferred object or school.",
+    "Availability equals the maximum availability of all mandatory inputs and the resolving closed bar when one is required.",
+    "Creation records are immutable; later state, contradiction and invalidation are append-only.",
+    "No future-return, MFE, MAE, PnL, profitability, entry, stop, target, size or preferred-direction field may participate in a definition.",
+    "No implicit horizon exists. Definitions requiring a later event resolve at the first qualifying later closed bar/event; if none exists before annual end they are right-censored.",
+    "All price comparisons use frozen precision and tolerance rules from FROZEN_CONFIG; equality never silently substitutes for strict inequality.",
+    "All upstream objects are read-only and retain their original IDs; Group 8 may relate them but may not rediscover or relabel them."
+  ],
+  "lineage": "dukascopy_rebuild_v1_corrected_runtime_v3_group8_v1",
+  "logical_dependency_lineage_id": "moebot-group8-upstream-corrected-v3-g7-v075-v1",
+  "reference_resolution_hash": "ed5595bb8350087714cf96718dfe9277c6ffe817cd03b124c25e44aeebb8047d",
+  "registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+  "schema_version": "8.0.0",
+  "schema_version_candidate": "8.0.0",
+  "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
+  "status": "FROZEN",
+  "value_binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b",
+  "value_binding_requirement": {
+    "file": "UPSTREAM_VALUE_BINDINGS.json",
+    "rule": "Any rule depending on an upstream categorical value must reference an explicit frozen binding built from the real cross-year categorical dictionary; unknown values remain raw and unclassified.",
+    "status_required": "PASS"
+  }
+}

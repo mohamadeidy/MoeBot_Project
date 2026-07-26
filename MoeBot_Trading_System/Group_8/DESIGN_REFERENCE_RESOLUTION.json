@@ -1,0 +1,80 @@
+{
+  "binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b",
+  "bindings_file": "UPSTREAM_VALUE_BINDINGS.json",
+  "config_file": "FROZEN_CONFIG_DRAFT.json",
+  "definition_file": "01_DEFINITION_REGISTRY_CANDIDATE_v2.json",
+  "failures": [],
+  "format_version": 1,
+  "resolution_hash": "ed5595bb8350087714cf96718dfe9277c6ffe817cd03b124c25e44aeebb8047d",
+  "resolved_references": {
+    "bindings": {
+      "group3.advancing_bias_values": [
+        "bullish"
+      ],
+      "group3.bearish_direction_values": [
+        "down"
+      ],
+      "group3.bearish_transition_event_types": [
+        "CHOCH",
+        "MSS"
+      ],
+      "group3.bullish_direction_values": [
+        "up"
+      ],
+      "group3.bullish_transition_event_types": [
+        "CHOCH",
+        "MSS"
+      ],
+      "group3.declining_bias_values": [
+        "bearish"
+      ],
+      "group3.indeterminate_bias_values": [
+        "transition",
+        "unknown"
+      ],
+      "group3.mss_or_bos_event_types": [
+        "BOS",
+        "MSS"
+      ]
+    },
+    "config": {
+      "breakout_atr_buffer": {
+        "target": "pattern_thresholds.atr_buffer_breakout_fraction",
+        "value": 0.1
+      },
+      "context_proximity_atr": {
+        "target": "feature_parameters.proximity_atr_fraction",
+        "value": 0.05
+      },
+      "doji_broad_body_ratio": {
+        "target": "pattern_thresholds.doji_broad_body_to_range_max",
+        "value": 0.2
+      },
+      "doji_strict_body_ratio": {
+        "target": "pattern_thresholds.doji_strict_body_to_range_max",
+        "value": 0.1
+      },
+      "pin_dominant_wick_ratio": {
+        "target": "pattern_thresholds.pin_dominant_wick_to_range_min",
+        "value": 0.6
+      },
+      "pin_max_body_ratio": {
+        "target": "pattern_thresholds.pin_body_to_range_max",
+        "value": 0.3
+      },
+      "pin_max_opposite_wick_ratio": {
+        "target": "pattern_thresholds.pin_opposite_wick_to_range_max",
+        "value": 0.15
+      },
+      "rejection_close_outer_fraction": {
+        "target": "pattern_thresholds.rejection_close_outer_fraction",
+        "value": 0.25
+      },
+      "rejection_min_wick_ratio": {
+        "target": "pattern_thresholds.rejection_wick_to_range_min",
+        "value": 0.5
+      }
+    }
+  },
+  "status": "PASS"
+}
