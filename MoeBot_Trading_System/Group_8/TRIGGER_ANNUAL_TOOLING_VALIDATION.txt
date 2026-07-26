@@ -1,0 +1,1 @@
+Validate Group 8 annual validation tooling before any real annual data execution. Compile fingerprint/auditor/tests, run synthetic annual audit plus rerun/clean-reconstruction fingerprints, then rerun all existing technical and lifecycle matrices. No annual data, authorization, design, threshold, engine behavior, or upstream changes.
