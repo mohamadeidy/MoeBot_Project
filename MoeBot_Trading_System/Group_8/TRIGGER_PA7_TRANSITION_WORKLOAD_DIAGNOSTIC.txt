@@ -1,0 +1,1 @@
+Trigger exact post-amendment PA7 transition workload diagnostic on authorized 2023 slices.
