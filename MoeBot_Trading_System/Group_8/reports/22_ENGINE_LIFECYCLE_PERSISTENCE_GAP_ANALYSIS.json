@@ -1,0 +1,27 @@
+{
+  "2023_authorized_after_gap_detection": false,
+  "2024_authorized": false,
+  "design_changed": false,
+  "format_version": 1,
+  "gap_id": "G8-ENGINE-LIFECYCLE-002",
+  "minimal_correct_fix": [
+    "Deterministic crash-recoverable ordinal-0 pattern/hypothesis state persistence.",
+    "Append-only deterministic contradiction/terminal lifecycle and invalidation evidence.",
+    "Deterministic stage checkpoints and Group8 audit evidence.",
+    "Fail-closed continuation structure-validity gate before creation.",
+    "Expanded lifecycle persistence, crash recovery, row-order, gap, and dependency rejection regression tests."
+  ],
+  "phase": "ENGINE_BUILD_REVIEW_GAP_ANALYSIS",
+  "previous_engine_sha256": "58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88",
+  "report_hash": "70c9bc6c1874f4484e2c03e3e738ee7132fdb63cb63480cf77166e778d3cd7e4",
+  "root_causes": [
+    "Frozen persistent tables price_action_pattern_state, invalidation_record, group8_audit_evidence and processing_checkpoint were not populated by the technical candidate.",
+    "Hypothesis lifecycle persistence did not provide contradiction/invalidation/completion/right-censor terminal semantics.",
+    "The inserted-only initial lifecycle fix could not repair an interruption after hypothesis creation but before ordinal-0 lifecycle insertion.",
+    "pa_continuation_after_pullback did not enforce referenced Group3 structure validity through the later same-direction validated displacement."
+  ],
+  "severity": "BLOCKING",
+  "status": "BLOCKING_GAP_FIXED_PENDING_RETEST",
+  "thresholds_changed": false,
+  "upstream_changed": false
+}

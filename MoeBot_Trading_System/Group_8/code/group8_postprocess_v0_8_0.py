@@ -330,30 +330,22 @@ def write_invalidation(
 
 
 def checkpoint(engine: Any, stage: str, status: str = "PASS") -> None:
-    count_tables = [
-        "price_action_pattern_candidate",
-        "price_action_pattern_state",
-        "school_interpretation",
-        "narrative_hypothesis",
-        "hypothesis_lifecycle_event",
-        "invalidation_record",
-        "shared_evidence",
-        "conflicting_evidence",
-        "multi_timeframe_context_relation",
-        "evidence_chain",
-    ]
-    counts = {table: int(engine.out.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]) for table in count_tables}
     for (symbol, timeframe), bars in sorted(engine.bars_by_tf.items()):
+        first = bars[0] if bars else None
         last = bars[-1] if bars else None
+        first_bar_id = int(first.id) if first is not None else None
+        first_time = int(first.available_at) if first is not None else None
         last_bar_id = int(last.id) if last is not None else None
         last_time = int(last.available_at) if last is not None else int(engine.annual_end_time or 0)
         snapshot = {
             "stage": stage,
             "symbol": symbol,
             "timeframe": timeframe,
+            "input_bar_count": len(bars),
+            "first_bar_id": first_bar_id,
+            "first_time": first_time,
             "last_bar_id": last_bar_id,
             "last_time": last_time,
-            "counts": counts,
             "engine_version": engine.config["engine_version"],
             "schema_version": engine.config["schema_version"],
             "config_id": engine.config["config_id"],
@@ -831,6 +823,7 @@ def finalize_postprocessing(engine: Any) -> dict[str, Any]:
 
 def persist_audit_evidence(engine: Any, engine_audit: Mapping[str, Any], persistence_report: Mapping[str, Any]) -> None:
     checked_at = int(engine.annual_end_time or 0)
+    scope = f"group8-year-{engine.year}"
     checks = [
         ("engine_core_audit", str(engine_audit.get("status", "UNKNOWN")), dict(engine_audit)),
         ("lifecycle_persistence", str(persistence_report.get("status", "UNKNOWN")), dict(persistence_report)),
@@ -842,11 +835,21 @@ def persist_audit_evidence(engine: Any, engine_audit: Mapping[str, Any], persist
         }),
     ]
     for check_name, status, details in checks:
-        payload = {"check_name": check_name, "status": status, "scope": f"group8-year-{engine.year}", "details": details, "checked_at": checked_at}
+        existing = engine.out.execute(
+            "SELECT audit_id,status,audit_hash FROM group8_audit_evidence WHERE check_name=? AND scope=? AND checked_at=? ORDER BY audit_id",
+            (check_name, scope, checked_at),
+        ).fetchall()
+        if len(existing) > 1:
+            raise RuntimeError(f"duplicate audit evidence identity already present: {check_name}:{scope}:{checked_at}")
+        if existing:
+            if str(existing[0]["status"]) != status:
+                raise RuntimeError(f"conflicting audit status on deterministic rerun: {check_name}:{scope}:{checked_at}")
+            continue
+        payload = {"check_name": check_name, "status": status, "scope": scope, "details": details, "checked_at": checked_at}
         audit_id = deterministic_id("g8audit", payload)
         audit_hash = stable_hash(payload)
         row = {
-            "audit_id": audit_id, "check_name": check_name, "status": status, "scope": payload["scope"],
+            "audit_id": audit_id, "check_name": check_name, "status": status, "scope": scope,
             "details_json": canonical_json(details), "checked_at": checked_at, "audit_hash": audit_hash,
         }
         engine._insert_immutable("group8_audit_evidence", "audit_id", audit_id, row, hash_column="audit_hash", expected_hash=audit_hash)
