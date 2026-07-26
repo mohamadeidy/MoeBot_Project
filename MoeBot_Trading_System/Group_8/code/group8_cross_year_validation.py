@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Independent cross-year validation for MoeBot Group 8 after frozen 2024 OOS.
 
-This is descriptive validation, not calibration: distribution differences are
-recorded but never used to retune thresholds or prefer schools/setups.
+Distribution differences are descriptive only. Frozen technical identities,
+including the annual validator and the locked-context correction, must remain
+identical across the OOS boundary and both annual reports must have zero
+locked-context violations.
 """
 from __future__ import annotations
 
@@ -11,6 +13,8 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+
+LOCKED_CONTEXT_GAP_ID = "G8-ICT-LOCKED-CONTEXT-005"
 
 
 def canonical(v: Any) -> bytes:
@@ -55,7 +59,7 @@ def main() -> int:
         failures.append("annual_execution_not_revoked")
     if a23.get("status") != "ANNUAL_2023_PASS": failures.append("2023_not_pass")
     if a24.get("status") != "ANNUAL_2024_OOS_PASS": failures.append("2024_oos_not_pass")
-    if freeze.get("status") != "FROZEN_FOR_2024_OOS": failures.append("oos_freeze_not_frozen")
+    if freeze.get("status") != "FROZEN_FOR_2024_OOS" or int(freeze.get("format_version", 0)) < 2: failures.append("oos_freeze_v2_not_frozen")
     if a24.get("oos_freeze_manifest_hash") != freeze.get("manifest_hash"): failures.append("2024_oos_freeze_hash_mismatch")
     if freeze.get("annual_2023_manifest_hash") != a23.get("manifest_hash"): failures.append("freeze_2023_manifest_hash_mismatch")
 
@@ -68,11 +72,22 @@ def main() -> int:
     if a23.get("engine_build_manifest_hash") != build.get("manifest_hash"): failures.append("2023_build_hash_drift")
     if a24.get("engine_build_manifest_hash") != build.get("manifest_hash"): failures.append("2024_build_hash_drift")
 
+    validator_sha = build.get("identities", {}).get("annual_validator", {}).get("sha256")
+    if not validator_sha: failures.append("build_annual_validator_identity_missing")
+    if freeze.get("annual_validator_sha256") != validator_sha: failures.append("freeze_annual_validator_identity_drift")
+    if a24.get("annual_validator_sha256") != validator_sha: failures.append("2024_annual_validator_identity_drift")
+    if freeze.get("closed_blocking_gap", {}).get("gap_id") != LOCKED_CONTEXT_GAP_ID: failures.append("freeze_locked_context_gap_identity_missing")
+    if a24.get("closed_blocking_gap", {}).get("gap_id") != LOCKED_CONTEXT_GAP_ID: failures.append("2024_locked_context_gap_identity_missing")
+
+    locked_context_by_year: dict[str, int] = {}
     for label, report in (("2023", v23), ("2024", v24)):
         if report.get("status") != "PASS" or report.get("failures"): failures.append(f"{label}_annual_report_not_pass")
         if report.get("no_trading_outputs") is not True: failures.append(f"{label}_trading_output_violation")
         if report.get("read_only_upstream") is not True: failures.append(f"{label}_upstream_not_read_only")
         if any(int(x) != 0 for x in report.get("causality_errors", {}).values()): failures.append(f"{label}_causality_errors")
+        locked = int(report.get("locked_context_violations", -1))
+        locked_context_by_year[label] = locked
+        if locked != 0: failures.append(f"{label}_locked_context_violations:{locked}")
         refs = report.get("upstream_reference_integrity", {})
         if int(refs.get("unresolved_group8", 0)) or int(refs.get("unresolved_upstream", 0)) or refs.get("unknown_source_types"):
             failures.append(f"{label}_reference_integrity")
@@ -93,8 +108,10 @@ def main() -> int:
             for k in keys
         }
 
+    identity_stable = all(x["equal"] for x in identity_comparison.values()) and freeze.get("annual_validator_sha256") == validator_sha == a24.get("annual_validator_sha256")
+    locked_context_zero = locked_context_by_year.get("2023") == 0 and locked_context_by_year.get("2024") == 0
     report = {
-        "format_version": 1,
+        "format_version": 2,
         "status": "PASS" if not failures else "FAIL",
         "group": 8,
         "phase": "CROSS_YEAR_VALIDATION",
@@ -104,19 +121,23 @@ def main() -> int:
         "oos_freeze_manifest_hash": freeze.get("manifest_hash"),
         "annual_2023_manifest_hash": a23.get("manifest_hash"),
         "annual_2024_oos_manifest_hash": a24.get("manifest_hash"),
+        "annual_validator_sha256": validator_sha,
+        "closed_blocking_gap_id": LOCKED_CONTEXT_GAP_ID,
         "identity_comparison": identity_comparison,
+        "locked_context_violations": locked_context_by_year,
         "counts": count_comparison,
         "distributions": distribution_comparison,
         "distribution_policy": "Observed descriptively only. No pass/fail threshold, calibration, retuning, preferred school, or trading preference is derived from cross-year frequency differences.",
         "no_trading_outputs_both_years": v23.get("no_trading_outputs") is True and v24.get("no_trading_outputs") is True,
         "read_only_upstream_both_years": v23.get("read_only_upstream") is True and v24.get("read_only_upstream") is True,
-        "identity_stable_across_oos_boundary": all(x["equal"] for x in identity_comparison.values()),
+        "locked_context_violations_both_years_zero": locked_context_zero,
+        "identity_stable_across_oos_boundary": identity_stable,
         "failures": failures,
     }
     report["report_hash"] = hashlib.sha256(canonical(report)).hexdigest()
     a.output.parent.mkdir(parents=True, exist_ok=True)
     a.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    print(json.dumps({"status": report["status"], "report_hash": report["report_hash"], "identity_stable": report["identity_stable_across_oos_boundary"], "failures": failures}, indent=2, sort_keys=True))
+    print(json.dumps({"status": report["status"], "report_hash": report["report_hash"], "identity_stable": report["identity_stable_across_oos_boundary"], "locked_context_zero": report["locked_context_violations_both_years_zero"], "failures": failures}, indent=2, sort_keys=True))
     return 0 if not failures else 1
 
 
