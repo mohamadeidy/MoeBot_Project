@@ -1,0 +1,102 @@
+name: MoeBot Group 8 Official Closure
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_OFFICIAL_CLOSURE.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  RELEASE_TAG: moebot-group8-v0.8.0
+  PYTHONUNBUFFERED: "1"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  final-independent-verification-and-close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight verified release publication
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8");s=json.loads((root/"STATUS.json").read_text());p=json.loads((root/"RELEASE_PUBLICATION_MANIFEST.json").read_text());c=json.loads((root/"CLOSURE_CANDIDATE_MANIFEST.json").read_text());n=json.loads((root/"NEXT_GROUP_DEPENDENCY_MANIFEST.json").read_text());a=json.loads((root/"reports/51_FINAL_INDEPENDENT_AUDIT.json").read_text())
+          if s.get("officially_closed") is not False or s.get("status")!="CLOSURE_CANDIDATE_RELEASE_REQUIRED": raise SystemExit("wrong official closure phase")
+          if p.get("status")!="PASS" or p.get("release_tag")!="moebot-group8-v0.8.0" or p.get("all_release_assets_redownload_verified") is not True: raise SystemExit("release publication evidence invalid")
+          if p.get("candidate_hash")!=c.get("candidate_hash") or p.get("pre_release_next_group_manifest_hash")!=n.get("manifest_hash") or p.get("final_audit_hash")!=a.get("report_hash"): raise SystemExit("release publication provenance mismatch")
+          if a.get("checks",{}).get("locked_context_zero_both_years") is not True: raise SystemExit("locked-context final audit is not zero")
+          print({"status":"PASS","publication_hash":p["report_hash"],"release_url":p["release_url"]})
+          PY
+      - name: Re-download release assets for final independent verification
+        run: |
+          set -euo pipefail
+          MANIFEST="$GROUP8_ROOT/NEXT_GROUP_DEPENDENCY_MANIFEST.json"
+          NAME23=$(jq -r '.annual_database_assets["2023"].release_asset_name' "$MANIFEST")
+          NAME24=$(jq -r '.annual_database_assets["2024"].release_asset_name' "$MANIFEST")
+          mkdir -p "$RUNNER_TEMP/g8-final-release/2023" "$RUNNER_TEMP/g8-final-release/2024"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" -p "$NAME23" -D "$RUNNER_TEMP/g8-final-release/2023" --clobber
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" -p "$NAME24" -D "$RUNNER_TEMP/g8-final-release/2024" --clobber
+      - name: Verify final release downloads against frozen handoff identities
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8");n=json.loads((root/"NEXT_GROUP_DEPENDENCY_MANIFEST.json").read_text());base=Path(os.environ["RUNNER_TEMP"])/"g8-final-release"
+          for year in ("2023","2024"):
+              e=n["annual_database_assets"][year];p=base/year/e["release_asset_name"]
+              if not p.is_file(): raise SystemExit(f"final release asset missing:{year}")
+              h=hashlib.sha256(p.read_bytes()).hexdigest()
+              if p.stat().st_size!=int(e["compressed_size_bytes"]) or h!=e["compressed_sha256"]: raise SystemExit(f"final release asset identity mismatch:{year}")
+          print({"status":"PASS","2023":"verified","2024":"verified"})
+          PY
+      - name: Finalize official Group 8 closure
+        run: |
+          python "$GROUP8_ROOT/code/group8_finalize_official_release_closure.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --publication "$GROUP8_ROOT/RELEASE_PUBLICATION_MANIFEST.json" \
+            --closure-output "$GROUP8_ROOT/CLOSURE_MANIFEST.json" \
+            --handoff-output "$GROUP8_ROOT/12_HANDOFF_REQUIREMENTS.md"
+      - name: Final independent closure verification
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8");s=json.loads((root/"STATUS.json").read_text());c=json.loads((root/"CLOSURE_MANIFEST.json").read_text());n=json.loads((root/"NEXT_GROUP_DEPENDENCY_MANIFEST.json").read_text());b=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text());p=json.loads((root/"RELEASE_PUBLICATION_MANIFEST.json").read_text())
+          engine=b["identities"]["engine"]["sha256"];validator=b["identities"]["annual_validator"]["sha256"]
+          if c.get("format_version")!=2 or c.get("status")!="OFFICIALLY_CLOSED" or c.get("large_assets_release_verified") is not True: raise SystemExit("closure manifest invalid")
+          if c.get("engine_sha256")!=engine or c.get("annual_validator_sha256")!=validator or c.get("closed_blocking_gap_id")!="G8-ICT-LOCKED-CONTEXT-005": raise SystemExit("closure technical identity drift")
+          if c.get("release_publication_report_hash")!=p.get("report_hash"): raise SystemExit("closure publication hash mismatch")
+          if n.get("status")!="FROZEN_HANDOFF" or n.get("release_publication_verified") is not True or n.get("engine_sha256")!=engine or n.get("annual_validator_sha256")!=validator: raise SystemExit("next-group handoff invalid")
+          if s.get("officially_closed") is not True or s.get("status")!="OFFICIALLY_CLOSED" or s.get("next_group_start_authorized") is not True: raise SystemExit("official status invalid")
+          if s.get("annual_execution_authorized") or s.get("annual_execution_2023_authorized") or s.get("annual_execution_2024_authorized"): raise SystemExit("annual execution still authorized after closure")
+          print({"status":"PASS","closure_manifest_hash":c["closure_manifest_hash"],"next_group_manifest_hash":n["manifest_hash"],"engine_sha256":engine,"annual_validator_sha256":validator})
+          PY
+      - name: Commit official closure evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/CLOSURE_MANIFEST.json" \
+            "$GROUP8_ROOT/NEXT_GROUP_DEPENDENCY_MANIFEST.json" \
+            "$GROUP8_ROOT/12_HANDOFF_REQUIREMENTS.md" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Officially close MoeBot Group 8 [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
+      - name: Cleanup final release downloads
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-final-release" || true
