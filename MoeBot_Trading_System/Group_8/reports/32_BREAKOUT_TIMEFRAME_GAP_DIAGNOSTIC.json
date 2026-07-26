@@ -1,0 +1,57 @@
+{
+  "cross_timeframe_boundary_mixing_possible": true,
+  "definitions_changed": false,
+  "design_rule": "Run every timeframe independently before creating cross-timeframe relations.",
+  "design_rule_present": true,
+  "format_version": 1,
+  "gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
+  "group4_group5_group7_same_timeframe_guards_present": true,
+  "group6_breakout_query_missing_timeframe_predicate": true,
+  "group6_source_timeframes_2023": {
+    "bpr_relations": [
+      "D1",
+      "H1",
+      "H4",
+      "M1",
+      "M15",
+      "M30",
+      "M5"
+    ],
+    "fvg_events": [
+      "D1",
+      "H1",
+      "H4",
+      "M1",
+      "M15",
+      "M30",
+      "M5"
+    ],
+    "imbalance_variants": [
+      "D1",
+      "H1",
+      "H4",
+      "M1",
+      "M15",
+      "M30",
+      "M5"
+    ],
+    "liquidity_voids": [
+      "D1",
+      "H1",
+      "H4",
+      "M1",
+      "M15",
+      "M30",
+      "M5"
+    ]
+  },
+  "mtf_relation_layer_bypassed": true,
+  "phase": "ANNUAL_2023_ROOT_CAUSE",
+  "previous_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
+  "report_hash": "f2d1a10101aa76040cf322ccec2438daf20ec3e2fc4aee7b43165f7bcc23fee8",
+  "schema_changed": false,
+  "severity": "BLOCKING",
+  "status": "FAIL_BLOCKING_GAP_CONFIRMED",
+  "thresholds_changed": false,
+  "upstream_changed": false
+}
