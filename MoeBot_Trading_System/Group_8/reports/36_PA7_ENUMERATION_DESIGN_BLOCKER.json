@@ -1,0 +1,69 @@
+{
+  "classification": "FROZEN_DESIGN_CARDINALITY_CONTRADICTION",
+  "config_changed": false,
+  "decision_required": true,
+  "definitions_changed": false,
+  "design_change_required": true,
+  "engine_changed": false,
+  "engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
+  "exact_2023_lower_bound": {
+    "bars": 466723,
+    "candidate_records_per_bar_average": 159839.05946996398,
+    "excluded_from_lower_bound": [
+      "group4",
+      "group5",
+      "group7"
+    ],
+    "group6_plus_group8_boundary_enumerations": 37433977616,
+    "group6_plus_group8_candidate_records": 74600565353,
+    "minimum_candidate_plus_creation_state_rows": 149201130706
+  },
+  "forbidden_shortcuts": [
+    "silently drop qualifying records",
+    "lower validation quality",
+    "change thresholds to reduce count",
+    "use 2024 OOS to choose a reduction rule",
+    "collapse IDs or deduplicate distinct bar-boundary candidates contrary to PA7E.1"
+  ],
+  "format_version": 2,
+  "frozen_definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+  "frozen_design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
+  "frozen_pa7_enumeration_rule": "one record per qualifying (bar_id,boundary_source_id,boundary_side); all boundaries are evaluated independently",
+  "frozen_pa7_exact_version": "PA7E.1",
+  "frozen_variant_enumeration_binding": "pa_breakout_atr_buffer and pa_breakout_point_buffer use the same independent boundary enumeration",
+  "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
+  "minimal_correct_fix_available_without_design_change": false,
+  "non_selected_design_paths": [
+    {
+      "changes_frozen_contract": true,
+      "effect": "Define breakout as a transition event (for example first causal close-through per locked boundary/direction until a frozen reset condition) instead of every bar remaining beyond the boundary.",
+      "id": "PA7_TRANSITION_EVENT_ENUMERATION"
+    },
+    {
+      "changes_frozen_contract": true,
+      "effect": "Freeze an explicit subset of Group 8 execution timeframes instead of consuming every source timeframe available in the annual lineage.",
+      "id": "PA7_EXPLICIT_TIMEFRAME_SCOPE"
+    },
+    {
+      "changes_frozen_contract": true,
+      "effect": "Require boundary eligibility to end at a frozen upstream/derived lifecycle invalidation rather than allowing every causally available historical boundary indefinitely.",
+      "id": "PA7_ACTIVE_LIFECYCLE_BOUNDARIES_ONLY"
+    },
+    {
+      "changes_frozen_contract": true,
+      "effect": "Keep the logical bar-boundary enumeration but replace one-row-per-candidate materialization with a new compressed/virtual storage and validation contract.",
+      "id": "PA7_COMPRESSED_LOGICAL_REPRESENTATION"
+    }
+  ],
+  "oos_2024_accessed": false,
+  "phase": "ANNUAL_2023_PRE_EXECUTION_GAP_ANALYSIS",
+  "report_hash": "b8a3cd3209d949783ffee172f4ab4c7c56a7258fbeeb426343f0cdbab5951940",
+  "root_cause": "The frozen PA7 contract requires a distinct immutable record for every qualifying bar x boundary-source x side, and both ATR/point variants inherit that independent enumeration. On exact 2023 data, even after correcting cross-timeframe leakage, Group6+Group8 alone imply 74,600,565,353 candidate records before Group4/5/7. The engine also persists a creation lifecycle state for every pattern candidate, so the physical row lower bound is at least twice the candidate count before other outputs.",
+  "schema_changed": false,
+  "severity": "BLOCKING",
+  "status": "OPEN_DESIGN_DECISION_REQUIRED",
+  "thresholds_changed": false,
+  "upstream_changed": false,
+  "why_execution_optimization_is_insufficient": "SQL/index/loop optimization can reduce CPU spent discovering qualifying pairs but cannot remove or aggregate records required by the frozen one-record-per-qualifying-pair contract. Materializing the measured logical output is itself the blocker.",
+  "workload_report_hash": "6308c8b0e614fd81bc73f64fbc86f037cdd9ff5dc28696bfe3111997db031dbc"
+}

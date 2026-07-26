@@ -1,0 +1,138 @@
+name: MoeBot Group 8 Register PA7 Enumeration Design Blocker
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_REGISTER_PA7_ENUMERATION_BLOCKER.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  register-blocker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact frozen identities and workload evidence
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text())
+          w=json.loads((root/"reports/35_POSTFIX_BREAKOUT_CARDINALITY_DIAGNOSTIC.json").read_text())
+          f=json.loads((root/"DESIGN_FREEZE_MANIFEST.json").read_text())
+          b=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          expected_engine="f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d"
+          expected_defs="fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579"
+          expected_freeze="b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672"
+          if hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest()!=expected_engine:
+              raise SystemExit("unexpected corrected engine identity")
+          if f.get("status")!="FROZEN" or f.get("definition_registry_hash")!=expected_defs or f.get("design_freeze_hash")!=expected_freeze:
+              raise SystemExit("frozen design identity mismatch")
+          if b.get("definition_registry_hash")!=expected_defs or b.get("design_freeze_hash")!=expected_freeze or b.get("identities",{}).get("engine",{}).get("sha256")!=expected_engine:
+              raise SystemExit("technical build frozen-identity binding mismatch")
+          if s.get("officially_closed") is not False or s.get("annual_execution_2024_authorized") is not False:
+              raise SystemExit("unexpected Group 8 closure/OOS state")
+          gap=s.get("blocking_gap",{})
+          valid_pre=(s.get("annual_execution_2023_authorized") is True and s.get("engine_build",{}).get("status")=="TECHNICAL_CANDIDATE_PASS" and gap.get("gap_id")=="G8-PA7-CROSS-TIMEFRAME-006" and gap.get("status")=="CLOSED_BY_TECHNICAL_REFREEZE")
+          valid_idempotent=(s.get("annual_execution_2023_authorized") is False and s.get("engine_build",{}).get("status")=="TECHNICAL_CANDIDATE_BLOCKED_BY_DESIGN_GAP" and gap.get("gap_id")=="G8-PA7-ENUMERATION-EXPLOSION-007" and gap.get("status")=="OPEN_DESIGN_DECISION_REQUIRED" and gap.get("previous_closed_gap_id")=="G8-PA7-CROSS-TIMEFRAME-006")
+          if not (valid_pre or valid_idempotent):
+              raise SystemExit("unexpected pre-registration/idempotent blocker state")
+          if w.get("status")!="PASS" or w.get("report_hash")!="6308c8b0e614fd81bc73f64fbc86f037cdd9ff5dc28696bfe3111997db031dbc":
+              raise SystemExit("workload evidence identity mismatch")
+          if int(w["minimum_group6_plus_group8_workload"]["candidate_total"])!=74600565353:
+              raise SystemExit("workload lower bound mismatch")
+          print({"status":"PASS","candidate_lower_bound":74600565353,"definition_registry_hash":expected_defs,"design_freeze_hash":expected_freeze,"2024_authorized":False})
+          PY
+          python -m py_compile "$GROUP8_ROOT/code/group8_register_pa7_enumeration_design_blocker.py"
+
+      - name: Register frozen-design cardinality contradiction and fail-close annual execution
+        run: |
+          python "$GROUP8_ROOT/code/group8_register_pa7_enumeration_design_blocker.py" --group8-root "$GROUP8_ROOT"
+
+      - name: Independent blocker-state verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          report=json.loads((root/"reports/36_PA7_ENUMERATION_DESIGN_BLOCKER.json").read_text())
+          status=json.loads((root/"STATUS.json").read_text())
+          freeze=json.loads((root/"DESIGN_FREEZE_MANIFEST.json").read_text())
+          payload=dict(report);h=payload.pop("report_hash")
+          if hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()!=h:
+              raise SystemExit("blocker report self-hash mismatch")
+          if report.get("format_version")!=2 or report.get("gap_id")!="G8-PA7-ENUMERATION-EXPLOSION-007" or report.get("status")!="OPEN_DESIGN_DECISION_REQUIRED":
+              raise SystemExit("blocker report identity/state mismatch")
+          if report.get("frozen_definition_registry_hash")!=freeze.get("definition_registry_hash") or report.get("frozen_design_freeze_hash")!=freeze.get("design_freeze_hash"):
+              raise SystemExit("blocker report frozen-design identity binding missing")
+          if report.get("minimal_correct_fix_available_without_design_change") is not False or report.get("design_change_required") is not True or report.get("decision_required") is not True:
+              raise SystemExit("blocker classification mismatch")
+          lb=report.get("exact_2023_lower_bound",{})
+          if lb.get("group6_plus_group8_candidate_records")!=74600565353 or lb.get("minimum_candidate_plus_creation_state_rows")!=149201130706:
+              raise SystemExit("blocker lower-bound evidence mismatch")
+          if any(report.get(k) for k in ("definitions_changed","thresholds_changed","schema_changed","config_changed","upstream_changed","engine_changed","oos_2024_accessed")):
+              raise SystemExit("blocker registration mutated frozen state")
+          gap=status.get("blocking_gap",{})
+          if gap.get("gap_id")!="G8-PA7-ENUMERATION-EXPLOSION-007" or gap.get("status")!="OPEN_DESIGN_DECISION_REQUIRED":
+              raise SystemExit("STATUS blocker mismatch")
+          if gap.get("frozen_definition_registry_hash")!=report.get("frozen_definition_registry_hash") or gap.get("frozen_design_freeze_hash")!=report.get("frozen_design_freeze_hash"):
+              raise SystemExit("STATUS frozen identity binding mismatch")
+          if status.get("engine_build_authorized") or status.get("annual_execution_authorized") or status.get("annual_execution_2023_authorized") or status.get("annual_execution_2024_authorized"):
+              raise SystemExit("annual execution was not fail-closed")
+          if status.get("officially_closed") is not False:
+              raise SystemExit("Group 8 was prematurely closed")
+          print({"status":"PASS","gap_id":report["gap_id"],"candidate_lower_bound":lb["group6_plus_group8_candidate_records"],"definition_registry_hash":report["frozen_definition_registry_hash"],"all_execution_authorization_revoked":True})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-pa7-enumeration-design-blocker
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/36_PA7_ENUMERATION_DESIGN_BLOCKER.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 30
+
+      - name: Commit blocker evidence and fail-closed status
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/reports/36_PA7_ENUMERATION_DESIGN_BLOCKER.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Blocker evidence already exact; no commit required."
+          else
+            git commit -m "Register Group 8 PA7 frozen-design enumeration blocker [skip ci]"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
