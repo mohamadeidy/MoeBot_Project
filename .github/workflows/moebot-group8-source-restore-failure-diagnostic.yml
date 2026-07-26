@@ -29,27 +29,37 @@ jobs:
           import os
           year=os.environ['YEAR']
           lines=(Path(os.environ['RUNNER_TEMP'])/f'{year}.log').read_text(errors='replace').splitlines()
-          patterns=(
-              'Restore and verify canonical source database only',
-              'group8_restore_frozen_source.py',
-              'group8_real_schema_intake.py',
-              'Traceback', 'RuntimeError', 'FileNotFoundError', 'CalledProcessError',
-              'checksum', 'identity mismatch', 'sqlite', 'curl:', 'zstd:',
-              '##[error]', 'error:', 'failed',
-          )
-          anchors=[i for i,line in enumerate(lines) if any(p.lower() in line.lower() for p in patterns)]
-          selected=[]
-          for i in anchors:
-              selected.extend(lines[max(0,i-10):min(len(lines),i+30)])
-          selected.extend(lines[-160:])
-          seen=set();out=[]
-          for line in selected:
+
+          start=None
+          for i,line in enumerate(lines):
+              if 'group8_restore_frozen_source.py' in line or 'Restore and verify canonical source database only' in line:
+                  start=i
+                  # Prefer the command group, not an earlier step-summary mention.
+                  if '##[group]Run' in line or 'group8_restore_frozen_source.py' in line:
+                      break
+          if start is None:
+              raise SystemExit(f'cannot locate source restore step in {year} log')
+
+          lo=max(0,start-5)
+          hi=min(len(lines),start+180)
+          for j in range(start+1,min(len(lines),start+300)):
+              # Stop at the next actual Actions step after we have captured this one.
+              if j>start+10 and '##[group]Run ' in lines[j] and 'group8_restore_frozen_source.py' not in lines[j] and 'group8_real_schema_intake.py' not in lines[j]:
+                  hi=j
+                  break
+          block=lines[lo:hi]
+
+          # Append only error-bearing tail lines from the whole job so Python tracebacks are never lost.
+          error_terms=('traceback','exception','runtimeerror','filenotfounderror','calledprocesserror','checksum','identity mismatch','##[error]','error:','failed','returned non-zero','exit code')
+          tail=[line for line in lines[start:] if any(term in line.lower() for term in error_terms)]
+          out=[];seen=set()
+          for line in block+tail:
               if line not in seen:
                   seen.add(line);out.append(line)
           p=Path(os.environ['RUNNER_TEMP'])/f'context/GROUP8_SOURCE_RESTORE_FAILURE_{year}.txt'
           p.write_text('\n'.join(out)+'\n')
           print(f'===== {year} =====')
-          print(p.read_text()[-30000:])
+          print(p.read_text())
           PY
           done
       - uses: actions/upload-artifact@v4
