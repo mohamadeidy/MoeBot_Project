@@ -1,0 +1,48 @@
+{
+  "assertion_lines": [
+    "Traceback (most recent call last):",
+    "AssertionError: Lists differ: [('XA[56 chars]00, '707289a630bfedfaff1fc15872f61dda920285494[3562 chars]000)] != [('XA[56 chars]00, 'dc2be3ce516a745a166f0825fd191fc476755385e[3562 chars]000)]"
+  ],
+  "failure_headers": [
+    "FAIL: test_extended_idempotence_includes_state_lifecycle_invalidation_audit_checkpoint (__main__.Group8LifecyclePersistenceTests.test_extended_idempotence_includes_state_lifecycle_invalidation_audit_checkpoint)"
+  ],
+  "format_version": 1,
+  "output_sha256": "9ce9e5ae3b6d9e64d61d1de0ea90296cdd75bbd962f373c5a59f3f3c808c3e08",
+  "output_tail": [
+    "test_bounded_range_invalidation_and_causal_record (__main__.Group8LifecyclePersistenceTests.test_bounded_range_invalidation_and_causal_record) ... ok",
+    "test_bounded_range_right_censors_without_invalidation (__main__.Group8LifecyclePersistenceTests.test_bounded_range_right_censors_without_invalidation) ... ok",
+    "test_continuation_requires_structure_valid_until_completion (__main__.Group8LifecyclePersistenceTests.test_continuation_requires_structure_valid_until_completion) ... ok",
+    "test_extended_idempotence_includes_state_lifecycle_invalidation_audit_checkpoint (__main__.Group8LifecyclePersistenceTests.test_extended_idempotence_includes_state_lifecycle_invalidation_audit_checkpoint) ... FAIL",
+    "test_full_pipeline_persists_pattern_states_lifecycle_audit_and_checkpoints (__main__.Group8LifecyclePersistenceTests.test_full_pipeline_persists_pattern_states_lifecycle_audit_and_checkpoints) ... ok",
+    "test_initial_lifecycle_helper_repairs_interruption_without_duplicate (__main__.Group8LifecyclePersistenceTests.test_initial_lifecycle_helper_repairs_interruption_without_duplicate) ... ok",
+    "test_missing_bar_gap_remains_causal (__main__.Group8LifecyclePersistenceTests.test_missing_bar_gap_remains_causal) ... ok",
+    "test_missing_dependency_table_is_rejected (__main__.Group8LifecyclePersistenceTests.test_missing_dependency_table_is_rejected) ... ok",
+    "test_partial_dependency_schema_is_rejected (__main__.Group8LifecyclePersistenceTests.test_partial_dependency_schema_is_rejected) ... ok",
+    "test_row_order_stability (__main__.Group8LifecyclePersistenceTests.test_row_order_stability) ... ok",
+    "",
+    "======================================================================",
+    "FAIL: test_extended_idempotence_includes_state_lifecycle_invalidation_audit_checkpoint (__main__.Group8LifecyclePersistenceTests.test_extended_idempotence_includes_state_lifecycle_invalidation_audit_checkpoint)",
+    "----------------------------------------------------------------------",
+    "Traceback (most recent call last):",
+    "  File \"/home/runner/work/MoeBot_Project/MoeBot_Project/MoeBot_Trading_System/Group_8/tests/test_group8_lifecycle_persistence_v0_8_0.py\", line 72, in test_extended_idempotence_includes_state_lifecycle_invalidation_audit_checkpoint",
+    "    self.assertEqual(checkpoints_before, checkpoints_after)",
+    "AssertionError: Lists differ: [('XA[56 chars]00, '707289a630bfedfaff1fc15872f61dda920285494[3562 chars]000)] != [('XA[56 chars]00, 'dc2be3ce516a745a166f0825fd191fc476755385e[3562 chars]000)]",
+    "",
+    "First differing element 0:",
+    "('XAU[55 chars]00, '707289a630bfedfaff1fc15872f61dda920285494[32 chars]8800)",
+    "('XAU[55 chars]00, 'dc2be3ce516a745a166f0825fd191fc476755385e[32 chars]8800)",
+    "",
+    "Diff is 6064 characters long. Set self.maxDiff to None to see it.",
+    "",
+    "----------------------------------------------------------------------",
+    "Ran 10 tests in 29.848s",
+    "",
+    "FAILED (failures=1)"
+  ],
+  "phase": "ENGINE_LIFECYCLE_FIX2_RETEST",
+  "report_hash": "5dff59af4b0e3456348296c7b08c8e5624a0270bc2e5252b20d02831d808ee77",
+  "source_job_id": 89775249471,
+  "source_run_id": 30195159166,
+  "status": "DIAGNOSTIC_CAPTURED",
+  "test_returncode": 1
+}

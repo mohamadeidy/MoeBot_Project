@@ -1,0 +1,1 @@
+Reproduce corrected lifecycle hardening after audit-evidence duplicate prevention and capture the remaining regression from run 30195159166. Commit only report 25; do not mutate engine, design, thresholds, dependencies, source data, or authorization.
