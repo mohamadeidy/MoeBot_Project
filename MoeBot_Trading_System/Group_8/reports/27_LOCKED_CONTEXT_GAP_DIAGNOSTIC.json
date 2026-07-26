@@ -1,0 +1,170 @@
+{
+  "acceptance_rule": "post_invalidation_violation_count must equal 0; interpretation availability must be strictly earlier than the bounded-range invalidation availability.",
+  "design_mutated": false,
+  "engine_audit_status": "PASS",
+  "engine_mutated": false,
+  "fixture_invalidation_time": 1700019800,
+  "fixture_transition_id": "zlow_invalid_locked_context_diag",
+  "format_version": 1,
+  "frozen_definition": "ict_premium_discount_context requires closed_bar_within_same_locked_context; bounded range invalidates at first later locked-boundary invalidation.",
+  "gap_id": "G8-ICT-LOCKED-CONTEXT-005",
+  "invalidated_range_count": 17,
+  "post_invalidation_violation_count": 153,
+  "premium_discount_total": 340,
+  "report_hash": "78ff7696f1140a7dc60b7f495db8898eba341201c1ae5036c37b771039915e81",
+  "sample_violations": [
+    {
+      "availability_time": 1700019800,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_d7dc968d490204be1d27d37da465a01ed44aacf8f4731f22e16905940dc99886",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700020700,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_201142bc1a199c2e3515c8c1fe613265f1bd90cc21ce74b2fb178b6ea7da72ca",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700021600,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_4364c84f246e3d88b5e31cc3c29430dcdf1e0014ec037a0fa182a9deeaec029c",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700022500,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_f793570fa74a6ab627fda6d273228a601433a80dfc2c3b42acdeb0f35f97148b",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700023400,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_b19fa72d4cac78fa0ee72fb27de94443ad9e9cd87f2ccb8f795e567172440f9c",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700024300,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_e264a35ca4edcbeb2ab5e6d5b762aee69a0f34fd90a0fbe5c8234da730d0d0a2",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700025200,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_91d1beaa3424b632faba9d5845e3de1c1f00e4252359b09b7803a05dc90c51bb",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700026100,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_8551647e95a3dbfdf841e5db20ea851b1b21587e8340a9944d1de6fb0d8ece50",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700027000,
+      "bounded_range_context_id": "g8p_096e079176fb67c5e91a2de708d1682834853909f6f4b1baea4fc85d5195225c",
+      "interpretation_id": "g8i_d02ea84635e7b998c89db7dbab59de2a398ada7e2a1c07e0abddfb55e3c2f893",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700019800,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_17ab713c7e4ef1e3e98808be5d2c3262006505740ee5944583d328def68118a9",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700020700,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_5eed06d3271a1b40584bda955c58da6f22fcb626da8eb74da698702d243d8338",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700021600,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_59fd38048714403aa1a6fa907e981651fdb76b71b7afec18104931adb1a540f6",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700022500,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_2929f843697fa926a2b9b427ffe3c48a0a7344fd1cd031fc596127c343548e4e",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700023400,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_d7c2d1c2f3424a14c085154cd6ccd94ee76d74ed4ce879075d3ad18265f37587",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700024300,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_35ac2e65ddee60e9a814e01786b23a5d6263d2cf0cb141b86b4d63bd865ac977",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700025200,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_43ca744c878043f211cf245c82f1a0eba5b296f409cfddd3c308b1f22425c560",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700026100,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_b3717aee5a807f5fd34739ba293d2d6c23347989a1a90264ec9765fc42460234",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700027000,
+      "bounded_range_context_id": "g8p_2a59139ce3cf2cbe16b81c6d146be0681a55c44c7e86257a62d49050aa43e1c0",
+      "interpretation_id": "g8i_e3e03bb62154323abac90ef0660740cdd4e12f7de7002a3dfaa4a1f22ca64647",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700019800,
+      "bounded_range_context_id": "g8p_3088c036431e8a8a7f489f921e83677c55ef162e1cc5ad92d144486b50e04730",
+      "interpretation_id": "g8i_df2e1927f98f591eda145321d0a0657c227ebc3d62eaa44de3465f43c7cc145e",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700020700,
+      "bounded_range_context_id": "g8p_3088c036431e8a8a7f489f921e83677c55ef162e1cc5ad92d144486b50e04730",
+      "interpretation_id": "g8i_85b7b4b77e8b97d17e26fd3046d185e85d63846581772005b6da1c1a053c4eba",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700021600,
+      "bounded_range_context_id": "g8p_3088c036431e8a8a7f489f921e83677c55ef162e1cc5ad92d144486b50e04730",
+      "interpretation_id": "g8i_5a89fbd7ba3a9c662aeed70cccee26cbe40094daa0a45fc3f1afe6e66dfdf591",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700022500,
+      "bounded_range_context_id": "g8p_3088c036431e8a8a7f489f921e83677c55ef162e1cc5ad92d144486b50e04730",
+      "interpretation_id": "g8i_526c9f0947ba9cda00a140ac8d6ba3ee6df0b2dd48f896f06d00b403d621517a",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700023400,
+      "bounded_range_context_id": "g8p_3088c036431e8a8a7f489f921e83677c55ef162e1cc5ad92d144486b50e04730",
+      "interpretation_id": "g8i_e2ebae89cba9b0cea8babe9d6504954def2fa9b946a779332fbb6162e5ff5478",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700024300,
+      "bounded_range_context_id": "g8p_3088c036431e8a8a7f489f921e83677c55ef162e1cc5ad92d144486b50e04730",
+      "interpretation_id": "g8i_1107a71ebad12a623bd263a614079c3e8f3059bda2a901f4053f272c35cfb50c",
+      "invalidation_time": 1700019800
+    },
+    {
+      "availability_time": 1700025200,
+      "bounded_range_context_id": "g8p_3088c036431e8a8a7f489f921e83677c55ef162e1cc5ad92d144486b50e04730",
+      "interpretation_id": "g8i_a40970ff7104e687ecca63c5ece8bb523b6ec80de60cae9e99a01c8ed792f1dd",
+      "invalidation_time": 1700019800
+    }
+  ],
+  "severity": "BLOCKING",
+  "status": "GAP_REPRODUCED",
+  "thresholds_mutated": false
+}
