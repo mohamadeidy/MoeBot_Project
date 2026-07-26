@@ -1,0 +1,109 @@
+name: MoeBot Group 8 Causal Root Storage Revision
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_CAUSAL_ROOT_STORAGE_REVISION.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  revise-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact first free-storage amendment
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());f=json.loads((r/'DESIGN_FREEZE_MANIFEST.json').read_text());c=json.loads((r/'SHARDED_STORAGE_CONTRACT.json').read_text())
+          assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()=='bb4b4bcaf8882aad41e2456a25d10941b455c53ad77cba2bd2e6170ed284a255'
+          assert f['design_freeze_hash']=='42364211a43b26df07dfc1dd6a841930ca985959af61dfeffa1691b65bef42d7'
+          assert c['storage_contract_hash']=='5840ac5a7c6ef0c7b80c12a1e524b8d9bf35d477a27d18e52e9a37707f754e37'
+          assert s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          assert s['blocking_gap']['gap_id']=='G8-FREE-STORAGE-CAPACITY-009'
+          print({'status':'PASS','2023':False,'2024':False,'free_only':True})
+          PY
+          python -m py_compile "$GROUP8_ROOT/code/group8_revise_sharded_partition_roots.py"
+
+      - name: Apply causal partition-root revision
+        run: |
+          python "$GROUP8_ROOT/code/group8_revise_sharded_partition_roots.py" --group8-root "$GROUP8_ROOT"
+
+      - name: Verify revised physical contract and identities
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');c=json.loads((r/'SHARDED_STORAGE_CONTRACT.json').read_text());f=json.loads((r/'DESIGN_FREEZE_MANIFEST.json').read_text());s=json.loads((r/'STATUS.json').read_text());rep=json.loads((r/'reports/45_CAUSAL_PARTITION_ROOT_STORAGE_REVISION.json').read_text())
+          def stable(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          for rec,field in ((c,'storage_contract_hash'),(f,'design_freeze_hash'),(rep,'report_hash')):
+              q=dict(rec);saved=q.pop(field);assert stable(q)==saved
+          rule=c['partitioning']['adaptive_bucket_rule'];assert rule['assignment']=='int(sha256(partition_root_id)[0:16],16) % bucket_count'
+          assert 'pa7_chain' in c['partitioning']['partition_root_rules'] and 'boundary identity' in c['partitioning']['partition_root_rules']['pa7_chain']
+          assert c['free_only_policy']['paid_runner_allowed'] is False and c['free_only_policy']['paid_service_allowed'] is False
+          assert c['logical_contract']['definitions_unchanged'] and c['logical_contract']['thresholds_unchanged'] and c['logical_contract']['oos_2024_untouched']
+          e=hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest();assert e==rep['engine_sha256']==s['engine_build']['engine_sha256']
+          assert f['storage_contract_hash']==c['storage_contract_hash']==rep['storage_contract_hash']==s['storage_contract_hash']
+          assert f['storage_amendment']['amendment_version']==2 and f['storage_amendment']['partition_root_revision']=='CAUSAL_ROOT_BUCKETING'
+          assert s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          assert rep['logical_semantics_changed'] is False and rep['schema_sql_changed'] is False and rep['thresholds_changed'] is False and rep['oos_2024_accessed'] is False and rep['paid_cost_authorized'] is False
+          print({'status':'PASS','storage_contract_hash':c['storage_contract_hash'],'design_freeze_hash':f['design_freeze_hash'],'engine_sha256':e})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+
+      - name: Retest all frozen semantic matrices after physical-only revision
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python -m unittest \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-causal-root-storage-revision
+          path: |
+            ${{ env.GROUP8_ROOT }}/SHARDED_STORAGE_CONTRACT.json
+            ${{ env.GROUP8_ROOT }}/DESIGN_FREEZE_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+            ${{ env.GROUP8_ROOT }}/reports/45_CAUSAL_PARTITION_ROOT_STORAGE_REVISION.json
+          retention-days: 30
+
+      - name: Commit causal-root storage revision
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/STATUS.json" \
+            "$GROUP8_ROOT/reports/45_CAUSAL_PARTITION_ROOT_STORAGE_REVISION.json"
+          git status --short
+          git commit -m "Revise Group 8 shards to causal partition roots [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
