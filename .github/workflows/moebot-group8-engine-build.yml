@@ -34,6 +34,7 @@ jobs:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
         run: |
           python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+          PYTHONPATH="$GROUP8_ROOT/code:$GROUP8_ROOT/tests" python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
       - name: Independent technical candidate audit
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
