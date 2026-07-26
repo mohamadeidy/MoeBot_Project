@@ -1,0 +1,60 @@
+name: MoeBot Group 8 Locked Context Gap Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_LOCKED_CONTEXT_GAP_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile diagnostic and frozen engine
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/tests/diagnose_group8_locked_context_gap.py" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py"
+      - name: Reproduce locked-context enumeration gap
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/diagnose_group8_locked_context_gap.py"
+      - name: Verify report proves blocking gap without mutation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("MoeBot_Trading_System/Group_8/reports/27_LOCKED_CONTEXT_GAP_DIAGNOSTIC.json")
+          r=json.loads(p.read_text())
+          if r.get("status")!="GAP_REPRODUCED" or r.get("gap_id")!="G8-ICT-LOCKED-CONTEXT-005": raise SystemExit("gap not reproduced")
+          if int(r.get("post_invalidation_violation_count",0))<=0: raise SystemExit("no violating rows captured")
+          if r.get("engine_mutated") or r.get("design_mutated") or r.get("thresholds_mutated"): raise SystemExit("diagnostic mutated frozen state")
+          print({"status":"PASS_DIAGNOSTIC","violations":r["post_invalidation_violation_count"],"report_hash":r["report_hash"]})
+          PY
+      - name: Commit permanent diagnostic evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/27_LOCKED_CONTEXT_GAP_DIAGNOSTIC.json"
+          git diff --cached --check
+          git commit -m "Record Group 8 locked-context gap diagnostic [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
