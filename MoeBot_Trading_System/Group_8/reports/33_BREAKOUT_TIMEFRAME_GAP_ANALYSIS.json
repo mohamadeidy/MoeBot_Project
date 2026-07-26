@@ -1,0 +1,19 @@
+{
+  "2024_accessed": false,
+  "config_changed": false,
+  "corrected_engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
+  "definitions_changed": false,
+  "diagnostic_report_hash": "f2d1a10101aa76040cf322ccec2438daf20ec3e2fc4aee7b43165f7bcc23fee8",
+  "format_version": 1,
+  "gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
+  "minimal_correct_fix": "Require group6 boundary row timeframe == current bar.timeframe inside _boundary_rows_for_bar; no other evaluator semantics changed.",
+  "previous_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
+  "report_hash": "b3b3fa7ec7503474d785f764478e63a8000d29748d06a2aeffcfed3eb47a26a6",
+  "required_regression": "test_group8_breakout_timeframe_isolation_v0_8_0.py",
+  "root_cause": "Group6 breakout-boundary enumeration omitted the current bar timeframe predicate, violating the frozen rule that every timeframe runs independently before MTF relations.",
+  "schema_changed": false,
+  "severity": "BLOCKING",
+  "status": "BLOCKING_GAP_FIXED_PENDING_TECHNICAL_REFREEZE",
+  "thresholds_changed": false,
+  "upstream_changed": false
+}
