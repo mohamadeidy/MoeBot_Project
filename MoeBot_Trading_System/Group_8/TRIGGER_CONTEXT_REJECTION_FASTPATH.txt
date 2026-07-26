@@ -1,0 +1,1 @@
+Prove indexed interval context-rejection execution emits the exact same immutable candidates as the frozen reference. No frozen or OOS changes.
