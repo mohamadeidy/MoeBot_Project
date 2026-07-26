@@ -86,8 +86,7 @@ jobs:
             "$GROUP8_ROOT/reports/22_ENGINE_LIFECYCLE_PERSISTENCE_GAP_ANALYSIS.json" \
             "$GROUP8_ROOT/reports/24_LIFECYCLE_AUDIT_IDEMPOTENCE_GAP_ANALYSIS.json" \
             "$GROUP8_ROOT/reports/26_CHECKPOINT_IDEMPOTENCE_GAP_ANALYSIS.json" \
-            "$GROUP8_ROOT/STATUS.json" \
-            .github/workflows/moebot-group8-engine-build.yml
+            "$GROUP8_ROOT/STATUS.json"
           git diff --cached --check
           git commit -m "Close Group 8 lifecycle idempotence gaps [skip ci]"
           git push origin "HEAD:${{ github.head_ref }}"
