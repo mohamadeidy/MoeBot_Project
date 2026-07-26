@@ -1,0 +1,50 @@
+name: MoeBot Group 8 2024 OOS and Cross-Year Tooling Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_2024_CROSSYEAR_TOOLING_CHECK.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile 2024 OOS cross-year release-gated closure tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_finalize_annual_2024_oos.py" \
+            "$GROUP8_ROOT/code/group8_cross_year_validation.py" \
+            "$GROUP8_ROOT/code/group8_prepare_closure_candidate.py" \
+            "$GROUP8_ROOT/code/group8_finalize_official_release_closure.py" \
+            "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
+      - name: Run frozen OOS cross-year release-gated closure fixture tests
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
+      - name: Re-run all lower Group 8 regression layers
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
