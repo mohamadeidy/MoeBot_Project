@@ -1,0 +1,94 @@
+name: MoeBot Group 8 Lifecycle Persistence Hardening v2
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_LIFECYCLE_PERSISTENCE_FIX_V2.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  harden-review-retest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply exact reviewed lifecycle hardening
+        run: |
+          python "$GROUP8_ROOT/code/group8_apply_lifecycle_hardening.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --build-workflow ".github/workflows/moebot-group8-engine-build.yml"
+      - name: Compile all Group 8 code and tests
+        run: |
+          find "$GROUP8_ROOT/code" "$GROUP8_ROOT/tests" -type f -name '*.py' -print0 | xargs -0 -n1 python -m py_compile
+      - name: Run original frozen technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+      - name: Run lifecycle persistence hardening matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+      - name: Independent hardening verification
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text())
+          gap=json.loads((root/"reports/22_ENGINE_LIFECYCLE_PERSISTENCE_GAP_ANALYSIS.json").read_text())
+          engine=(root/"code/moebot_group8_engine_v0_8_0.py").read_text()
+          post=(root/"code/group8_postprocess_v0_8_0.py").read_text()
+          build=(Path(".github/workflows/moebot-group8-engine-build.yml")).read_text()
+          required=[
+              "ensure_pattern_creation_state", "ensure_initial_hypothesis_lifecycle",
+              "continuation_structure_valid", "finalize_postprocessing", "processing_checkpoint",
+              "invalidation_record", "group8_audit_evidence", "right_censored", "completed_descriptive",
+          ]
+          missing=[x for x in required if x not in engine+post]
+          if missing: raise SystemExit(f"hardening markers missing: {missing}")
+          if "test_group8_lifecycle_persistence_v0_8_0.py" not in build:
+              raise SystemExit("technical build workflow does not run lifecycle regression")
+          if status.get("annual_execution_2023_authorized") or status.get("annual_execution_2024_authorized"):
+              raise SystemExit("annual execution must remain revoked pending technical re-freeze")
+          if gap.get("status")!="BLOCKING_GAP_FIXED_PENDING_RETEST" or gap.get("gap_id")!="G8-ENGINE-LIFECYCLE-002":
+              raise SystemExit("gap-analysis identity mismatch")
+          old="58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88"
+          new=hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest()
+          if new==old: raise SystemExit("engine identity did not change after required integration")
+          print({"status":"PASS","patched_engine_sha256":new,"2023_authorized":False,"2024_authorized":False})
+          PY
+      - name: Commit lifecycle persistence hardening to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            "$GROUP8_ROOT/code/group8_finalize_engine_build.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/reports/22_ENGINE_LIFECYCLE_PERSISTENCE_GAP_ANALYSIS.json" \
+            "$GROUP8_ROOT/STATUS.json" \
+            .github/workflows/moebot-group8-engine-build.yml
+          git diff --cached --check
+          git commit -m "Harden Group 8 lifecycle persistence and recovery v2 [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"

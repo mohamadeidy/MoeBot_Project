@@ -74,7 +74,9 @@ jobs:
           path: |
             ${{ env.GROUP8_ROOT }}/code/moebot_group8_engine_v0_8_0.py
             ${{ env.GROUP8_ROOT }}/code/group8_materialize_inputs.py
+            ${{ env.GROUP8_ROOT }}/code/group8_postprocess_v0_8_0.py
             ${{ env.GROUP8_ROOT }}/tests/test_group8_engine_v0_8_0.py
+            ${{ env.GROUP8_ROOT }}/tests/test_group8_lifecycle_persistence_v0_8_0.py
             ${{ env.GROUP8_ROOT }}/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json
             ${{ env.GROUP8_ROOT }}/ENGINE_BUILD_MANIFEST.json
             ${{ env.GROUP8_ROOT }}/STATUS.json
