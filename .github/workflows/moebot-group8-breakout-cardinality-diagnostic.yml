@@ -1,0 +1,130 @@
+name: MoeBot Group 8 Breakout Cardinality Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_BREAKOUT_CARDINALITY_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact frozen diagnostic boundary
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text())
+          b=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          if s.get("design_frozen") is not True or s.get("officially_closed") is not False:
+              raise SystemExit("invalid Group 8 phase")
+          if s.get("annual_execution_2023_authorized") is not True or s.get("annual_execution_2024_authorized") is not False:
+              raise SystemExit("diagnostic authorization boundary invalid")
+          expected="61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8"
+          if b.get("identities",{}).get("engine",{}).get("sha256")!=expected:
+              raise SystemExit("unexpected authoritative engine identity")
+          p=root/b["identities"]["engine"]["path"]
+          if hashlib.sha256(p.read_bytes()).hexdigest()!=expected:
+              raise SystemExit("engine bytes drift")
+          print({"status":"PASS","year":2023,"diagnostic_only":True,"engine_sha256":expected})
+          PY
+          python -m py_compile \
+            .github/scripts/group8_breakout_partial_stage.py \
+            .github/scripts/group8_breakout_cardinality_diagnostic.py \
+            .github/scripts/group8_ephemeral_staging_indexes.py \
+            "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py"
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Materialize exact relevant 2023 diagnostic slices
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-breakout-diagnostic/work" "$RUNNER_TEMP/g8-breakout-diagnostic/reports"
+          python .github/scripts/group8_breakout_partial_stage.py \
+            --group8-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-breakout-diagnostic/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-breakout-diagnostic/work" \
+            --report "$RUNNER_TEMP/g8-breakout-diagnostic/reports/PARTIAL_STAGING.json"
+          python .github/scripts/group8_ephemeral_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-breakout-diagnostic/staging.sqlite" \
+            --year 2023 --phase breakout-cardinality-diagnostic \
+            --output "$RUNNER_TEMP/g8-breakout-diagnostic/reports/STAGING_INDEX_REPORT.json"
+      - name: Measure frozen breakout enumeration cardinality
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python .github/scripts/group8_breakout_cardinality_diagnostic.py \
+            --group8-root "$GROUP8_ROOT" \
+            --staging-db "$RUNNER_TEMP/g8-breakout-diagnostic/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-breakout-diagnostic/diagnostic_output.sqlite" \
+            --year 2023 \
+            --report "$GROUP8_ROOT/reports/31_BREAKOUT_CARDINALITY_DIAGNOSTIC.json"
+      - name: Verify diagnostic did not mutate frozen state
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          p=json.loads((Path(__import__('os').environ['RUNNER_TEMP'])/"g8-breakout-diagnostic/reports/PARTIAL_STAGING.json").read_text())
+          r=json.loads((root/"reports/31_BREAKOUT_CARDINALITY_DIAGNOSTIC.json").read_text())
+          if p.get("status")!="PASS" or p.get("restored_exact_groups")!=["group4","group6","source"]:
+              raise SystemExit("partial staging evidence invalid")
+          if r.get("status")!="PASS" or r.get("scope")!="DIAGNOSTIC_ONLY_NO_FROZEN_MUTATION":
+              raise SystemExit("diagnostic report invalid")
+          if r.get("engine_sha256")!="61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8":
+              raise SystemExit("diagnostic engine identity drift")
+          obs=r.get("observations",{})
+          if any(obs.get(k) for k in ("definition_or_threshold_changed","engine_changed","schema_changed","upstream_changed","authorization_changed")):
+              raise SystemExit("diagnostic claims forbidden mutation")
+          print({"status":"PASS","minimum_evaluations":r["minimum_current_breakout_boundary_evaluations_from_group6_and_group8"],"post_invalidation_pairs":r["bounded_range_post_invalidation_bar_boundary_evaluations"]})
+          PY
+          git diff --exit-code -- \
+            "$GROUP8_ROOT/STATUS.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-breakout-cardinality-diagnostic
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/31_BREAKOUT_CARDINALITY_DIAGNOSTIC.json
+            ${{ runner.temp }}/g8-breakout-diagnostic/reports
+          retention-days: 30
+      - name: Commit permanent diagnostic evidence to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/31_BREAKOUT_CARDINALITY_DIAGNOSTIC.json"
+          git diff --cached --check
+          git commit -m "Record Group 8 breakout cardinality diagnostic [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
+      - name: Cleanup disposable diagnostic data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-breakout-diagnostic" || true

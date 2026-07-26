@@ -1,0 +1,73 @@
+{
+  "bar_count": 466723,
+  "bounded_range_context_count": 93834,
+  "bounded_range_current_bar_boundary_evaluations": 888309857,
+  "bounded_range_invalidated_count": 80342,
+  "bounded_range_invalidator_type_counts": {
+    "group4_zone_interactions": 47916,
+    "group4_zone_transitions": 32426
+  },
+  "bounded_range_post_invalidation_bar_boundary_evaluations": 749694220,
+  "bounded_range_post_invalidation_evaluations_by_timeframe": {
+    "H1": 44972839,
+    "H4": 2533307,
+    "M15": 702188074
+  },
+  "bounded_range_post_invalidation_fraction": 0.843955759459731,
+  "bounded_range_raw_evaluations_by_timeframe": {
+    "H1": 52019313,
+    "H4": 3249812,
+    "M15": 833040732
+  },
+  "bounded_range_right_censored_count": 13492,
+  "bounded_range_valid_lifetime_bar_boundary_evaluations": 138615637,
+  "engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
+  "exact_relevant_groups_measured": [
+    "source",
+    "group4",
+    "group6"
+  ],
+  "format_version": 2,
+  "group6_cumulative_bar_boundary_evaluations": 57891028520,
+  "group6_current_breakout_enumeration": {
+    "group6__bpr_relations": {
+      "cumulative_bar_boundary_evaluations": 5122771957,
+      "rows": 23116
+    },
+    "group6__fvg_events": {
+      "cumulative_bar_boundary_evaluations": 28150874057,
+      "rows": 121953
+    },
+    "group6__imbalance_variants": {
+      "cumulative_bar_boundary_evaluations": 18980680931,
+      "rows": 83533
+    },
+    "group6__liquidity_voids": {
+      "cumulative_bar_boundary_evaluations": 5636701575,
+      "rows": 24351
+    }
+  },
+  "group7_not_measured_in_relevant_slice_diagnostic": true,
+  "method": {
+    "bounded_ranges_current": "exact pa_bounded_range_context output from frozen process_bounded_ranges over exact source+Group4, then exact count with same symbol/timeframe and availability_time <= each bar.available_at, matching current implementation",
+    "bounded_ranges_valid_lifetime": "same pairs restricted to bars strictly before the first invalidation from the frozen pa_bounded_range_context invalidation rule; invalidation lookup matches first_bounded_range_invalidator ordering and strict-after creation semantics",
+    "group6": "exact count of frozen Group6 rows with availability_time <= each exact source bar.available_at, matching current _boundary_rows_for_bar Group6 predicates",
+    "unused_groups": "Groups2/3/5/7 are deliberately not restored or measured because the selected diagnostic stages and the reported G6/G8 counts do not read them"
+  },
+  "minimum_current_breakout_boundary_evaluations_from_group6_and_group8": 58779338377,
+  "observations": {
+    "authorization_changed": false,
+    "current_breakout_reads_all_prior_bounded_ranges_without_lifecycle_filter": true,
+    "current_breakout_reads_group6_cumulatively_for_each_bar": true,
+    "definition_or_threshold_changed": false,
+    "engine_changed": false,
+    "post_invalidation_bounded_range_evaluations_present": true,
+    "schema_changed": false,
+    "upstream_changed": false
+  },
+  "report_hash": "9f3c56bd41544234b47caadceccd8a0371f51cc84d4bc54f69733e0703cf2d43",
+  "scope": "DIAGNOSTIC_ONLY_NO_FROZEN_MUTATION",
+  "series_count": 7,
+  "status": "PASS",
+  "year": 2023
+}
