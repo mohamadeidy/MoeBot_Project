@@ -39,7 +39,8 @@ jobs:
           if status.get("annual_execution_2023_authorized") is not True: raise SystemExit("2023 execution not authorized")
           if status.get("annual_execution_2024_authorized") is not False: raise SystemExit("2024 OOS prematurely authorized")
           if build.get("status")!="TECHNICAL_CANDIDATE_PASS" or build.get("manifest_hash")!=status.get("engine_build",{}).get("engine_build_manifest_hash"): raise SystemExit("technical candidate identity mismatch")
-          if build.get("identities",{}).get("engine",{}).get("sha256")!="10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f": raise SystemExit("unexpected engine identity")
+          if build.get("identities",{}).get("engine",{}).get("sha256")!="61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8": raise SystemExit("unexpected engine identity")
+          if build.get("identities",{}).get("annual_validator",{}).get("sha256")!="0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293": raise SystemExit("unexpected annual-validator identity")
           for name,ident in build["identities"].items():
               p=root/ident["path"]
               if not p.is_file() or p.stat().st_size!=int(ident["size_bytes"]): raise SystemExit(f"identity size/missing: {name}")
