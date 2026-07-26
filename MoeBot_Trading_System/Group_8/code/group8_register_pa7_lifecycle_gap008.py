@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Register PA7 lifecycle-retirement implementation gap 008 and fail closed.
 
-Gap008 is not a design amendment. PA7E.2/A.2/P.2 already freeze the rule that
-lifecycle termination retires the exact boundary identity. The current engine
-implements causal retirement for Group4/Group7, but Group6 and Group8 fall
-through active forever. Exact 2023 diagnostics proved terminal FVG transitions
-and bounded-range invalidations exist. This script records the contradiction and
-revokes annual authorization until a minimal correctness fix is independently
-retested and re-frozen.
+Gap008 is not a design amendment. PA7E.2 freezes lifecycle retirement and
+PA7A.2/PA7P.2 explicitly use the same independent transition-event state
+machine while remaining scoped to their exact boundary identity/variant. The
+current engine implements causal retirement for Group4/Group7, but Group6 and
+Group8 fall through active forever. Exact 2023 diagnostics proved terminal FVG
+transitions and bounded-range invalidations exist. This script records the
+contradiction and revokes annual authorization until a minimal correctness fix
+is independently retested and re-frozen.
 """
 from __future__ import annotations
 
@@ -74,12 +75,23 @@ def main() -> int:
         raise SystemExit(f"transition count diagnostic identity mismatch:{count_hash}")
 
     versions = {"pa_breakout_exact": "PA7E.2", "pa_breakout_atr_buffer": "PA7A.2", "pa_breakout_point_buffer": "PA7P.2"}
-    frozen_lifecycle = True
-    for did, ver in versions.items():
-        d = registry["definitions"][did]
-        frozen_lifecycle = frozen_lifecycle and d.get("version") == ver and "lifecycle termination" in str(d.get("lifecycle_identity_rule", "")).lower() and "retires" in str(d.get("lifecycle_identity_rule", "")).lower()
+    exact = registry["definitions"]["pa_breakout_exact"]
+    atr = registry["definitions"]["pa_breakout_atr_buffer"]
+    point = registry["definitions"]["pa_breakout_point_buffer"]
+    exact_rule = str(exact.get("lifecycle_identity_rule", "")).lower()
+    frozen_lifecycle = (
+        exact.get("version") == "PA7E.2"
+        and "lifecycle termination" in exact_rule
+        and "retires" in exact_rule
+        and atr.get("version") == "PA7A.2"
+        and point.get("version") == "PA7P.2"
+        and "same independent transition-event state machine as pa_breakout_exact" in str(atr.get("enumeration_rule", "")).lower()
+        and "same independent transition-event state machine as pa_breakout_exact" in str(point.get("enumeration_rule", "")).lower()
+        and "exact boundary identity" in str(atr.get("lifecycle_identity_rule", "")).lower()
+        and "exact boundary identity" in str(point.get("lifecycle_identity_rule", "")).lower()
+    )
     if not frozen_lifecycle:
-        raise SystemExit("PA7 lifecycle retirement is not frozen as expected")
+        raise SystemExit("PA7 lifecycle retirement/state-machine linkage is not frozen as expected")
 
     active_block = engine[engine.index("    def _pa7_boundary_active_at"):engine.index("    def _pa7_beyond")]
     current_bug = (
@@ -107,7 +119,8 @@ def main() -> int:
         "engine_build_manifest_hash": BUILD_MANIFEST_HASH,
         "frozen_contract": {
             "variants": versions,
-            "rule": "lifecycle termination retires the exact boundary identity state; state is not carried beyond lifecycle termination",
+            "exact_lifecycle_rule": exact["lifecycle_identity_rule"],
+            "buffered_variants_linkage": "PA7A.2 and PA7P.2 explicitly use the same independent transition-event state machine as pa_breakout_exact and remain scoped to their exact boundary identity/variant",
             "transition_semantics_unchanged": "NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY",
         },
         "root_cause": "_pa7_boundary_active_at applies causal lifetime to Group4 and Group7 but has no Group6 or Group8 branch, so Group6 FVG and Group8 bounded-range boundary identities fall through active after causally known lifecycle termination.",
