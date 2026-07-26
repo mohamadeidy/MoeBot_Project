@@ -477,3 +477,15 @@ Group 9 is forbidden before explicit official Group 8 closure.
 - Source semantics evidence hash: `0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597`
 - Reference resolution hash: `ed5595bb8350087714cf96718dfe9277c6ffe817cd03b124c25e44aeebb8047d`
 - Design contract audit v3 hash: `e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5`
+
+## 18. Free-only lossless sharded storage/handoff amendment
+
+**Approved for Gap `G8-FREE-STORAGE-CAPACITY-009`.** Group 8 logical semantics remain unchanged. Annual materialization and all later handoffs use frozen storage contract `g8_lossless_sharded_sqlite_v1` / `5840ac5a7c6ef0c7b80c12a1e524b8d9bf35d477a27d18e52e9a37707f754e37`.
+
+- No paid runner or paid service may be required by the official execution path.
+- No valid record may be dropped, sampled, merged across PA7 variants, or excluded by timeframe to fit capacity.
+- Sharding is deterministic physical placement only; immutable IDs, hashes, definitions, thresholds, event/confirmation/availability times and causal rules remain unchanged.
+- Adaptive hash buckets may increase before a frozen run when a projected shard exceeds the frozen size target.
+- Global annual identity is the verified set-union manifest and streaming logical fingerprint across all shards; a monolithic SQLite file is no longer required for closure or Group 9 handoff.
+- 2024 OOS remains forbidden until complete 2023 sharded validation and OOS freeze.
+

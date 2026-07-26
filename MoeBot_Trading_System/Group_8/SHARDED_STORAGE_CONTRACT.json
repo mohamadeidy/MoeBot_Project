@@ -1,0 +1,93 @@
+{
+  "contract_id": "g8_lossless_sharded_sqlite_v1",
+  "format_version": 1,
+  "free_only_policy": {
+    "paid_runner_allowed": false,
+    "paid_service_allowed": false,
+    "standard_github_hosted_jobs_preferred": true
+  },
+  "global_union_invariants": [
+    "set union of all domain rows by immutable primary ID equals the complete logical annual dataset",
+    "duplicate domain primary IDs across shards are forbidden unless row canonical hash is identical and duplicate is explicitly registry-only",
+    "global table logical fingerprints are computed streaming from sorted (primary_id,row_hash) pairs and do not require a monolithic database",
+    "every cross-shard Group8 reference resolves to exactly one immutable subject ID in the global catalog",
+    "annual idempotence and clean reconstruction compare global manifests/fingerprints rather than file-layout byte identity"
+  ],
+  "handoff_policy": {
+    "all parts_sha256_bound_by_manifest": true,
+    "full historical monolithic SQLite_not_required": true,
+    "later_groups_download_only_required_shards": true,
+    "release_assets_may_be_split_into_multiple_verified_parts": true
+  },
+  "logical_contract": {
+    "availability_time_unchanged": true,
+    "confirmation_time_unchanged": true,
+    "definitions_unchanged": true,
+    "event_time_unchanged": true,
+    "groups_1_7_read_only": true,
+    "immutable_ids_unchanged": true,
+    "no_backdating": true,
+    "no_lookahead": true,
+    "oos_2024_untouched": true,
+    "schema_semantics_unchanged": true,
+    "thresholds_unchanged": true
+  },
+  "manifest_requirements": [
+    "shard_id",
+    "family",
+    "year",
+    "symbol",
+    "timeframe",
+    "causal_root_window",
+    "bucket_index",
+    "bucket_count",
+    "file_size_bytes",
+    "sha256",
+    "compressed_sha256",
+    "table_row_counts",
+    "table_logical_sha256",
+    "min_event_time",
+    "max_event_time",
+    "min_availability_time",
+    "max_availability_time",
+    "definition_coverage",
+    "upstream_lineage_id",
+    "engine_sha256",
+    "design_freeze_hash",
+    "storage_contract_hash"
+  ],
+  "partitioning": {
+    "adaptive_bucket_rule": {
+      "assignment": "int(sha256(global_primary_id)[0:16],16) % bucket_count",
+      "bucket_count": "positive power of two chosen before shard execution from 2023-only cardinality/size evidence",
+      "future_resize": "increase bucket_count before execution when a shard is projected to exceed the soft target; never rebucket an already frozen release silently",
+      "semantics": "physical placement only; never changes, merges or drops a logical record"
+    },
+    "causal_root_window": "calendar month of the immutable causal root object or source bar, never future outcome time",
+    "families": {
+      "bar_local": "bar-rooted PA1-PA6 and context-rejection records",
+      "pa7_chain": "PA7 exact/point/ATR transitions plus PA8 failed-breakout, PA9 retest and root-linked exhaustion descendants",
+      "range_chain": "bounded-range-rooted contexts, premium/discount lifecycle observations and range-rooted Wyckoff descendants",
+      "relations": "shared/conflicting/MTF/evidence/invalidation/lifecycle relation records",
+      "school_core": "direct Dow/Wyckoff/ICT hypotheses and interpretations not assigned to high-cardinality root chains"
+    },
+    "primary_dimensions": [
+      "year",
+      "family",
+      "timeframe",
+      "causal_root_window"
+    ],
+    "runtime_hard_guard_bytes": 2500000000,
+    "soft_target_uncompressed_bytes": 1500000000
+  },
+  "physical_format": {
+    "cross_shard_references": "verified through global manifest/catalog; no semantic weakening of references",
+    "domain_primary_ids_must_be_globally_unique": true,
+    "logical_schema_version": "8.0.0",
+    "primary": "SQLite shards compressed with zstd for transport",
+    "registries_may_repeat_only_if_byte/logical-hash identical": true
+  },
+  "purpose": "zero-cost scalable physical materialization and downstream handoff",
+  "status": "FROZEN",
+  "storage_contract_hash": "5840ac5a7c6ef0c7b80c12a1e524b8d9bf35d477a27d18e52e9a37707f754e37"
+}
