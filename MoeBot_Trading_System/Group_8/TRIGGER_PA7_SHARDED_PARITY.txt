@@ -1,1 +1,2 @@
 Verify deterministic causal-root PA7 sharding equals the monolithic frozen reference exactly on the permanent fixture; no 2024 OOS access.
+Retry independent audit with complete main history fetched.
