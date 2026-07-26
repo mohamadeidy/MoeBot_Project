@@ -22,7 +22,7 @@ ENGINE_SHA = "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7"
 REGISTRY_HASH = "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9"
 FREEZE_HASH = "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4"
 BUILD_MANIFEST_HASH = "2c89bce52ef8473d55fdc612249f85026554b41666a2ee1595736edab14ed032"
-TRANSITION_COUNT_REPORT_HASH = "40d6ec46455faf26793488fd8a715dc107428aef594b8c68198bc10016c7e6b2"
+TRANSITION_COUNT_REPORT_HASH = "a4f62c29a1e5198ba0b0b496e4db29b177fa94aa94a500c8338e6c874359e6a3"
 GROUP6_LIFECYCLE_PROBE_HASH = "7fc11390048db7e3bfeaf6741250bbd2de78a485f21651372e9a545cc6ed76bb"
 LIFETIME_COUNT_HASH = "82a5c4a3a27385a9fa425c49ba99f9187d1d721004a62bea42bb68b696c2f03d"
 GROUP5_POOL_PROBE_HASH = "98e0621ba60924da8739584d1b49bfc0636bb7eda7e8e41be31175a8fd12282d"
@@ -81,15 +81,14 @@ def main() -> int:
     if not frozen_lifecycle:
         raise SystemExit("PA7 lifecycle retirement is not frozen as expected")
 
-    # Current exact engine catalog/active predicate: Group6 and Group8 boundaries
-    # are catalogued, but active_at has no branch for either group and falls through True.
+    active_block = engine[engine.index("    def _pa7_boundary_active_at"):engine.index("    def _pa7_beyond")]
     current_bug = (
         'rows.append({"group":"group6"' in engine
         and 'rows.append({"group":"group8"' in engine
-        and 'if bnd["group"]=="group7"' in engine
-        and 'return True\n\n    def _pa7_beyond' in engine
-        and 'if bnd["group"]=="group6"' not in engine[engine.index("    def _pa7_boundary_active_at"):engine.index("    def _pa7_beyond")]
-        and 'if bnd["group"]=="group8"' not in engine[engine.index("    def _pa7_boundary_active_at"):engine.index("    def _pa7_beyond")]
+        and 'if bnd["group"]=="group7"' in active_block
+        and 'return True' in active_block
+        and 'if bnd["group"]=="group6"' not in active_block
+        and 'if bnd["group"]=="group8"' not in active_block
     )
     if not current_bug:
         raise SystemExit("engine no longer matches the proven lifecycle fall-through defect")
