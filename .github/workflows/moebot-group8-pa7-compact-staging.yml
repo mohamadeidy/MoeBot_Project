@@ -1,0 +1,54 @@
+name: MoeBot Group 8 PA7 Compact Staging
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_COMPACT_STAGING.txt"
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+
+jobs:
+  equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile compact PA7 materializer and executor
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            "$GROUP8_ROOT/code/group8_pa7_materialize_inputs.py" \
+            "$GROUP8_ROOT/code/group8_pa7_shard_executor.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_compact_staging.py"
+      - name: Prove compact/full staging shard equivalence
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python -m unittest \
+            "$GROUP8_ROOT/tests/test_group8_pa7_sharded_parity_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_compact_staging.py"
+      - name: Audit compact materializer scope and frozen surfaces
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          p=Path('MoeBot_Trading_System/Group_8/code/group8_pa7_materialize_inputs.py');t=p.read_text()
+          assert "omitted_nonconsumed_groups':['group2','group3']" in t
+          assert "PA7_COMPACT_V1" in t
+          assert "annual_execution_2024_authorized" in t
+          ast.parse(t);print({'status':'PASS','compact_scope':'source+groups4-7','group2_3_downloaded':False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/STATUS.json" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
