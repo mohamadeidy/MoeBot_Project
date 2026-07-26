@@ -1,0 +1,63 @@
+name: MoeBot Group 8 Stage Profiler Tooling Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_STAGE_PROFILER_TOOLING_CHECK.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Parse dormant profiler and prove real diagnostic trigger is absent
+        run: |
+          ruby -e 'require "yaml"; YAML.load_file(".github/workflows/moebot-group8-stage-profiler-2023.yml"); puts "YAML PASS"'
+          test ! -f "$GROUP8_ROOT/TRIGGER_STAGE_PROFILER_2023.txt"
+          python - <<'PY'
+          from pathlib import Path
+          t=Path('.github/workflows/moebot-group8-stage-profiler-2023.yml').read_text()
+          stages=['load_bars','base_price_action','dow','bounded_ranges','breakouts','context_rejections','failed_breakouts_retests','structural_narratives','wyckoff','ict','cross_school_mtf','lifecycle_persistence','audit']
+          missing=[s for s in stages if f'--stage {s}' not in t]
+          if missing: raise SystemExit(f'missing profiler stages:{missing}')
+          if '--year 2024' in t or 'TRIGGER_ANNUAL_2024_OOS_VALIDATION.txt' in t: raise SystemExit('profiler must be 2023-only')
+          if '61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8' not in t: raise SystemExit('frozen engine identity not pinned')
+          if 'group8_ephemeral_staging_indexes.py' not in t: raise SystemExit('validated staging-index helper not used')
+          print({'status':'PASS','stage_count':len(stages),'real_profiler_trigger_absent':True})
+          PY
+      - name: Compile diagnostic wrapper
+        run: |
+          python -m py_compile .github/scripts/group8_stage_diagnostic.py
+      - name: Verify diagnostic wrapper imports frozen engine only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          t=Path('.github/scripts/group8_stage_diagnostic.py').read_text()
+          required=['from moebot_group8_engine_v0_8_0 import Group8Engine','from group8_postprocess_v0_8_0 import finalize_postprocessing','getattr(engine,stages[a.stage])']
+          missing=[x for x in required if x not in t]
+          if missing: raise SystemExit(f'diagnostic wrapper contract incomplete:{missing}')
+          forbidden=['INSERT INTO','UPDATE ','DELETE FROM','ALTER TABLE','DROP TABLE']
+          bad=[x for x in forbidden if x in t.upper()]
+          if bad: raise SystemExit(f'diagnostic wrapper contains prohibited direct data mutation:{bad}')
+          print({'status':'PASS','frozen_engine_import':True,'direct_data_mutation':False})
+          PY
+      - name: Re-run lifecycle regression as profiler lower gate
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
