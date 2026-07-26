@@ -1,0 +1,82 @@
+name: MoeBot Group 8 Stage Profiler 2023
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_STAGE_PROFILER_2023.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact frozen 2023 diagnostic identity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');s=json.loads((root/'STATUS.json').read_text());b=json.loads((root/'ENGINE_BUILD_MANIFEST.json').read_text())
+          if s.get('annual_execution_2023_authorized') is not True or s.get('annual_execution_2024_authorized') is not False: raise SystemExit('diagnostic authorization boundary invalid')
+          if b.get('identities',{}).get('engine',{}).get('sha256')!='61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8': raise SystemExit('unexpected engine identity')
+          print({'status':'PASS','year':2023,'diagnostic_only':True})
+          PY
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Materialize disposable exact 2023 staging
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-profile/work" "$RUNNER_TEMP/g8-profile/reports"
+          python "$GROUP8_ROOT/code/group8_materialize_inputs.py" --artifacts-root "$GROUP8_ROOT" --year 2023 --output-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --work-dir "$RUNNER_TEMP/g8-profile/work" --report "$RUNNER_TEMP/g8-profile/reports/MATERIALIZATION.json"
+          python .github/scripts/group8_ephemeral_staging_indexes.py --database "$RUNNER_TEMP/g8-profile/staging.sqlite" --year 2023 --phase stage-profiler --output "$RUNNER_TEMP/g8-profile/reports/STAGING_INDEX_REPORT.json"
+      - name: Stage load_bars
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage load_bars --report "$RUNNER_TEMP/g8-profile/reports/01_load_bars.json"
+      - name: Stage base_price_action
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage base_price_action --report "$RUNNER_TEMP/g8-profile/reports/02_base_price_action.json"
+      - name: Stage dow
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage dow --report "$RUNNER_TEMP/g8-profile/reports/03_dow.json"
+      - name: Stage bounded_ranges
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage bounded_ranges --report "$RUNNER_TEMP/g8-profile/reports/04_bounded_ranges.json"
+      - name: Stage breakouts
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage breakouts --report "$RUNNER_TEMP/g8-profile/reports/05_breakouts.json"
+      - name: Stage context_rejections
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage context_rejections --report "$RUNNER_TEMP/g8-profile/reports/06_context_rejections.json"
+      - name: Stage failed_breakouts_retests
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage failed_breakouts_retests --report "$RUNNER_TEMP/g8-profile/reports/07_failed_breakouts_retests.json"
+      - name: Stage structural_narratives
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage structural_narratives --report "$RUNNER_TEMP/g8-profile/reports/08_structural_narratives.json"
+      - name: Stage wyckoff
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage wyckoff --report "$RUNNER_TEMP/g8-profile/reports/09_wyckoff.json"
+      - name: Stage ict
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage ict --report "$RUNNER_TEMP/g8-profile/reports/10_ict.json"
+      - name: Stage cross_school_mtf
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage cross_school_mtf --report "$RUNNER_TEMP/g8-profile/reports/11_cross_school_mtf.json"
+      - name: Stage lifecycle_persistence
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage lifecycle_persistence --report "$RUNNER_TEMP/g8-profile/reports/12_lifecycle_persistence.json"
+      - name: Stage audit
+        run: python .github/scripts/group8_stage_diagnostic.py --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-profile/staging.sqlite" --output-db "$RUNNER_TEMP/g8-profile/output.sqlite" --year 2023 --stage audit --report "$RUNNER_TEMP/g8-profile/reports/13_audit.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-stage-profiler-2023
+          path: ${{ runner.temp }}/g8-profile/reports
+          retention-days: 30
+      - name: Cleanup diagnostic data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-profile" || true
