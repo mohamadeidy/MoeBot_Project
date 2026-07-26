@@ -3,7 +3,7 @@ name: MoeBot Group 8 PA7 Transition Count-Only Diagnostic
   pull_request:
     branches: [main]
     paths:
-      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_TRANSITION_COUNTONLY.txt"
+      - ".github/scripts/group8_transition_countonly.py"
 permissions:
   contents: write
 env:
