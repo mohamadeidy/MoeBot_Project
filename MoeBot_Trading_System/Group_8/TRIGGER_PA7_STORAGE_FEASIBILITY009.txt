@@ -1,0 +1,2 @@
+Trigger exact PA7 transition storage feasibility proof on the lifecycle-corrected 2023 technical candidate.
+Retry with captured diagnostic log for any proof-stage failure.
