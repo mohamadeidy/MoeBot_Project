@@ -1,1 +1,1 @@
-Run the exact validated Group 8 Design Freeze source-step patch on open PR #45 now. Require one exact legacy block, split output production and consumption into separate completed steps, validate YAML and required jobs, then commit the corrected workflow to this branch.
+Run the fail-closed Group 8 source-step patch v2 after merge 96b3c87bfceb32234aadc3dc7a531b442a18c9e8. Split canonical source restore/output publication from schema verification, validate the corrected Real Design Freeze workflow, and commit only the target workflow change to this PR branch.
