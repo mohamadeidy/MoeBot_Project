@@ -9,9 +9,11 @@
     "decision_required": true,
     "design_change_required": true,
     "engine_sha256": "f77252cc07c5d4e2fe6481a811441674983ec4d00c36c0c07f618950a4f4877d",
+    "frozen_definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+    "frozen_design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
     "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
     "previous_closed_gap_id": "G8-PA7-CROSS-TIMEFRAME-006",
-    "report_hash": "84cf29d0636f14280df4881fc713f702395f020bc1705c4872fd6bce4da836dc",
+    "report_hash": "b8a3cd3209d949783ffee172f4ab4c7c56a7258fbeeb426343f0cdbab5951940",
     "severity": "BLOCKING",
     "status": "OPEN_DESIGN_DECISION_REQUIRED",
     "workload_report_hash": "6308c8b0e614fd81bc73f64fbc86f037cdd9ff5dc28696bfe3111997db031dbc"
