@@ -19,13 +19,23 @@
     },
     "engine": {
       "path": "code/moebot_group8_engine_v0_8_0.py",
-      "sha256": "58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88",
-      "size_bytes": 89382
+      "sha256": "10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f",
+      "size_bytes": 90648
+    },
+    "lifecycle_tests": {
+      "path": "tests/test_group8_lifecycle_persistence_v0_8_0.py",
+      "sha256": "6d35fc0d06c2388c2a197607734444b7f68f265aa6b3d7400051eb7bd7155067",
+      "size_bytes": 12873
     },
     "materializer": {
       "path": "code/group8_materialize_inputs.py",
       "sha256": "bd6927c0195e0b3a8070f6921fe19b09ea5eb003e1053592d6b9551a8aaf901d",
       "size_bytes": 9717
+    },
+    "postprocessor": {
+      "path": "code/group8_postprocess_v0_8_0.py",
+      "sha256": "59a23e003919ba025d375cfda3ba1dee7020836835e9cf0bb320fff606d172c3",
+      "size_bytes": 40916
     },
     "schema": {
       "path": "02_SCHEMA.sql",
@@ -34,8 +44,8 @@
     },
     "technical_audit": {
       "path": "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json",
-      "sha256": "9b81d070d060f924725726372111bf5695367c7026161d451e5668b9adbedeb9",
-      "size_bytes": 1439
+      "sha256": "6b7a66f3b01e3d181915c88148b244aea0332a42f6f8435219f1f2b1af95814e",
+      "size_bytes": 1686
     },
     "tests": {
       "path": "tests/test_group8_engine_v0_8_0.py",
@@ -48,10 +58,10 @@
       "size_bytes": 15382
     }
   },
-  "manifest_hash": "24cb731ffc8b1ded1578286cb5a7aaa7cdb1e48f25cab5d64ec08148935401ee",
+  "manifest_hash": "c7ff28d2ca698ff1c6130a682604ce15c60d324f4ac105df112a48d998ca551e",
   "policy": "2023 in-sample engineering validation authorized; 2024 remains forbidden until post-2023 engine/config freeze",
   "schema_version": "8.0.0",
   "status": "TECHNICAL_CANDIDATE_PASS",
-  "technical_audit_hash": "5174ac164f1ee5375c4a80f53e8f8f8e3ab56266646adfb0af7116d4243d6fe3",
+  "technical_audit_hash": "ce7d5f3133251dff23b010bde4cace6561c11ae94184a66dfd56ae2a38a63b67",
   "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a"
 }
