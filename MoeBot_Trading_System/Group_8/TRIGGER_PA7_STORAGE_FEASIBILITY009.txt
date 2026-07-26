@@ -1,2 +1,2 @@
 Apply the approved Group 8 free-only lossless sharded storage and handoff amendment.
-No paid runner or paid service; keep 2024 OOS untouched.
+Retry delivery after all amendment and semantic regression gates passed; no paid runner/service and no 2024 OOS access.
