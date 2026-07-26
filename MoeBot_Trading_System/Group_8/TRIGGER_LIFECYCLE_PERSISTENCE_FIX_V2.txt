@@ -1,0 +1,1 @@
+Execute the corrected fail-closed Group 8 lifecycle persistence hardening v2 against authoritative engine SHA 58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88. Apply only blocking gap G8-ENGINE-LIFECYCLE-002, run original and lifecycle regression matrices, revoke annual authorization pending technical re-freeze, and commit only verified hardening artifacts.
