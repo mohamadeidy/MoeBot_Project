@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Finalize the frozen Group 8 2024 OOS annual candidate.
 
-Requires the immutable pre-2024 OOS freeze, proves no frozen identity changed,
-requires deterministic rerun/clean reconstruction, and revokes all annual
-execution after OOS completion pending cross-year/final closure.
+Requires the immutable pre-2024 OOS freeze, proves no frozen technical or
+validator identity changed, requires zero locked-context violations plus
+deterministic rerun/clean reconstruction, and revokes all annual execution
+pending cross-year/final closure.
 """
 from __future__ import annotations
 
@@ -12,6 +13,8 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+
+LOCKED_CONTEXT_GAP_ID = "G8-ICT-LOCKED-CONTEXT-005"
 
 
 def canonical(v: Any) -> bytes:
@@ -34,7 +37,7 @@ def semantic(report: dict[str, Any]) -> dict[str, Any]:
     keys = [
         "status", "year", "engine_version", "schema_version", "config_id",
         "engine_build_manifest_hash", "engine_sha256", "postprocessor_sha256",
-        "causality_errors", "upstream_reference_integrity", "lifecycle",
+        "locked_context_violations", "causality_errors", "upstream_reference_integrity", "lifecycle",
         "counts", "distributions", "no_trading_outputs", "read_only_upstream", "failures",
     ]
     return {k: report.get(k) for k in keys}
@@ -74,11 +77,16 @@ def main() -> int:
     if status.get("status") != "OOS_2024_FROZEN_AND_AUTHORIZED": failures.append("wrong_oos_phase")
     if status.get("annual_execution_2024_authorized") is not True: failures.append("2024_oos_not_authorized")
     if status.get("annual_execution_2023_authorized") is not False: failures.append("2023_reauthorized_illegally")
-    if freeze.get("status") != "FROZEN_FOR_2024_OOS": failures.append("oos_freeze_not_frozen")
+    if freeze.get("status") != "FROZEN_FOR_2024_OOS" or int(freeze.get("format_version", 0)) < 2: failures.append("oos_freeze_v2_not_frozen")
     if freeze.get("annual_2023_manifest_hash") != annual23.get("manifest_hash"): failures.append("oos_2023_identity_mismatch")
     if freeze.get("engine_build_manifest_hash") != build.get("manifest_hash"): failures.append("oos_build_identity_mismatch")
     if freeze.get("engine_sha256") != build.get("identities", {}).get("engine", {}).get("sha256"): failures.append("oos_engine_identity_mismatch")
+    if freeze.get("postprocessor_sha256") != build.get("identities", {}).get("postprocessor", {}).get("sha256"): failures.append("oos_postprocessor_identity_mismatch")
+    if freeze.get("materializer_sha256") != build.get("identities", {}).get("materializer", {}).get("sha256"): failures.append("oos_materializer_identity_mismatch")
+    if freeze.get("annual_validator_sha256") != build.get("identities", {}).get("annual_validator", {}).get("sha256"): failures.append("oos_annual_validator_identity_mismatch")
     if freeze.get("config_id") != build.get("config_id"): failures.append("oos_config_identity_mismatch")
+    if freeze.get("closed_blocking_gap", {}).get("gap_id") != LOCKED_CONTEXT_GAP_ID: failures.append("oos_locked_context_gap_not_bound")
+    if int(freeze.get("closed_blocking_gap", {}).get("2023_locked_context_violations", -1)) != 0: failures.append("oos_2023_locked_context_not_zero")
     if material.get("status") != "PASS" or int(material.get("year", 0)) != 2024: failures.append("materializer_not_pass_2024")
     if engine_audit.get("status") != "PASS" or int(engine_audit.get("year", 0)) != 2024: failures.append("engine_audit_not_pass_2024")
     if material.get("config_id") != freeze.get("config_id") or engine_audit.get("config_id") != freeze.get("config_id"): failures.append("2024_config_drift")
@@ -96,8 +104,12 @@ def main() -> int:
             failures.append(f"annual_oos_build_drift:{idx}")
         if report.get("engine_sha256") != freeze.get("engine_sha256"):
             failures.append(f"annual_oos_engine_drift:{idx}")
+        if report.get("postprocessor_sha256") != freeze.get("postprocessor_sha256"):
+            failures.append(f"annual_oos_postprocessor_drift:{idx}")
         if report.get("config_id") != freeze.get("config_id"):
             failures.append(f"annual_oos_config_drift:{idx}")
+        if int(report.get("locked_context_violations", -1)) != 0:
+            failures.append(f"annual_oos_locked_context_violations:{idx}")
     if not (semantic(annuals[0]) == semantic(annuals[1]) == semantic(annuals[2])):
         failures.append("oos_semantic_reconstruction_drift")
 
@@ -126,7 +138,7 @@ def main() -> int:
         "compression": "zstd -19 --long=31",
     }
     manifest = {
-        "format_version": 1,
+        "format_version": 2,
         "status": "ANNUAL_2024_OOS_PASS",
         "group": 8,
         "year": 2024,
@@ -140,6 +152,9 @@ def main() -> int:
         "engine_sha256": freeze["engine_sha256"],
         "postprocessor_sha256": freeze["postprocessor_sha256"],
         "materializer_sha256": freeze["materializer_sha256"],
+        "annual_validator_sha256": freeze["annual_validator_sha256"],
+        "closed_blocking_gap": freeze["closed_blocking_gap"],
+        "locked_context_violations": 0,
         "materializer_report_hash": material["report_hash"],
         "engine_audit_hash": engine_audit["report_hash"],
         "annual_validation_hash": annuals[1]["report_hash"],
@@ -159,7 +174,7 @@ def main() -> int:
         "upstream_reference_integrity": "PASS",
         "no_trading_outputs": True,
         "frozen_identity_drift": False,
-        "policy": "2024 frozen OOS evaluation passed with no post-2023 identity mutation. All annual execution revoked pending cross-year and final closure verification.",
+        "policy": "2024 frozen OOS evaluation passed with zero locked-context violations and no post-2023 frozen identity mutation. All annual execution revoked pending cross-year and final closure verification.",
     }
     manifest["manifest_hash"] = hashlib.sha256(canonical(manifest)).hexdigest()
     a.manifest_output.parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +187,8 @@ def main() -> int:
         "logical_fingerprint": manifest["logical_fingerprint"],
         "oos_freeze_manifest_hash": freeze["manifest_hash"],
         "engine_sha256": manifest["engine_sha256"],
+        "annual_validator_sha256": manifest["annual_validator_sha256"],
+        "locked_context_violations": 0,
         "config_id": build["config_id"],
     }
     status["annual_execution_authorized"] = False
@@ -179,7 +196,7 @@ def main() -> int:
     status["annual_execution_2024_authorized"] = False
     status["status"] = "ANNUAL_2024_OOS_PASS_CROSS_YEAR_REQUIRED"
     status_path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n")
-    print(json.dumps({"status": manifest["status"], "manifest_hash": manifest["manifest_hash"], "logical_fingerprint": manifest["logical_fingerprint"], "frozen_identity_drift": False}, indent=2, sort_keys=True))
+    print(json.dumps({"status": manifest["status"], "manifest_hash": manifest["manifest_hash"], "logical_fingerprint": manifest["logical_fingerprint"], "annual_validator_sha256": manifest["annual_validator_sha256"], "locked_context_violations": 0, "frozen_identity_drift": False}, indent=2, sort_keys=True))
     return 0
 
 
