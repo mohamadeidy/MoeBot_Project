@@ -1,0 +1,46 @@
+name: MoeBot Group 8 OOS Freeze Tooling Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_OOS_FREEZE_TOOLING_CHECK.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile OOS freeze tooling
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_freeze_oos_2024.py" \
+            "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
+      - name: Test immutable 2024 OOS freeze transition
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
+      - name: Regression technical lifecycle and annual tooling
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
