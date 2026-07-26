@@ -1,0 +1,87 @@
+name: MoeBot Group 8 PA7 Lifecycle-Aware Transition Count
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/scripts/group8_pa7_lifetime_count.py"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact amended 2023-only state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');s=json.loads((root/'STATUS.json').read_text())
+          e='a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7'
+          assert hashlib.sha256((root/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()==e
+          assert s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          PY
+          python -m py_compile .github/scripts/group8_breakout_partial_stage.py .github/scripts/group8_pa7_lifetime_count.py
+      - run: sudo apt-get update && sudo apt-get install -y zstd
+      - name: Restore exact relevant 2023 slices
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-life-count/work" "$RUNNER_TEMP/g8-life-count/reports"
+          PYTHONPATH="$GROUP8_ROOT/code" python .github/scripts/group8_breakout_partial_stage.py \
+            --group8-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-life-count/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-life-count/work" \
+            --report "$RUNNER_TEMP/g8-life-count/reports/PARTIAL_STAGING.json"
+      - name: Count lifecycle-aware PA7 transitions without breakout writes
+        run: |
+          PYTHONPATH="$GROUP8_ROOT/code" python .github/scripts/group8_pa7_lifetime_count.py \
+            --group8-root "$GROUP8_ROOT" \
+            --staging-db "$RUNNER_TEMP/g8-life-count/staging.sqlite" \
+            --output-db "$RUNNER_TEMP/g8-life-count/ranges.sqlite" \
+            --report "$GROUP8_ROOT/reports/39C_PA7_LIFETIME_TRANSITION_COUNT.json"
+      - name: Independent report and frozen-state verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('MoeBot_Trading_System/Group_8/reports/39C_PA7_LIFETIME_TRANSITION_COUNT.json');r=json.loads(p.read_text());q=dict(r);h=q.pop('report_hash')
+          assert hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()==h
+          assert r['status']=='PASS' and r['fvg_terminal_transition_count']>0 and r['bounded_range_count']>0
+          obs=r['observations']; assert obs['oos_2024_accessed'] is False and obs['no_new_lifecycle_semantics'] is True
+          assert all(obs[k] is False for k in ('engine_changed','definitions_changed','thresholds_changed','schema_changed','upstream_changed','authorization_changed'))
+          assert r['lifecycle_aware_partial_total']['total'] < r['pre_amendment_group6_plus_group8_candidate_lower_bound']
+          print({'status':'PASS','lifecycle_aware_total':r['lifecycle_aware_partial_total']['total'],'by_source':{k:v['total'] for k,v in r['counts_by_source'].items()},'2024_accessed':False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/STATUS.json" "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-pa7-lifetime-transition-count
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/39C_PA7_LIFETIME_TRANSITION_COUNT.json
+            ${{ runner.temp }}/g8-life-count/reports
+      - name: Commit lifecycle-aware count evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/39C_PA7_LIFETIME_TRANSITION_COUNT.json"
+          git commit -m "Record Group 8 lifecycle-aware PA7 transition count [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
