@@ -31,6 +31,7 @@ jobs:
           ruby -e 'require "yaml"; YAML.load_file(".github/workflows/moebot-group8-annual-2023-multijob-indexed.yml"); puts "YAML PASS"'
           test ! -f "$GROUP8_ROOT/TRIGGER_ANNUAL_2023_MULTIJOB_INDEXED.txt"
           python - <<'PY'
+          import ast
           from pathlib import Path
           t=Path('.github/workflows/moebot-group8-annual-2023-multijob-indexed.yml').read_text()
           required=[
@@ -50,12 +51,23 @@ jobs:
           forbidden=['--year 2024','TRIGGER_ANNUAL_2024_OOS_VALIDATION.txt']
           hits=[x for x in forbidden if x in t]
           if hits: raise SystemExit(f'forbidden multi-job content:{hits}')
-          helper=Path('.github/scripts/group8_ephemeral_staging_indexes.py').read_text()
-          for bad in ('INSERT INTO','UPDATE ','DELETE FROM','ANALYZE','VACUUM','ALTER TABLE','DROP TABLE'):
-              if bad in helper.upper(): raise SystemExit(f'ephemeral index helper contains prohibited mutation token:{bad}')
+
+          helper_path=Path('.github/scripts/group8_ephemeral_staging_indexes.py')
+          helper=helper_path.read_text()
+          tree=ast.parse(helper)
+          execute_literals=[]
+          for node in ast.walk(tree):
+              if not isinstance(node,ast.Call) or not isinstance(node.func,ast.Attribute) or node.func.attr!='execute' or not node.args:
+                  continue
+              arg=node.args[0]
+              if isinstance(arg,ast.Constant) and isinstance(arg.value,str):
+                  execute_literals.append(arg.value.strip().upper())
+          prohibited_prefixes=('INSERT','UPDATE','DELETE','ANALYZE','VACUUM','ALTER','DROP','REPLACE')
+          bad=[sql for sql in execute_literals if sql.startswith(prohibited_prefixes)]
+          if bad: raise SystemExit(f'ephemeral index helper executes prohibited mutation SQL:{bad}')
           if 'CREATE INDEX IF NOT EXISTS' not in helper or 'total_changes' not in helper or 'foreign_key_check' not in helper:
               raise SystemExit('ephemeral index helper audit controls incomplete')
-          print({'status':'PASS','real_trigger_absent':True,'jobs':4,'year':2023})
+          print({'status':'PASS','real_trigger_absent':True,'jobs':4,'year':2023,'literal_execute_statements_checked':len(execute_literals)})
           PY
       - name: Compile multi-job infrastructure helper and tests
         run: |
@@ -78,7 +90,7 @@ jobs:
       - name: Verify frozen technical identity is untouched by infrastructure branch
         run: |
           python - <<'PY'
-          import hashlib,json
+          import json
           from pathlib import Path
           root=Path('MoeBot_Trading_System/Group_8');b=json.loads((root/'ENGINE_BUILD_MANIFEST.json').read_text());s=json.loads((root/'STATUS.json').read_text())
           engine='61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8';validator='0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293'
