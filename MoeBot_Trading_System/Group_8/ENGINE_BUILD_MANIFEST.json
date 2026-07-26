@@ -19,8 +19,8 @@
     },
     "engine": {
       "path": "code/moebot_group8_engine_v0_8_0.py",
-      "sha256": "b6387dae6ca911d7d1cf43b3ce65cb35383cc125d501478d68187b237f030db7",
-      "size_bytes": 89318
+      "sha256": "58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88",
+      "size_bytes": 89382
     },
     "materializer": {
       "path": "code/group8_materialize_inputs.py",
@@ -34,13 +34,13 @@
     },
     "technical_audit": {
       "path": "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json",
-      "sha256": "0f546f5f7783f635e90546d3077c7cbaf07b85aa0463fa1621e9b9762551e2ca",
+      "sha256": "9b81d070d060f924725726372111bf5695367c7026161d451e5668b9adbedeb9",
       "size_bytes": 1439
     },
     "tests": {
       "path": "tests/test_group8_engine_v0_8_0.py",
-      "sha256": "81cc95e4b1c5ef226d3dbf95994ebffb97a23e1b046a6da737efa51d02a79576",
-      "size_bytes": 25131
+      "sha256": "287af92a7411eec212dd80b205aebe413d04dd3656a2f8c310fe7e62c5807dc3",
+      "size_bytes": 25160
     },
     "upstream_contract": {
       "path": "contracts/UPSTREAM_INPUT_CONTRACT.json",
@@ -48,10 +48,10 @@
       "size_bytes": 15382
     }
   },
-  "manifest_hash": "9bd7de153f83786f0cb6610774b0e2af07aec80360f784d93dcd5554b4f56819",
+  "manifest_hash": "24cb731ffc8b1ded1578286cb5a7aaa7cdb1e48f25cab5d64ec08148935401ee",
   "policy": "2023 in-sample engineering validation authorized; 2024 remains forbidden until post-2023 engine/config freeze",
   "schema_version": "8.0.0",
   "status": "TECHNICAL_CANDIDATE_PASS",
-  "technical_audit_hash": "2e073af24c6b28be21d24b88fa469779729fd63ccd60f5af77156c23edace6c7",
+  "technical_audit_hash": "5174ac164f1ee5375c4a80f53e8f8f8e3ab56266646adfb0af7116d4243d6fe3",
   "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a"
 }
