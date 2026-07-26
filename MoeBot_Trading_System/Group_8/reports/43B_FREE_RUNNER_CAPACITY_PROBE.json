@@ -1,0 +1,55 @@
+{
+  "checks": {
+    "2023_authorized": true,
+    "2024_forbidden": true,
+    "candidate_hashes": true,
+    "candidate_table": true,
+    "creation_state_call": true,
+    "creation_state_id": true,
+    "engine_sha": true,
+    "single_output_sqlite": true,
+    "state_hashes": true,
+    "state_table": true
+  },
+  "engine_sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+  "fixed_text_bytes": {
+    "candidate_feature_hash": 64,
+    "candidate_hash": 64,
+    "candidate_id": 68,
+    "state_candidate_id": 68,
+    "state_event_id": 73,
+    "state_hash": 64
+  },
+  "fixed_text_bytes_per_transition": 401,
+  "format_version": 1,
+  "important_exclusions": [
+    "JSON payloads",
+    "numeric fields",
+    "SQLite row/page overhead",
+    "indexes",
+    "other Group8 outputs",
+    "staging database",
+    "Group5/Group7 PA7 transitions"
+  ],
+  "oos_2024_accessed": false,
+  "partial_scope_excludes": [
+    "Group5 PA7 boundaries",
+    "Group7 PA7 boundaries"
+  ],
+  "partial_transition_count": 54413814,
+  "policy": {
+    "free_only": true,
+    "paid_runner_allowed": false,
+    "paid_service_allowed": false
+  },
+  "remaining_free_bytes_after_structural_bound": 92238169514,
+  "report_hash": "315973e1598e2fec2bf6fb62a973b7902ef61554a11a1bf5f8651c2d8da88925",
+  "runner_filesystem_free_bytes": 114058108928,
+  "runner_filesystem_total_bytes": 154894188544,
+  "runner_filesystem_used_bytes": 40819302400,
+  "scope": "FREE_ONLY_RUNNER_CAPACITY_PROBE",
+  "status": "PASS",
+  "structural_bound_fits_current_free_space": true,
+  "structural_lower_bound_bytes": 21819939414,
+  "structural_lower_bound_decimal_gb": 21.819939414
+}
