@@ -1,0 +1,131 @@
+{
+  "adapter_map_hash": "cc76916214be35474134376c16299728db3e0a5d07ddcb58860ec5c9c3244d77",
+  "annual_dependency_registry_hash": "ad0157c56ea793ed49fe20c5b90f606388f17ade93f12450d98596506ef91e97",
+  "calibration_basis": "causal descriptive constants only; no PnL, MFE, MAE, future-return or profitability calibration",
+  "categorical_dictionary_hash": "924173aec9086dc692a20539eadde9b7f92218dc94e7b13c629f7aef454a579b",
+  "causality": {
+    "availability_policy": "maximum mandatory upstream availability",
+    "closed_bars_only": true,
+    "creation_immutable": true,
+    "lifecycle_append_only": true,
+    "no_backdating": true,
+    "no_lookahead": true
+  },
+  "coherent_lineage_amendment_hash": "a18d75a61c1ce981f6c5c784145d6cb41482ad75dce015ea9a901d9e22dd3160",
+  "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
+  "config_status": "FROZEN",
+  "dependency_release_anchor_tag": "moebot-sqlite-rebuild-v1",
+  "design_contract_audit_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
+  "design_reference_resolution_hash": "ed5595bb8350087714cf96718dfe9277c6ffe817cd03b124c25e44aeebb8047d",
+  "engine_version": "0.8.0",
+  "feature_parameters": {
+    "atr_method": "wilder_rma",
+    "atr_period": 14,
+    "atr_warmup_bars": 14,
+    "feature_round_digits": 8,
+    "minimum_price_increment_policy": "verified point or tick size; exact stored equality fallback",
+    "proximity_atr_fraction": 0.05,
+    "proximity_minimum_increments": 1,
+    "small_noise_atr_fraction": 0.001
+  },
+  "group7_logic_source": {
+    "closure_commit_sha": "c9a481d5d8f40bc80d833ef1d135fe56578b5fe2",
+    "closure_tag": "moebot-group7-v0.7.5-closure",
+    "config_id": "cfg7_f3b2e81e4e9c4cdf93cc92a5f39ca3f7c6ae0c86faf8a707f5edcd0849c5be3c",
+    "engine_version": "0.7.5",
+    "schema_version": "7.5.0"
+  },
+  "lineage": "dukascopy_rebuild_v1_corrected_runtime_v3_group8_v1",
+  "logical_dependency_lineage_id": "moebot-group8-upstream-corrected-v3-g7-v075-v1",
+  "pattern_thresholds": {
+    "atr_buffer_breakout_fraction": 0.1,
+    "doji_broad_body_to_range_max": 0.2,
+    "doji_strict_body_to_range_max": 0.1,
+    "pin_body_to_range_max": 0.3,
+    "pin_dominant_wick_to_range_min": 0.6,
+    "pin_opposite_wick_to_range_max": 0.15,
+    "rejection_close_outer_fraction": 0.25,
+    "rejection_wick_to_range_min": 0.5
+  },
+  "resolved_definition_references": {
+    "bindings": {
+      "group3.advancing_bias_values": [
+        "bullish"
+      ],
+      "group3.bearish_direction_values": [
+        "down"
+      ],
+      "group3.bearish_transition_event_types": [
+        "CHOCH",
+        "MSS"
+      ],
+      "group3.bullish_direction_values": [
+        "up"
+      ],
+      "group3.bullish_transition_event_types": [
+        "CHOCH",
+        "MSS"
+      ],
+      "group3.declining_bias_values": [
+        "bearish"
+      ],
+      "group3.indeterminate_bias_values": [
+        "transition",
+        "unknown"
+      ],
+      "group3.mss_or_bos_event_types": [
+        "BOS",
+        "MSS"
+      ]
+    },
+    "config": {
+      "breakout_atr_buffer": {
+        "target": "pattern_thresholds.atr_buffer_breakout_fraction",
+        "value": 0.1
+      },
+      "context_proximity_atr": {
+        "target": "feature_parameters.proximity_atr_fraction",
+        "value": 0.05
+      },
+      "doji_broad_body_ratio": {
+        "target": "pattern_thresholds.doji_broad_body_to_range_max",
+        "value": 0.2
+      },
+      "doji_strict_body_ratio": {
+        "target": "pattern_thresholds.doji_strict_body_to_range_max",
+        "value": 0.1
+      },
+      "pin_dominant_wick_ratio": {
+        "target": "pattern_thresholds.pin_dominant_wick_to_range_min",
+        "value": 0.6
+      },
+      "pin_max_body_ratio": {
+        "target": "pattern_thresholds.pin_body_to_range_max",
+        "value": 0.3
+      },
+      "pin_max_opposite_wick_ratio": {
+        "target": "pattern_thresholds.pin_opposite_wick_to_range_max",
+        "value": 0.15
+      },
+      "rejection_close_outer_fraction": {
+        "target": "pattern_thresholds.rejection_close_outer_fraction",
+        "value": 0.25
+      },
+      "rejection_min_wick_ratio": {
+        "target": "pattern_thresholds.rejection_wick_to_range_min",
+        "value": 0.5
+      }
+    }
+  },
+  "schema_version": "8.0.0",
+  "school_policy": {
+    "global_confluence_score": false,
+    "preferred_block_definition": false,
+    "preferred_school": false,
+    "school_interpretations_independent": true,
+    "shared_and_conflicting_evidence_separate": true
+  },
+  "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
+  "trading_outputs_prohibited": true,
+  "value_binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b"
+}

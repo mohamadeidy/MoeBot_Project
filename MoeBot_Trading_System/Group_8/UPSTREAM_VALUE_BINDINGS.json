@@ -1,0 +1,197 @@
+{
+  "binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b",
+  "bindings": {
+    "group3": {
+      "accepted_outcome_values": [
+        "accepted"
+      ],
+      "advancing_bias_values": [
+        "bullish"
+      ],
+      "all_accepted_structure_event_types": [
+        "BOS",
+        "CHOCH",
+        "MSS"
+      ],
+      "bearish_direction_values": [
+        "down"
+      ],
+      "bearish_transition_event_types": [
+        "CHOCH",
+        "MSS"
+      ],
+      "bos_event_types": [
+        "BOS"
+      ],
+      "bullish_direction_values": [
+        "up"
+      ],
+      "bullish_transition_event_types": [
+        "CHOCH",
+        "MSS"
+      ],
+      "continuation_break_kind_values": [
+        "continuation"
+      ],
+      "declining_bias_values": [
+        "bearish"
+      ],
+      "external_layer_values": [
+        "external"
+      ],
+      "failed_break_event_types": [
+        "FAILED_BREAK"
+      ],
+      "failed_outcome_values": [
+        "failed"
+      ],
+      "indeterminate_bias_values": [
+        "transition",
+        "unknown"
+      ],
+      "internal_layer_values": [
+        "internal"
+      ],
+      "mss_or_bos_event_types": [
+        "BOS",
+        "MSS"
+      ],
+      "reversal_break_kind_values": [
+        "reversal"
+      ]
+    }
+  },
+  "categorical_dictionary_hash": "924173aec9086dc692a20539eadde9b7f92218dc94e7b13c629f7aef454a579b",
+  "failures": [],
+  "format_version": 1,
+  "observed_domain_coverage": {
+    "active_bias": {
+      "observed": [
+        "bearish",
+        "bullish",
+        "unknown"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "bearish",
+        "bullish",
+        "transition",
+        "unknown"
+      ],
+      "unknown": []
+    },
+    "break_kind": {
+      "observed": [
+        "continuation",
+        "reversal"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "continuation",
+        "reversal"
+      ],
+      "unknown": []
+    },
+    "direction": {
+      "observed": [
+        "down",
+        "up"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "down",
+        "up"
+      ],
+      "unknown": []
+    },
+    "event_type": {
+      "observed": [
+        "BOS",
+        "CHOCH",
+        "FAILED_BREAK",
+        "MSS"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "BOS",
+        "CHOCH",
+        "FAILED_BREAK",
+        "MSS"
+      ],
+      "unknown": []
+    },
+    "layer_events": {
+      "observed": [
+        "external",
+        "internal"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "external",
+        "internal"
+      ],
+      "unknown": []
+    },
+    "layer_structure": {
+      "observed": [
+        "external",
+        "internal"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "external",
+        "internal"
+      ],
+      "unknown": []
+    },
+    "outcome": {
+      "observed": [
+        "accepted",
+        "failed"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "accepted",
+        "failed"
+      ],
+      "unknown": []
+    },
+    "sequence_bias": {
+      "observed": [
+        "bearish",
+        "bullish",
+        "transition",
+        "unknown"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "bearish",
+        "bullish",
+        "transition",
+        "unknown"
+      ],
+      "unknown": []
+    },
+    "swing_relation": {
+      "observed": [
+        "HH",
+        "HL",
+        "INITIAL",
+        "LH",
+        "LL"
+      ],
+      "pass": true,
+      "source_verified_allowed": [
+        "HH",
+        "HL",
+        "INITIAL",
+        "LH",
+        "LL"
+      ],
+      "unknown": []
+    }
+  },
+  "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
+  "status": "PASS",
+  "unknown_value_policy": "Preserve raw upstream value, mark interpretation unclassified/ambiguous, and do not coerce into any frozen binding."
+}
