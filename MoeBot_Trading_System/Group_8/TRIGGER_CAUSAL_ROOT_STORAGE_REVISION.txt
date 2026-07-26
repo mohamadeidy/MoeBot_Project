@@ -1,0 +1,1 @@
+Apply and verify the approved free-only causal partition-root sharding revision. Keep 2024 OOS forbidden and all logical semantics unchanged.
