@@ -1,0 +1,1 @@
+Validate dormant Group 8 pre-2024 OOS freeze tooling only. Test fail-closed 2023-to-2024 state transition and rerun technical/lifecycle/annual tooling regressions. Do not access 2024 data or modify persistent authorization.
