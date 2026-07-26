@@ -1,0 +1,1 @@
+Validate lossless shard union, duplicate-domain rejection, registry consistency, and partial cross-shard reference accounting on the permanent fixture.
