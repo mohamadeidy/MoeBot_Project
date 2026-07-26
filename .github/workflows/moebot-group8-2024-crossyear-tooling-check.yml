@@ -26,14 +26,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Compile 2024 OOS cross-year closure tooling
+      - name: Compile 2024 OOS cross-year release-gated closure tooling
         run: |
           python -m py_compile \
             "$GROUP8_ROOT/code/group8_finalize_annual_2024_oos.py" \
             "$GROUP8_ROOT/code/group8_cross_year_validation.py" \
-            "$GROUP8_ROOT/code/group8_finalize_closure.py" \
+            "$GROUP8_ROOT/code/group8_prepare_closure_candidate.py" \
+            "$GROUP8_ROOT/code/group8_finalize_official_release_closure.py" \
             "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
-      - name: Run frozen OOS cross-year closure fixture tests
+      - name: Run frozen OOS cross-year release-gated closure fixture tests
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
         run: |
