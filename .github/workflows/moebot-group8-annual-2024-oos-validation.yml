@@ -1,0 +1,150 @@
+name: MoeBot Group 8 Annual 2024 Frozen OOS Validation
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ANNUAL_2024_OOS_VALIDATION.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  annual-2024-oos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight immutable 2024 OOS authorization
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text());o=json.loads((root/"OOS_FREEZE_MANIFEST.json").read_text());a=json.loads((root/"ANNUAL_2023_VALIDATION_MANIFEST.json").read_text());b=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          if s.get("officially_closed") is not False or s.get("status")!="OOS_2024_FROZEN_AND_AUTHORIZED": raise SystemExit("invalid OOS phase")
+          if s.get("annual_execution_2024_authorized") is not True or s.get("annual_execution_2023_authorized") is not False: raise SystemExit("invalid annual authorization")
+          if o.get("status")!="FROZEN_FOR_2024_OOS" or o.get("annual_2023_manifest_hash")!=a.get("manifest_hash"): raise SystemExit("OOS freeze identity invalid")
+          if o.get("engine_build_manifest_hash")!=b.get("manifest_hash") or o.get("engine_sha256")!=b.get("identities",{}).get("engine",{}).get("sha256"): raise SystemExit("OOS engine/build identity mismatch")
+          for rel,rec in o.get("identities",{}).items():
+              p=root/rel
+              if not p.is_file() or p.stat().st_size!=int(rec["size_bytes"]) or hashlib.sha256(p.read_bytes()).hexdigest()!=rec["sha256"]: raise SystemExit(f"frozen identity drift:{rel}")
+          print({"status":"PASS","oos_freeze_manifest_hash":o["manifest_hash"],"engine_sha256":o["engine_sha256"]})
+          PY
+          python -m py_compile "$GROUP8_ROOT/code/group8_materialize_inputs.py" "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" "$GROUP8_ROOT/code/group8_annual_validation.py" "$GROUP8_ROOT/code/group8_finalize_annual_2024_oos.py"
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+      - name: Materialize exact read-only 2024 upstream staging
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-2024/work" "$RUNNER_TEMP/g8-2024/reports"
+          python "$GROUP8_ROOT/code/group8_materialize_inputs.py" --artifacts-root "$GROUP8_ROOT" --year 2024 --output-db "$RUNNER_TEMP/g8-2024/staging.sqlite" --work-dir "$RUNNER_TEMP/g8-2024/work" --report "$GROUP8_ROOT/reports/40_ANNUAL_2024_MATERIALIZATION.json"
+      - name: Add derived staging ID indexes for independent reference audit
+        run: |
+          python - <<'PY'
+          import os,sqlite3
+          from pathlib import Path
+          db=Path(os.environ["RUNNER_TEMP"])/"g8-2024/staging.sqlite";con=sqlite3.connect(db)
+          for table, in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"):
+              for col, in con.execute(f'PRAGMA table_info("{table}")').fetchall():
+                  pass
+          tables=[r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+          for table in tables:
+              cols=[r[1] for r in con.execute(f'PRAGMA table_info("{table}")')]
+              for col in cols:
+                  if col=="id" or col.endswith("_id"):
+                      name=(f"ix_annual_ref_{table}_{col}").replace("-","_");con.execute(f'CREATE INDEX IF NOT EXISTS "{name}" ON "{table}"("{col}")')
+          con.commit()
+          if con.execute("PRAGMA quick_check").fetchone()[0]!="ok": raise SystemExit("staging quick_check failed after indexes")
+          con.close()
+          PY
+      - name: Fingerprint verified 2024 staging
+        run: |
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" --database "$RUNNER_TEMP/g8-2024/staging.sqlite" --output "$RUNNER_TEMP/g8-2024/reports/STAGING_FINGERPRINT.json"
+      - name: Execute frozen OOS engine first pass
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" --staging-db "$RUNNER_TEMP/g8-2024/staging.sqlite" --output-db "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" --artifacts-root "$GROUP8_ROOT" --year 2024 --audit-output "$RUNNER_TEMP/g8-2024/reports/ENGINE_AUDIT_INITIAL.json"
+          python "$GROUP8_ROOT/code/group8_annual_validation.py" --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-2024/staging.sqlite" --output-db "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" --materializer-report "$GROUP8_ROOT/reports/40_ANNUAL_2024_MATERIALIZATION.json" --engine-audit "$RUNNER_TEMP/g8-2024/reports/ENGINE_AUDIT_INITIAL.json" --year 2024 --output "$RUNNER_TEMP/g8-2024/reports/ANNUAL_VALIDATION_INITIAL.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" --database "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" --output "$RUNNER_TEMP/g8-2024/reports/OUTPUT_FINGERPRINT_INITIAL.json"
+      - name: Prove frozen OOS idempotence
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" --staging-db "$RUNNER_TEMP/g8-2024/staging.sqlite" --output-db "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" --artifacts-root "$GROUP8_ROOT" --year 2024 --audit-output "$GROUP8_ROOT/reports/41_ANNUAL_2024_ENGINE_AUDIT.json"
+          python "$GROUP8_ROOT/code/group8_annual_validation.py" --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-2024/staging.sqlite" --output-db "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" --materializer-report "$GROUP8_ROOT/reports/40_ANNUAL_2024_MATERIALIZATION.json" --engine-audit "$GROUP8_ROOT/reports/41_ANNUAL_2024_ENGINE_AUDIT.json" --year 2024 --output "$GROUP8_ROOT/reports/42_ANNUAL_2024_OOS_VALIDATION.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" --database "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" --output "$GROUP8_ROOT/reports/43_ANNUAL_2024_OUTPUT_FINGERPRINT.json"
+      - name: Prove frozen OOS clean reconstruction
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" --staging-db "$RUNNER_TEMP/g8-2024/staging.sqlite" --output-db "$RUNNER_TEMP/g8-2024/clean.sqlite" --artifacts-root "$GROUP8_ROOT" --year 2024 --audit-output "$RUNNER_TEMP/g8-2024/reports/ENGINE_AUDIT_CLEAN.json"
+          python "$GROUP8_ROOT/code/group8_annual_validation.py" --group8-root "$GROUP8_ROOT" --staging-db "$RUNNER_TEMP/g8-2024/staging.sqlite" --output-db "$RUNNER_TEMP/g8-2024/clean.sqlite" --materializer-report "$GROUP8_ROOT/reports/40_ANNUAL_2024_MATERIALIZATION.json" --engine-audit "$RUNNER_TEMP/g8-2024/reports/ENGINE_AUDIT_CLEAN.json" --year 2024 --output "$RUNNER_TEMP/g8-2024/reports/ANNUAL_VALIDATION_CLEAN.json"
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" --database "$RUNNER_TEMP/g8-2024/clean.sqlite" --output "$RUNNER_TEMP/g8-2024/reports/OUTPUT_FINGERPRINT_CLEAN.json"
+      - name: Compare OOS rerun and clean reconstruction fingerprints
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8");temp=Path(os.environ["RUNNER_TEMP"])/"g8-2024/reports"
+          f1=json.loads((temp/"OUTPUT_FINGERPRINT_INITIAL.json").read_text());f2=json.loads((root/"reports/43_ANNUAL_2024_OUTPUT_FINGERPRINT.json").read_text());f3=json.loads((temp/"OUTPUT_FINGERPRINT_CLEAN.json").read_text())
+          def th(x):return {k:v["logical_sha256"] for k,v in x["tables"].items()}
+          if not (f1["logical_sha256"]==f2["logical_sha256"]==f3["logical_sha256"]):raise SystemExit("2024 OOS logical fingerprint drift")
+          if not (th(f1)==th(f2)==th(f3)):raise SystemExit("2024 OOS table fingerprint drift")
+          r={"format_version":1,"status":"PASS","year":2024,"oos":True,"idempotence":"PASS","clean_reconstruction":"PASS","logical_sha256":f2["logical_sha256"],"initial_fingerprint_hash":f1["report_hash"],"rerun_fingerprint_hash":f2["report_hash"],"clean_fingerprint_hash":f3["report_hash"]};r["report_hash"]=hashlib.sha256(json.dumps(r,sort_keys=True,separators=(",",":")).encode()).hexdigest();(root/"reports/44_ANNUAL_2024_CLEAN_RECONSTRUCTION.json").write_text(json.dumps(r,indent=2,sort_keys=True)+"\n")
+          PY
+      - name: Compress verified OOS annual output
+        run: |
+          rm -f "$RUNNER_TEMP/g8-2024/clean.sqlite"
+          zstd -q -19 --long=31 -f "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" -o "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite.zst"
+      - name: Finalize frozen 2024 OOS manifest and revoke annual execution
+        run: |
+          python "$GROUP8_ROOT/code/group8_finalize_annual_2024_oos.py" --group8-root "$GROUP8_ROOT" --materializer-report "$GROUP8_ROOT/reports/40_ANNUAL_2024_MATERIALIZATION.json" --engine-audit "$GROUP8_ROOT/reports/41_ANNUAL_2024_ENGINE_AUDIT.json" --annual-initial "$RUNNER_TEMP/g8-2024/reports/ANNUAL_VALIDATION_INITIAL.json" --annual-rerun "$GROUP8_ROOT/reports/42_ANNUAL_2024_OOS_VALIDATION.json" --annual-clean "$RUNNER_TEMP/g8-2024/reports/ANNUAL_VALIDATION_CLEAN.json" --fingerprint-initial "$RUNNER_TEMP/g8-2024/reports/OUTPUT_FINGERPRINT_INITIAL.json" --fingerprint-rerun "$GROUP8_ROOT/reports/43_ANNUAL_2024_OUTPUT_FINGERPRINT.json" --fingerprint-clean "$RUNNER_TEMP/g8-2024/reports/OUTPUT_FINGERPRINT_CLEAN.json" --output-db "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite" --compressed-output "$RUNNER_TEMP/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite.zst" --validation-run-id "${{ github.run_id }}" --artifact-name "group8-annual-2024-oos-candidate" --manifest-output "$GROUP8_ROOT/ANNUAL_2024_OOS_VALIDATION_MANIFEST.json"
+      - name: Independent final OOS verification
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8");s=json.loads((root/"STATUS.json").read_text());m=json.loads((root/"ANNUAL_2024_OOS_VALIDATION_MANIFEST.json").read_text());o=json.loads((root/"OOS_FREEZE_MANIFEST.json").read_text())
+          if m.get("status")!="ANNUAL_2024_OOS_PASS" or m.get("frozen_identity_drift") is not False:raise SystemExit("2024 OOS not PASS")
+          if m.get("oos_freeze_manifest_hash")!=o.get("manifest_hash"):raise SystemExit("2024 OOS freeze mismatch")
+          if s.get("status")!="ANNUAL_2024_OOS_PASS_CROSS_YEAR_REQUIRED" or s.get("annual_execution_authorized") or s.get("annual_execution_2024_authorized"):raise SystemExit("post-OOS state invalid")
+          print({"status":"PASS","annual_2024_oos_manifest_hash":m["manifest_hash"],"logical_fingerprint":m["logical_fingerprint"]})
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-annual-2024-oos-candidate
+          path: |
+            ${{ runner.temp }}/g8-2024/MoeBot_Group8_XAUUSD_2024_v0.8.0.sqlite.zst
+            ${{ runner.temp }}/g8-2024/reports
+            ${{ env.GROUP8_ROOT }}/reports/40_ANNUAL_2024_MATERIALIZATION.json
+            ${{ env.GROUP8_ROOT }}/reports/41_ANNUAL_2024_ENGINE_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/reports/42_ANNUAL_2024_OOS_VALIDATION.json
+            ${{ env.GROUP8_ROOT }}/reports/43_ANNUAL_2024_OUTPUT_FINGERPRINT.json
+            ${{ env.GROUP8_ROOT }}/reports/44_ANNUAL_2024_CLEAN_RECONSTRUCTION.json
+            ${{ env.GROUP8_ROOT }}/ANNUAL_2024_OOS_VALIDATION_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 90
+      - name: Commit verified 2024 OOS evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]";git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/40_ANNUAL_2024_MATERIALIZATION.json" "$GROUP8_ROOT/reports/41_ANNUAL_2024_ENGINE_AUDIT.json" "$GROUP8_ROOT/reports/42_ANNUAL_2024_OOS_VALIDATION.json" "$GROUP8_ROOT/reports/43_ANNUAL_2024_OUTPUT_FINGERPRINT.json" "$GROUP8_ROOT/reports/44_ANNUAL_2024_CLEAN_RECONSTRUCTION.json" "$GROUP8_ROOT/ANNUAL_2024_OOS_VALIDATION_MANIFEST.json" "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check;git commit -m "Validate Group 8 frozen annual 2024 OOS [skip ci]";git push origin "HEAD:${{ github.head_ref }}"
+      - name: Cleanup large OOS work data
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/g8-2024" || true
