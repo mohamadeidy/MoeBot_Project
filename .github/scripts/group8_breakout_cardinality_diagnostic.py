@@ -99,14 +99,6 @@ def main() -> int:
             g6[table] = {"rows": len(vals), "cumulative_bar_boundary_evaluations": int(pair_count)}
             g6_pair_total += int(pair_count)
 
-        g7_avails_by_tf: dict[str, list[int]] = defaultdict(list)
-        for r in engine.input.execute("SELECT timeframe,availability_time FROM group7__institutional_zones ORDER BY timeframe,availability_time"):
-            g7_avails_by_tf[str(r[0])].append(int(r[1]))
-        g7_pre_status_pairs = 0
-        for (_symbol, tf), avails in bar_avails_by_key.items():
-            zones = g7_avails_by_tf.get(tf, [])
-            g7_pre_status_pairs += sum(bisect.bisect_right(zones, t) for t in avails)
-
         invalidating: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
         for r in engine.input.execute(
             "SELECT zone_id,transition_time,transition_id,to_status FROM group4__zone_transitions ORDER BY zone_id,transition_time,transition_id"
@@ -168,7 +160,7 @@ def main() -> int:
             raise SystemExit("internal diagnostic invariant failed: negative stale pair count")
 
         report: dict[str, Any] = {
-            "format_version": 1,
+            "format_version": 2,
             "status": "PASS",
             "scope": "DIAGNOSTIC_ONLY_NO_FROZEN_MUTATION",
             "year": 2023,
@@ -176,9 +168,10 @@ def main() -> int:
             "bar_count": len(all_bar_avails),
             "series_count": len(bar_avails_by_key),
             "bounded_range_context_count": len(ranges),
+            "exact_relevant_groups_measured": ["source", "group4", "group6"],
+            "group7_not_measured_in_relevant_slice_diagnostic": True,
             "group6_current_breakout_enumeration": g6,
             "group6_cumulative_bar_boundary_evaluations": int(g6_pair_total),
-            "group7_pre_status_filter_bar_boundary_evaluations": int(g7_pre_status_pairs),
             "bounded_range_current_bar_boundary_evaluations": int(range_raw_pairs),
             "bounded_range_valid_lifetime_bar_boundary_evaluations": int(range_valid_lifetime_pairs),
             "bounded_range_post_invalidation_bar_boundary_evaluations": stale_pairs,
@@ -200,10 +193,10 @@ def main() -> int:
                 "authorization_changed": False,
             },
             "method": {
-                "group6": "exact count of rows with availability_time <= each bar.available_at, matching current _boundary_rows_for_bar Group6 predicates",
-                "group7": "pre-status-filter upper-bound count using exact current timeframe+availability predicates",
-                "bounded_ranges_current": "exact count of pa_bounded_range_context rows with same symbol/timeframe and availability_time <= each bar.available_at, matching current implementation",
+                "group6": "exact count of frozen Group6 rows with availability_time <= each exact source bar.available_at, matching current _boundary_rows_for_bar Group6 predicates",
+                "bounded_ranges_current": "exact pa_bounded_range_context output from frozen process_bounded_ranges over exact source+Group4, then exact count with same symbol/timeframe and availability_time <= each bar.available_at, matching current implementation",
                 "bounded_ranges_valid_lifetime": "same pairs restricted to bars strictly before the first invalidation from the frozen pa_bounded_range_context invalidation rule; invalidation lookup matches first_bounded_range_invalidator ordering and strict-after creation semantics",
+                "unused_groups": "Groups2/3/5/7 are deliberately not restored or measured because the selected diagnostic stages and the reported G6/G8 counts do not read them",
             },
         }
         report["report_hash"] = stable_hash(report)
