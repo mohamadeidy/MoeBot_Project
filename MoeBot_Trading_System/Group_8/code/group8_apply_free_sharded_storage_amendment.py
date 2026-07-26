@@ -7,7 +7,7 @@ amended so the project can continue on standard zero-cost GitHub-hosted jobs.
 """
 from __future__ import annotations
 
-import argparse, hashlib, json, re
+import argparse, hashlib, json
 from pathlib import Path
 from typing import Any
 
@@ -63,8 +63,8 @@ def main()->int:
         'cross_shard_references':'verified through global manifest/catalog; no semantic weakening of references',
       },
       'partitioning':{
-        'primary_dimensions':['year','family','timeframe','causal_root_window'],
-        'causal_root_window':'calendar month of the immutable causal root object or source bar, never future outcome time',
+        'primary_dimensions':['year','family','timeframe','causal_root_window','bucket_index'],
+        'causal_root_window':'calendar month of the immutable causal partition root or source bar, never a future outcome/descendant time',
         'families':{
           'bar_local':'bar-rooted PA1-PA6 and context-rejection records',
           'pa7_chain':'PA7 exact/point/ATR transitions plus PA8 failed-breakout, PA9 retest and root-linked exhaustion descendants',
@@ -72,21 +72,30 @@ def main()->int:
           'school_core':'direct Dow/Wyckoff/ICT hypotheses and interpretations not assigned to high-cardinality root chains',
           'relations':'shared/conflicting/MTF/evidence/invalidation/lifecycle relation records',
         },
+        'partition_root_rules':{
+          'bar_local':'source_bar_id',
+          'pa7_chain':'immutable PA7 boundary identity = source_group:source_type:boundary_id; all Exact/Point/ATR transitions and descendants for that boundary inherit the same root',
+          'range_chain':'pa_bounded_range_context candidate_id; all range descendants inherit it',
+          'school_core':'first mandatory immutable upstream evidence identity under the frozen definition',
+          'relations':'canonical ordered tuple of referenced Group8 subject IDs',
+        },
         'adaptive_bucket_rule':{
-          'bucket_count':'positive power of two chosen before shard execution from 2023-only cardinality/size evidence',
-          'assignment':'int(sha256(global_primary_id)[0:16],16) % bucket_count',
+          'bucket_count':'positive power of two chosen and frozen before shard execution from 2023-only cardinality/size evidence',
+          'assignment':'int(sha256(partition_root_id)[0:16],16) % bucket_count',
+          'descendant_locality':'every record causally descended from a partition root inherits that root bucket even when its own primary ID hashes elsewhere',
           'semantics':'physical placement only; never changes, merges or drops a logical record',
           'future_resize':'increase bucket_count before execution when a shard is projected to exceed the soft target; never rebucket an already frozen release silently',
         },
         'soft_target_uncompressed_bytes':1500000000,
         'runtime_hard_guard_bytes':2500000000,
       },
-      'manifest_requirements':['shard_id','family','year','symbol','timeframe','causal_root_window','bucket_index','bucket_count','file_size_bytes','sha256','compressed_sha256','table_row_counts','table_logical_sha256','min_event_time','max_event_time','min_availability_time','max_availability_time','definition_coverage','upstream_lineage_id','engine_sha256','design_freeze_hash','storage_contract_hash'],
+      'manifest_requirements':['shard_id','family','year','symbol','timeframe','causal_root_window','partition_root_rule','bucket_index','bucket_count','file_size_bytes','sha256','compressed_sha256','table_row_counts','table_logical_sha256','min_event_time','max_event_time','min_availability_time','max_availability_time','definition_coverage','upstream_lineage_id','engine_sha256','design_freeze_hash','storage_contract_hash'],
       'global_union_invariants':[
         'set union of all domain rows by immutable primary ID equals the complete logical annual dataset',
         'duplicate domain primary IDs across shards are forbidden unless row canonical hash is identical and duplicate is explicitly registry-only',
         'global table logical fingerprints are computed streaming from sorted (primary_id,row_hash) pairs and do not require a monolithic database',
         'every cross-shard Group8 reference resolves to exactly one immutable subject ID in the global catalog',
+        'all descendants inherit the causal partition root solely for physical locality; their own immutable IDs/hashes remain unchanged',
         'annual idempotence and clean reconstruction compare global manifests/fingerprints rather than file-layout byte identity',
       ],
       'handoff_policy':{
@@ -99,7 +108,6 @@ def main()->int:
     contract['storage_contract_hash']=stable(contract)
     (root/'SHARDED_STORAGE_CONTRACT.json').write_text(json.dumps(contract,indent=2,sort_keys=True)+'\n')
 
-    old_freeze=dict(freeze)
     freeze['format_version']=6
     freeze['storage_contract_hash']=contract['storage_contract_hash']
     freeze['storage_amendment']={
@@ -111,14 +119,11 @@ def main()->int:
     }
     freeze.pop('design_freeze_hash',None);new_freeze_hash=stable(freeze);freeze['design_freeze_hash']=new_freeze_hash;freeze_path.write_text(json.dumps(freeze,indent=2,sort_keys=True)+'\n')
 
-    text=engine.read_text()
-    old_line=f'EXPECTED_DESIGN_FREEZE_HASH = "{OLD_FREEZE}"'
-    new_line=f'EXPECTED_DESIGN_FREEZE_HASH = "{new_freeze_hash}"'
+    text=engine.read_text();old_line=f'EXPECTED_DESIGN_FREEZE_HASH = "{OLD_FREEZE}"';new_line=f'EXPECTED_DESIGN_FREEZE_HASH = "{new_freeze_hash}"'
     if old_line not in text:raise SystemExit('engine frozen hash constant not found exactly')
-    engine.write_text(text.replace(old_line,new_line,1))
-    new_engine_sha=sha(engine)
+    engine.write_text(text.replace(old_line,new_line,1));new_engine_sha=sha(engine)
 
-    section=f'''\n\n## 18. Free-only lossless sharded storage/handoff amendment\n\n**Approved for Gap `{GAP_ID}`.** Group 8 logical semantics remain unchanged. Annual materialization and all later handoffs use frozen storage contract `{contract['contract_id']}` / `{contract['storage_contract_hash']}`.\n\n- No paid runner or paid service may be required by the official execution path.\n- No valid record may be dropped, sampled, merged across PA7 variants, or excluded by timeframe to fit capacity.\n- Sharding is deterministic physical placement only; immutable IDs, hashes, definitions, thresholds, event/confirmation/availability times and causal rules remain unchanged.\n- Adaptive hash buckets may increase before a frozen run when a projected shard exceeds the frozen size target.\n- Global annual identity is the verified set-union manifest and streaming logical fingerprint across all shards; a monolithic SQLite file is no longer required for closure or Group 9 handoff.\n- 2024 OOS remains forbidden until complete 2023 sharded validation and OOS freeze.\n'''
+    section=f'''\n\n## 18. Free-only lossless sharded storage/handoff amendment\n\n**Approved for Gap `{GAP_ID}`.** Group 8 logical semantics remain unchanged. Annual materialization and all later handoffs use frozen storage contract `{contract['contract_id']}` / `{contract['storage_contract_hash']}`.\n\n- No paid runner or paid service may be required by the official execution path.\n- No valid record may be dropped, sampled, merged across PA7 variants, or excluded by timeframe to fit capacity.\n- Sharding is deterministic physical placement only; immutable IDs, hashes, definitions, thresholds, event/confirmation/availability times and causal rules remain unchanged.\n- Each family has an immutable causal partition root. For PA7 this is the exact boundary identity; PA7 transitions and all of their descendants inherit the same physical bucket.\n- Adaptive hash buckets may increase before a frozen run when a projected shard exceeds the frozen size target.\n- Global annual identity is the verified set-union manifest and streaming logical fingerprint across all shards; a monolithic SQLite file is no longer required for closure or Group 9 handoff.\n- 2024 OOS remains forbidden until complete 2023 sharded validation and OOS freeze.\n'''
     lock=lock_path.read_text()
     if '## 18. Free-only lossless sharded storage/handoff amendment' not in lock:lock_path.write_text(lock.rstrip()+section+'\n')
 
@@ -130,8 +135,7 @@ def main()->int:
       'groups_1_7_changed':False,'upstream_lineage_changed':False,'oos_2024_accessed':False,'paid_cost_authorized':False,
     })
 
-    previous=status.get('blocking_gap')
-    status['previous_closed_blocking_gap']=previous
+    previous=status.get('blocking_gap');status['previous_closed_blocking_gap']=previous
     status['blocking_gap']={
       'gap_id':GAP_ID,'classification':'PHYSICAL_STORAGE_HANDOFF_CAPACITY','severity':'BLOCKING','status':'APPROVED_SHARDED_IMPLEMENTATION_PENDING_TECHNICAL_REFREEZE',
       'decision_required':False,'design_change_required':True,'approved_resolution':'FREE_ONLY_LOSSLESS_SHARDED_STORAGE','report_hash':report['report_hash'],
