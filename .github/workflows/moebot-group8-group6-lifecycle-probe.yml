@@ -1,0 +1,84 @@
+name: MoeBot Group 8 Group6 Lifecycle Probe
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/scripts/group8_group6_lifecycle_probe.py"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  lifecycle-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact amended 2023-only state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');s=json.loads((root/'STATUS.json').read_text())
+          e='a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7'
+          assert hashlib.sha256((root/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()==e
+          assert s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          PY
+          python -m py_compile .github/scripts/group8_breakout_partial_stage.py .github/scripts/group8_group6_lifecycle_probe.py
+      - run: sudo apt-get update && sudo apt-get install -y zstd
+      - name: Restore exact relevant 2023 Group6 staging
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-life/work" "$RUNNER_TEMP/g8-life/reports"
+          PYTHONPATH="$GROUP8_ROOT/code" python .github/scripts/group8_breakout_partial_stage.py \
+            --group8-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-life/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-life/work" \
+            --report "$RUNNER_TEMP/g8-life/reports/PARTIAL_STAGING.json"
+      - name: Inspect causal Group6 lifecycle evidence
+        run: |
+          python .github/scripts/group8_group6_lifecycle_probe.py \
+            --group8-root "$GROUP8_ROOT" \
+            --staging-db "$RUNNER_TEMP/g8-life/staging.sqlite" \
+            --report "$GROUP8_ROOT/reports/39B_GROUP6_PA7_LIFECYCLE_PROBE.json"
+      - name: Independent no-mutation no-OOS verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('MoeBot_Trading_System/Group_8/reports/39B_GROUP6_PA7_LIFECYCLE_PROBE.json');r=json.loads(p.read_text());q=dict(r);h=q.pop('report_hash')
+          assert hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()==h
+          assert r['status']=='PASS' and r['sqlite_quick_check']=='ok' and r['engine_group6_active_at_falls_through_true'] is True
+          obs=r['observations']; assert obs['oos_2024_accessed'] is False and all(obs[k] is False for k in ('engine_changed','definitions_changed','thresholds_changed','schema_changed','upstream_changed','authorization_changed'))
+          print({'status':'PASS','group6_fallthrough_active':True,'fvg_transition_classes':len(r['fvg_transition_distribution']),'2024_accessed':False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/STATUS.json" "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-group6-lifecycle-probe
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/39B_GROUP6_PA7_LIFECYCLE_PROBE.json
+            ${{ runner.temp }}/g8-life/reports
+      - name: Commit lifecycle probe evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/39B_GROUP6_PA7_LIFECYCLE_PROBE.json"
+          git commit -m "Record Group 8 Group6 lifecycle probe [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
