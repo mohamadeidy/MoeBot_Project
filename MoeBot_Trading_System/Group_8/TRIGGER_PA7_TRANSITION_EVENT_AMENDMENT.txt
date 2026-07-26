@@ -1,0 +1,1 @@
+Trigger formal PA7_TRANSITION_EVENT_ENUMERATION design amendment validation for G8-PA7-ENUMERATION-EXPLOSION-007.
