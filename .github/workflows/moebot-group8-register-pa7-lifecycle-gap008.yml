@@ -1,0 +1,85 @@
+name: MoeBot Group 8 Register PA7 Lifecycle Gap008
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_REGISTER_PA7_LIFECYCLE_GAP008.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile and preflight exact amended candidate
+        run: |
+          python -m py_compile "$GROUP8_ROOT/code/group8_register_pa7_lifecycle_gap008.py"
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text())
+          e='a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7'
+          assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()==e
+          assert s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          assert s['blocking_gap']['gap_id']=='G8-PA7-ENUMERATION-EXPLOSION-007' and s['blocking_gap']['status']=='CLOSED_BY_TECHNICAL_REFREEZE'
+          PY
+      - name: Register frozen-contract implementation gap and revoke annual execution
+        run: |
+          python "$GROUP8_ROOT/code/group8_register_pa7_lifecycle_gap008.py" --group8-root "$GROUP8_ROOT"
+      - name: Independent fail-closed and frozen-surface verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());g=json.loads((r/'reports/40_PA7_LIFECYCLE_RETIREMENT_GAP.json').read_text());reg=json.loads((r/'01_DEFINITION_REGISTRY.json').read_text())
+          q=dict(g);h=q.pop('report_hash');assert hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()==h
+          assert g['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and g['classification']=='FROZEN_IMPLEMENTATION_SEMANTIC_VIOLATION'
+          assert g['design_change_required'] is False and g['decision_required'] is False and g['oos_2024_accessed'] is False
+          for did in ('pa_breakout_exact','pa_breakout_atr_buffer','pa_breakout_point_buffer'):
+              rule=reg['definitions'][did]['lifecycle_identity_rule'].lower();assert 'lifecycle termination' in rule and 'retires' in rule
+          assert s['blocking_gap']['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and s['blocking_gap']['status']=='OPEN_CORRECTNESS_FIX_REQUIRED'
+          assert s['engine_build_authorized'] is False and s['annual_execution_authorized'] is False and s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          assert s['previous_closed_blocking_gap']['gap_id']=='G8-PA7-ENUMERATION-EXPLOSION-007'
+          print({'status':'PASS','gap_id':g['gap_id'],'report_hash':h,'2023_authorized':False,'2024_authorized':False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-pa7-lifecycle-gap008-registration
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/40_PA7_LIFECYCLE_RETIREMENT_GAP.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+      - name: Commit fail-closed gap state
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/40_PA7_LIFECYCLE_RETIREMENT_GAP.json" "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Register Group 8 PA7 lifecycle retirement Gap008 [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
