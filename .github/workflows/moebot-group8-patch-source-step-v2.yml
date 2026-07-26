@@ -1,0 +1,100 @@
+name: MoeBot Group 8 Patch Source Step v2
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PATCH_SOURCE_STEP.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Split source restore from schema verification safely
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/moebot-group8-real-design-freeze.yml')
+          text = path.read_text()
+          old_name = '      - name: Restore and verify canonical source database\n'
+          next_name = '      - name: Extract exact consumed categorical values\n'
+          schema_marker = '          python "$GROUP8_ROOT/code/group8_real_schema_intake.py" \\\n'
+
+          if text.count(old_name) != 1:
+              raise SystemExit(f'expected exactly one legacy source step, found {text.count(old_name)}')
+          if text.count(next_name) != 1:
+              raise SystemExit(f'expected exactly one following categorical step, found {text.count(next_name)}')
+
+          start = text.index(old_name)
+          end = text.index(next_name, start)
+          legacy = text[start:end]
+          if legacy.count(schema_marker) != 1:
+              raise SystemExit(f'expected exactly one schema invocation in legacy step, found {legacy.count(schema_marker)}')
+
+          split = legacy.index(schema_marker)
+          restore = legacy[:split].replace(
+              old_name,
+              '      - name: Restore canonical source database and expose identity\n',
+              1,
+          )
+          schema = legacy[split:]
+          replacement = (
+              restore
+              + '      - name: Verify canonical source identity and schema\n'
+              + '        run: |\n'
+              + schema
+          )
+
+          patched = text[:start] + replacement + text[end:]
+          if patched.count('Restore canonical source database and expose identity') != 1:
+              raise SystemExit('restored-source step count is not one')
+          if patched.count('Verify canonical source identity and schema') != 1:
+              raise SystemExit('schema-verification step count is not one')
+          if 'Restore and verify canonical source database' in patched:
+              raise SystemExit('legacy combined source step remains')
+
+          path.write_text(patched)
+          print({'status': 'PATCHED', 'path': str(path)})
+          PY
+      - name: Validate corrected real Design Freeze workflow
+        run: |
+          python -m pip install --disable-pip-version-check --quiet pyyaml
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+
+          path = Path('.github/workflows/moebot-group8-real-design-freeze.yml')
+          text = path.read_text()
+          data = yaml.safe_load(text)
+          jobs = data.get('jobs', {}) if isinstance(data, dict) else {}
+          if set(('preflight', 'intake-year', 'freeze')) - set(jobs):
+              raise SystemExit(f'missing required jobs: {sorted(set(("preflight","intake-year","freeze")) - set(jobs))}')
+          if text.count('Restore canonical source database and expose identity') != 1:
+              raise SystemExit('restore step missing or duplicated')
+          if text.count('Verify canonical source identity and schema') != 1:
+              raise SystemExit('schema step missing or duplicated')
+          if 'Restore and verify canonical source database' in text:
+              raise SystemExit('legacy combined step remains')
+          print({'status': 'PASS', 'jobs': sorted(jobs)})
+          PY
+      - name: Commit corrected workflow to PR branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/moebot-group8-real-design-freeze.yml
+          git diff --cached --check
+          git commit -m "Split Group 8 source restore and schema verification [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
