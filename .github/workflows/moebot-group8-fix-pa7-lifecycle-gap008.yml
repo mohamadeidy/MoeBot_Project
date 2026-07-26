@@ -1,0 +1,128 @@
+name: MoeBot Group 8 Fix PA7 Lifecycle Gap008
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_FIX_PA7_LIFECYCLE_GAP008.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  fix-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight exact Gap008 fail-closed state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');s=json.loads((root/'STATUS.json').read_text());e='a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7'
+          assert hashlib.sha256((root/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()==e
+          g=s['blocking_gap'];assert g['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and g['status']=='OPEN_CORRECTNESS_FIX_REQUIRED' and g['decision_required'] is False and g['design_change_required'] is False
+          assert s['engine_build_authorized'] is False and s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','gap_id':g['gap_id'],'engine_sha256':e,'2023_authorized':False,'2024_authorized':False})
+          PY
+
+      - name: Apply minimal lifecycle retirement correctness fix
+        run: python "$GROUP8_ROOT/code/group8_fix_pa7_lifecycle_retirement.py" --group8-root "$GROUP8_ROOT"
+
+      - name: Compile engine and permanent regressions
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_fix_pa7_lifecycle_retirement.py" \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py"
+
+      - name: Run original Group8 technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+
+      - name: Run lifecycle and locked-context regression matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+
+      - name: Run PA7 same-timeframe regression
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py"
+
+      - name: Run PA7 transition re-arm variant and idempotence regression
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py"
+
+      - name: Run PA7 lifecycle retirement regression
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python "$GROUP8_ROOT/tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py"
+
+      - name: Independent fixed semantics and no-OOS verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');s=json.loads((root/'STATUS.json').read_text());r=json.loads((root/'reports/41_PA7_LIFECYCLE_RETIREMENT_FIX.json').read_text());t=(root/'code/moebot_group8_engine_v0_8_0.py').read_text()
+          q=dict(r);h=q.pop('report_hash');assert hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()==h
+          assert r['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and r['status']=='FIXED_PENDING_TECHNICAL_REFREEZE' and r['oos_2024_accessed'] is False
+          assert r['frozen_surfaces_changed'] is False and r['thresholds_changed'] is False and r['schema_changed'] is False and r['upstream_changed'] is False
+          assert "fvg_terminal=" in t and "group6__fvg_state_transitions" in t and "lower(event_type)='traversed'" in t and "lower(directional_validity)='invalidated'" in t
+          assert "zone_invalidations" in t and "features.get(\"lower_zone_id\")" in t and "features.get(\"upper_zone_id\")" in t
+          assert 'if inactive is not None and int(availability) >= int(inactive): return False' in t
+          g=s['blocking_gap'];assert g['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and g['status']=='FIXED_PENDING_TECHNICAL_REFREEZE'
+          assert s['engine_build_authorized'] is False and s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','fixed_engine_sha256':hashlib.sha256((root/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest(),'fix_report_hash':h,'2024_accessed':False})
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group8-pa7-lifecycle-gap008-fix-evidence
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/41_PA7_LIFECYCLE_RETIREMENT_FIX.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 30
+
+      - name: Commit fixed candidate to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/reports/41_PA7_LIFECYCLE_RETIREMENT_FIX.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Fix Group 8 PA7 lifecycle retirement Gap008 [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
