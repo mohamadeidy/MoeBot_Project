@@ -1,1 +1,2 @@
 Prove upstream-boundary shards plus Group8-range-boundary shards union exactly to the frozen monolithic PA7 chain while upstream shards skip bounded-range construction.
+Retest with ephemeral scratch SQLite journal/fsync disabled; final logical output must remain identical.
