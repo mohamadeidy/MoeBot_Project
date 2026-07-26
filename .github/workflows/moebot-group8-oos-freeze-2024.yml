@@ -1,0 +1,89 @@
+name: MoeBot Group 8 Pre-2024 OOS Freeze
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_OOS_FREEZE_2024.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight merged 2023 PASS and revoked execution
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text())
+          a=json.loads((root/"ANNUAL_2023_VALIDATION_MANIFEST.json").read_text())
+          b=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          if s.get("status")!="ANNUAL_2023_PASS_OOS_FREEZE_REQUIRED": raise SystemExit("wrong pre-OOS phase")
+          if a.get("status")!="ANNUAL_2023_PASS": raise SystemExit("2023 annual manifest not PASS")
+          if s.get("annual_validation_2023",{}).get("manifest_hash")!=a.get("manifest_hash"): raise SystemExit("2023 status/manifest mismatch")
+          if a.get("engine_build_manifest_hash")!=b.get("manifest_hash"): raise SystemExit("2023/build identity mismatch")
+          if s.get("annual_execution_authorized") or s.get("annual_execution_2023_authorized") or s.get("annual_execution_2024_authorized"): raise SystemExit("execution must be fully revoked before OOS freeze")
+          print({"status":"PASS","annual_2023_manifest_hash":a["manifest_hash"],"engine_sha256":a["engine_sha256"]})
+          PY
+      - name: Re-run all frozen technical lifecycle and annual tooling regressions
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
+      - name: Freeze exact pre-2024 identities
+        run: |
+          python "$GROUP8_ROOT/code/group8_freeze_oos_2024.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --output "$GROUP8_ROOT/OOS_FREEZE_MANIFEST.json"
+      - name: Independent OOS freeze verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text())
+          o=json.loads((root/"OOS_FREEZE_MANIFEST.json").read_text())
+          a=json.loads((root/"ANNUAL_2023_VALIDATION_MANIFEST.json").read_text())
+          b=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          if o.get("status")!="FROZEN_FOR_2024_OOS": raise SystemExit("OOS manifest not frozen")
+          if o.get("annual_2023_manifest_hash")!=a.get("manifest_hash"): raise SystemExit("OOS/2023 identity mismatch")
+          if o.get("engine_build_manifest_hash")!=b.get("manifest_hash"): raise SystemExit("OOS/build identity mismatch")
+          if o.get("engine_sha256")!=b.get("identities",{}).get("engine",{}).get("sha256"): raise SystemExit("OOS engine identity mismatch")
+          if s.get("annual_execution_2024_authorized") is not True or s.get("annual_execution_2023_authorized") is not False: raise SystemExit("OOS authorization state invalid")
+          for rel,rec in o.get("identities",{}).items():
+              p=root/rel
+              h=hashlib.sha256(p.read_bytes()).hexdigest()
+              if p.stat().st_size!=int(rec["size_bytes"]) or h!=rec["sha256"]: raise SystemExit(f"frozen identity drift:{rel}")
+          if not all(o.get("immutability_policy",{}).values()): raise SystemExit("immutability policy not fully locked")
+          print({"status":"PASS","oos_freeze_manifest_hash":o["manifest_hash"],"2024_oos_authorized":True})
+          PY
+      - name: Commit immutable OOS freeze evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/OOS_FREEZE_MANIFEST.json" "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Freeze Group 8 pre-2024 OOS identity [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
