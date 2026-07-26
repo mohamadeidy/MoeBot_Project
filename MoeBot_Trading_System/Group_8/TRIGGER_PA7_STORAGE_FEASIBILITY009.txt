@@ -1,2 +1,2 @@
-Trigger exact PA7 transition storage feasibility proof on the lifecycle-corrected 2023 technical candidate.
-Free-only continuation: measure reclaimed zero-cost runner capacity before storage architecture amendment.
+Apply the approved Group 8 free-only lossless sharded storage and handoff amendment.
+No paid runner or paid service; keep 2024 OOS untouched.
