@@ -31,12 +31,15 @@ jobs:
           python -m py_compile \
             "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" \
             "$GROUP8_ROOT/code/group8_annual_validation.py" \
-            "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+            "$GROUP8_ROOT/code/group8_finalize_annual_2023.py" \
+            "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py" \
+            "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
       - name: Run annual tooling synthetic validation
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
         run: |
           python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
       - name: Regression technical and lifecycle matrices
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
