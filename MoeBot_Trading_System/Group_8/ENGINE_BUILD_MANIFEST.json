@@ -1,0 +1,57 @@
+{
+  "annual_execution_2023_authorized": true,
+  "annual_execution_2024_authorized": false,
+  "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
+  "definition_registry_hash": "fbb23ca75836e7bf29949d2c30b8940fb1f4b5c8115314665e2a862841111579",
+  "design_freeze_hash": "b8847f6e5d9f24893ae0cd2dfc7a9f44ec05ed76fa05abd804197c470ce00672",
+  "engine_version": "0.8.0",
+  "format_version": 1,
+  "identities": {
+    "config": {
+      "path": "FROZEN_CONFIG.json",
+      "sha256": "d58015a0b99d0d38959cfc5089714aee6d19cf21d2b0eb6a38535dfe5f7ed727",
+      "size_bytes": 4759
+    },
+    "definitions": {
+      "path": "01_DEFINITION_REGISTRY.json",
+      "sha256": "b66a8f6c50a8d60905978c2f69e7cb284ceded049ac49cf564df8e0d9bb474de",
+      "size_bytes": 27738
+    },
+    "engine": {
+      "path": "code/moebot_group8_engine_v0_8_0.py",
+      "sha256": "b6387dae6ca911d7d1cf43b3ce65cb35383cc125d501478d68187b237f030db7",
+      "size_bytes": 89318
+    },
+    "materializer": {
+      "path": "code/group8_materialize_inputs.py",
+      "sha256": "bd6927c0195e0b3a8070f6921fe19b09ea5eb003e1053592d6b9551a8aaf901d",
+      "size_bytes": 9717
+    },
+    "schema": {
+      "path": "02_SCHEMA.sql",
+      "sha256": "69382b60266857c0d5aa8662ee6d98d47ae20288bac4d76149aba438eec2d6c1",
+      "size_bytes": 17297
+    },
+    "technical_audit": {
+      "path": "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json",
+      "sha256": "0f546f5f7783f635e90546d3077c7cbaf07b85aa0463fa1621e9b9762551e2ca",
+      "size_bytes": 1439
+    },
+    "tests": {
+      "path": "tests/test_group8_engine_v0_8_0.py",
+      "sha256": "81cc95e4b1c5ef226d3dbf95994ebffb97a23e1b046a6da737efa51d02a79576",
+      "size_bytes": 25131
+    },
+    "upstream_contract": {
+      "path": "contracts/UPSTREAM_INPUT_CONTRACT.json",
+      "sha256": "42a31b5002478c1ceeacd90ee49bfe926c4c87375b17cf90816bebe208225407",
+      "size_bytes": 15382
+    }
+  },
+  "manifest_hash": "9bd7de153f83786f0cb6610774b0e2af07aec80360f784d93dcd5554b4f56819",
+  "policy": "2023 in-sample engineering validation authorized; 2024 remains forbidden until post-2023 engine/config freeze",
+  "schema_version": "8.0.0",
+  "status": "TECHNICAL_CANDIDATE_PASS",
+  "technical_audit_hash": "2e073af24c6b28be21d24b88fa469779729fd63ccd60f5af77156c23edace6c7",
+  "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a"
+}
