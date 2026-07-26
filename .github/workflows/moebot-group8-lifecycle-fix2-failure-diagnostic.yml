@@ -1,0 +1,58 @@
+name: MoeBot Group 8 Lifecycle Fix2 Failure Diagnostic
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_LIFECYCLE_FIX2_FAILURE_DIAGNOSTIC.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Reproduce corrected lifecycle regression and capture remaining failure
+        run: |
+          python "$GROUP8_ROOT/code/group8_apply_lifecycle_hardening.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --build-workflow ".github/workflows/moebot-group8-engine-build.yml"
+          python "$GROUP8_ROOT/code/group8_fix_audit_evidence_idempotence.py" \
+            --group8-root "$GROUP8_ROOT"
+          python - <<'PY'
+          import hashlib, json, os, re, subprocess, sys
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          env=os.environ.copy(); env["PYTHONPATH"]=f"{root/'code'}:{root/'tests'}"
+          p=subprocess.run([sys.executable,str(root/'tests/test_group8_lifecycle_persistence_v0_8_0.py')],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,env=env)
+          lines=p.stdout.splitlines()
+          headers=[x.strip() for x in lines if re.match(r"^(FAIL|ERROR): ",x.strip())]
+          assertions=[x.strip() for x in lines if "AssertionError" in x or "RuntimeError" in x or "Traceback" in x]
+          report={"format_version":1,"status":"DIAGNOSTIC_CAPTURED","phase":"ENGINE_LIFECYCLE_FIX2_RETEST","source_run_id":30195159166,"source_job_id":89775249471,"test_returncode":p.returncode,"failure_headers":headers,"assertion_lines":assertions,"output_sha256":hashlib.sha256(p.stdout.encode()).hexdigest(),"output_tail":lines[-200:]}
+          report["report_hash"]=hashlib.sha256(json.dumps(report,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+          (root/"reports/25_LIFECYCLE_FIX2_FAILURE_DIAGNOSTIC.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+          print(json.dumps({"returncode":p.returncode,"failures":headers,"assertions":assertions[-10:]},indent=2))
+          PY
+      - name: Commit diagnostic evidence only
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/25_LIFECYCLE_FIX2_FAILURE_DIAGNOSTIC.json"
+          git diff --cached --check
+          git commit -m "Record Group 8 lifecycle fix2 failure diagnostic [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
