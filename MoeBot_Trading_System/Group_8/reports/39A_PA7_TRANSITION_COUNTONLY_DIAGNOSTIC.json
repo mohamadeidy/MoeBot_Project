@@ -1,0 +1,85 @@
+{
+  "bar_count": 466723,
+  "bounded_range_count": 93834,
+  "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+  "format_version": 1,
+  "group6_boundary_count": 252953,
+  "observations": {
+    "frozen_state_changed": false,
+    "group4_group5_group7_excluded": true,
+    "no_breakout_rows_materialized": true,
+    "oos_2024_accessed": false,
+    "same_transition_rules_as_PA7E2_A2_P2": true
+  },
+  "per_series": {
+    "XAUUSD_::D1": {
+      "atr": 943,
+      "exact": 967,
+      "initialization": 209,
+      "point": 0,
+      "rearmed": 1701,
+      "total": 1910
+    },
+    "XAUUSD_::H1": {
+      "atr": 582387,
+      "exact": 584778,
+      "initialization": 3679,
+      "point": 0,
+      "rearmed": 1163486,
+      "total": 1167165
+    },
+    "XAUUSD_::H4": {
+      "atr": 71746,
+      "exact": 72935,
+      "initialization": 1093,
+      "point": 0,
+      "rearmed": 143588,
+      "total": 144681
+    },
+    "XAUUSD_::M1": {
+      "atr": 46303684,
+      "exact": 46306225,
+      "initialization": 299033,
+      "point": 0,
+      "rearmed": 92310876,
+      "total": 92609909
+    },
+    "XAUUSD_::M15": {
+      "atr": 4664398,
+      "exact": 4670269,
+      "initialization": 14592,
+      "point": 0,
+      "rearmed": 9320075,
+      "total": 9334667
+    },
+    "XAUUSD_::M30": {
+      "atr": 194901,
+      "exact": 195458,
+      "initialization": 7127,
+      "point": 0,
+      "rearmed": 383232,
+      "total": 390359
+    },
+    "XAUUSD_::M5": {
+      "atr": 3214448,
+      "exact": 3218484,
+      "initialization": 46596,
+      "point": 0,
+      "rearmed": 6386336,
+      "total": 6432932
+    }
+  },
+  "pre_amendment_candidate_lower_bound": 74600565353,
+  "reduction_fraction": 0.9985243862096874,
+  "report_hash": "a4f62c29a1e5198ba0b0b496e4db29b177fa94aa94a500c8338e6c874359e6a3",
+  "scope": "EXACT_LOGICAL_COUNT_GROUP6_PLUS_GROUP8_2023_NO_BREAKOUT_MATERIALIZATION",
+  "status": "PASS",
+  "transition_counts": {
+    "atr": 55032507,
+    "exact": 55049116,
+    "initialization": 372329,
+    "point": 0,
+    "rearmed": 109709294,
+    "total": 110081623
+  }
+}
