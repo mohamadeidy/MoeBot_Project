@@ -1,4 +1,4 @@
-name: MoeBot Group 8 Free Runner Capacity Probe
+name: MoeBot Group 8 Free Storage Amendment Gate
 
 "on":
   pull_request:
@@ -14,9 +14,9 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  free-capacity-probe:
+  amend-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,69 +35,97 @@ jobs:
           assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()==e
           assert m['status']=='TECHNICAL_CANDIDATE_PASS' and m['identities']['engine']['sha256']==e
           assert s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
-          print({'status':'PASS','engine_sha256':e,'free_only_probe':True,'oos_2024':False})
+          print({'status':'PASS','engine_sha256':e,'free_only':True,'oos_2024':False})
           PY
-          python -m py_compile "$GROUP8_ROOT/code/group8_free_capacity_probe.py"
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_free_capacity_probe.py" \
+            "$GROUP8_ROOT/code/group8_apply_free_sharded_storage_amendment.py"
 
-      - name: Record runner disk before free cleanup
+      - name: Reclaim unused preinstalled runner tooling
         run: |
-          echo '=== DF BEFORE ==='
-          df -h /
-          echo '=== LARGE PREINSTALLED DIRECTORIES ==='
-          sudo du -sh /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL 2>/dev/null || true
-
-      - name: Reclaim only unused preinstalled runner tooling
-        run: |
+          echo '=== DF BEFORE ==='; df -h /
           docker system prune -af || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /opt/ghc || true
-          sudo rm -rf /usr/local/lib/android || true
-          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
           sudo apt-get clean || true
-          echo '=== DF AFTER FREE CLEANUP ==='
-          df -h /
+          echo '=== DF AFTER FREE CLEANUP ==='; df -h /
 
-      - name: Run free-only capacity proof
+      - name: Reproduce free-only capacity evidence
         run: |
           python "$GROUP8_ROOT/code/group8_free_capacity_probe.py" \
             --group8-root "$GROUP8_ROOT" \
             --output "$GROUP8_ROOT/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json"
 
-      - name: Independent capacity report verification
+      - name: Apply approved free-only lossless sharded storage amendment
+        run: |
+          python "$GROUP8_ROOT/code/group8_apply_free_sharded_storage_amendment.py" --group8-root "$GROUP8_ROOT"
+
+      - name: Verify amendment identities and forbidden surfaces
         run: |
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
-          p=Path('MoeBot_Trading_System/Group_8/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json');r=json.loads(p.read_text());q=dict(r);saved=q.pop('report_hash')
-          actual=hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
-          assert saved==actual and r['status']=='PASS'
-          assert r['fixed_text_bytes_per_transition']==401
-          assert r['structural_lower_bound_bytes']==54413814*401
-          assert r['policy']=={'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False}
-          assert r['oos_2024_accessed'] is False
-          print({'status':'PASS','free_gb':r['runner_filesystem_free_bytes']/1e9,'structural_lower_bound_gb':r['structural_lower_bound_decimal_gb'],'remaining_after_structural_gb':r['remaining_free_bytes_after_structural_bound']/1e9})
+          root=Path('MoeBot_Trading_System/Group_8')
+          c=json.loads((root/'SHARDED_STORAGE_CONTRACT.json').read_text());f=json.loads((root/'DESIGN_FREEZE_MANIFEST.json').read_text());s=json.loads((root/'STATUS.json').read_text());r=json.loads((root/'reports/44_FREE_ONLY_SHARDED_STORAGE_DESIGN_AMENDMENT.json').read_text())
+          def stable(v): return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          q=dict(c);ch=q.pop('storage_contract_hash');assert stable(q)==ch
+          q=dict(f);fh=q.pop('design_freeze_hash');assert stable(q)==fh
+          q=dict(r);rh=q.pop('report_hash');assert stable(q)==rh
+          assert c['free_only_policy']['paid_runner_allowed'] is False and c['free_only_policy']['paid_service_allowed'] is False
+          assert c['logical_contract']['definitions_unchanged'] and c['logical_contract']['thresholds_unchanged'] and c['logical_contract']['oos_2024_untouched']
+          assert f['storage_contract_hash']==ch and f['storage_amendment']['approved_execution_policy']=='FREE_ONLY'
+          assert r['storage_contract_hash']==ch and r['amended_design_freeze_hash']==fh and r['oos_2024_accessed'] is False
+          assert s['storage_contract_hash']==ch and s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False
+          assert s['blocking_gap']['gap_id']=='G8-FREE-STORAGE-CAPACITY-009' and s['blocking_gap']['decision_required'] is False
+          assert s['engine_build']['status']=='TECHNICAL_CANDIDATE_PENDING_SHARDED_STORAGE_REFREEZE'
+          assert s['officially_closed'] is False
+          e=hashlib.sha256((root/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest();assert e==r['amended_engine_sha256']==s['engine_build']['engine_sha256']
+          print({'status':'PASS','storage_contract_hash':ch,'design_freeze_hash':fh,'engine_sha256':e,'2023_authorized':False,'2024_authorized':False})
           PY
           git diff --exit-code origin/main -- \
-            "$GROUP8_ROOT/STATUS.json" "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
-            "$GROUP8_ROOT/00_DESIGN_LOCK.md" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/FROZEN_CONFIG.json" \
-            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
-            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json" \
-            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py"
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" \
+            "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" \
+            "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/UPSTREAM_ADAPTER_MAP.json" \
+            "$GROUP8_ROOT/UPSTREAM_VALUE_BINDINGS.json" \
+            "$GROUP8_ROOT/UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json" \
+            "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+
+      - name: Retest semantic engine matrices after storage-only amendment
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python -m unittest \
+            "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_breakout_timeframe_isolation_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_transition_event_v0_8_0.py" \
+            "$GROUP8_ROOT/tests/test_group8_pa7_lifecycle_retirement_v0_8_0.py"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: group8-free-runner-capacity-probe
-          path: ${{ env.GROUP8_ROOT }}/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json
-          if-no-files-found: warn
+          name: group8-free-sharded-storage-amendment
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json
+            ${{ env.GROUP8_ROOT }}/reports/44_FREE_ONLY_SHARDED_STORAGE_DESIGN_AMENDMENT.json
+            ${{ env.GROUP8_ROOT }}/SHARDED_STORAGE_CONTRACT.json
+            ${{ env.GROUP8_ROOT }}/DESIGN_FREEZE_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
           retention-days: 30
 
-      - name: Commit permanent free capacity evidence
+      - name: Commit verified free-only storage amendment
         if: github.event_name == 'pull_request' && success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$GROUP8_ROOT/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json"
+          git add \
+            "$GROUP8_ROOT/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json" \
+            "$GROUP8_ROOT/reports/44_FREE_ONLY_SHARDED_STORAGE_DESIGN_AMENDMENT.json" \
+            "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" \
+            "$GROUP8_ROOT/00_DESIGN_LOCK.md" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/STATUS.json"
           git diff --cached --check
-          git commit -m "Record Group 8 free runner capacity probe [skip ci]"
+          git commit -m "Apply Group 8 free-only sharded storage amendment [skip ci]"
           git push origin "HEAD:${{ github.head_ref }}"
