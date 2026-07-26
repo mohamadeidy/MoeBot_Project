@@ -1,2 +1,2 @@
 Apply the approved Group 8 free-only lossless sharded storage and handoff amendment.
-Retry delivery with hardened commit step after all amendment and semantic regression gates passed; no paid runner/service and no 2024 OOS access.
+Final gate from stable head with causal-root bucketing; no paid runner/service and no 2024 OOS access.
