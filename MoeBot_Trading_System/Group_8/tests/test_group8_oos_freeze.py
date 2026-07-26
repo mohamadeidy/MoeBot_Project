@@ -14,7 +14,7 @@ ART = Path(__file__).resolve().parents[1]
 
 
 class OOSFreezeTests(unittest.TestCase):
-    def test_freeze_binds_2023_and_authorizes_2024_only(self):
+    def test_freeze_binds_2023_validator_gap_and_authorizes_2024_only(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             for rel in ("ENGINE_BUILD_MANIFEST.json", "DESIGN_FREEZE_MANIFEST.json", "FROZEN_CONFIG.json"):
@@ -58,13 +58,25 @@ class OOSFreezeTests(unittest.TestCase):
             status["status"] = "ANNUAL_2023_PASS_OOS_FREEZE_REQUIRED"
             (root / "STATUS.json").write_text(json.dumps(status) + "\n")
 
+            validation_2023 = {
+                "format_version": 1,
+                "status": "PASS",
+                "year": 2023,
+                "locked_context_violations": 0,
+                "failures": [],
+            }
+            (root / "reports").mkdir(parents=True, exist_ok=True)
+            (root / "reports/32_ANNUAL_2023_VALIDATION.json").write_text(json.dumps(validation_2023) + "\n")
+
             required = [
                 "00_DESIGN_LOCK.md", "01_DEFINITION_REGISTRY.json", "02_SCHEMA.sql",
                 "contracts/UPSTREAM_INPUT_CONTRACT.json", "UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json",
                 "UPSTREAM_ADAPTER_MAP.json", "UPSTREAM_VALUE_BINDINGS.json", "UPSTREAM_REFERENCE_RESOLUTION.json",
                 "code/moebot_group8_engine_v0_8_0.py", "code/group8_materialize_inputs.py", "code/group8_postprocess_v0_8_0.py",
+                "code/group8_annual_validation.py",
                 "tests/test_group8_engine_v0_8_0.py", "tests/test_group8_lifecycle_persistence_v0_8_0.py",
-                "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json", "reports/30_ANNUAL_2023_MATERIALIZATION.json",
+                "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json", "reports/27_LOCKED_CONTEXT_GAP_DIAGNOSTIC.json",
+                "reports/28_LOCKED_CONTEXT_GAP_ANALYSIS.json", "reports/30_ANNUAL_2023_MATERIALIZATION.json",
                 "reports/31_ANNUAL_2023_ENGINE_AUDIT.json", "reports/32_ANNUAL_2023_VALIDATION.json",
                 "reports/33_ANNUAL_2023_OUTPUT_FINGERPRINT.json", "reports/34_ANNUAL_2023_CLEAN_RECONSTRUCTION.json",
             ]
@@ -88,13 +100,20 @@ class OOSFreezeTests(unittest.TestCase):
                 sys.argv = argv
             manifest = json.loads(output.read_text())
             updated = json.loads((root / "STATUS.json").read_text())
+            self.assertEqual(manifest["format_version"], 2)
             self.assertEqual(manifest["status"], "FROZEN_FOR_2024_OOS")
             self.assertEqual(manifest["annual_2023_manifest_hash"], annual["manifest_hash"])
             self.assertEqual(manifest["engine_sha256"], annual["engine_sha256"])
+            self.assertEqual(manifest["annual_validator_sha256"], build["identities"]["annual_validator"]["sha256"])
+            self.assertEqual(manifest["closed_blocking_gap"]["gap_id"], "G8-ICT-LOCKED-CONTEXT-005")
+            self.assertEqual(manifest["closed_blocking_gap"]["2023_locked_context_violations"], 0)
+            self.assertTrue(manifest["immutability_policy"]["annual_validator_changes_before_2024_forbidden"])
+            self.assertTrue(manifest["immutability_policy"]["locked_context_fix_changes_before_2024_forbidden"])
             self.assertTrue(manifest["immutability_policy"]["2023_result_conditioned_changes_forbidden"])
             self.assertTrue(updated["annual_execution_authorized"])
             self.assertFalse(updated["annual_execution_2023_authorized"])
             self.assertTrue(updated["annual_execution_2024_authorized"])
+            self.assertEqual(updated["oos_freeze_2024"]["annual_validator_sha256"], manifest["annual_validator_sha256"])
             self.assertEqual(updated["status"], "OOS_2024_FROZEN_AND_AUTHORIZED")
 
 
