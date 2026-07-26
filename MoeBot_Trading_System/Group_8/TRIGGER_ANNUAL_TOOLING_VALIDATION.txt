@@ -1,0 +1,1 @@
+Revalidate the complete Group 8 annual tooling set after adding the 2023 finalizer and real annual workflow. Compile auditor/fingerprint/finalizer tests, run synthetic annual validation and finalizer state transition tests, then rerun all technical and lifecycle matrices. Do not execute real annual data.
