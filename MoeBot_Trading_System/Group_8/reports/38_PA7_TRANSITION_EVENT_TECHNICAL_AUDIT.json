@@ -1,0 +1,46 @@
+{
+  "2024_accessed": false,
+  "base_technical_audit_hash": "65fc359c2faa394cfb0677ab26c626beb4cac52f8a406d02f5e95680867c84f5",
+  "checks": {
+    "amendment_evidence_valid": true,
+    "base_technical_audit_pass": true,
+    "design_freeze_identity": true,
+    "exact_engine_identity": true,
+    "fail_closed_pre_refreeze": true,
+    "no_2024_access_or_logic": true,
+    "persistent_nested_boundary_loop_removed": true,
+    "registry_identity": true,
+    "regressions_present": true,
+    "same_timeframe_group6_guard_retained": true,
+    "three_independent_transition_variants_frozen": true,
+    "thresholds_schema_unchanged": true,
+    "transition_engine_present": true,
+    "upstream_lineage_unchanged": true
+  },
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "design_amendment_report_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
+  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+  "failures": [],
+  "format_version": 1,
+  "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
+  "hashes": {
+    "amendment_report_file_sha256": "422b18e404e43fee15f589504109accf37463a4998f78ca54457c0de7d429e1c",
+    "definition_registry_file_sha256": "b81341ea8766707e3d72c99f5d91f4efba6c22ac81202dd556894f62737fad3d",
+    "design_freeze_file_sha256": "ce02a4e403e7f3868341675c4236a8e44795792fa5e69d323f580a0799439a63",
+    "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+    "frozen_config_sha256": "d58015a0b99d0d38959cfc5089714aee6d19cf21d2b0eb6a38535dfe5f7ed727",
+    "schema_sha256": "69382b60266857c0d5aa8662ee6d98d47ae20288bac4d76149aba438eec2d6c1",
+    "timeframe_regression_sha256": "d940a33c7e874c505e669ba875af0b632d17069d6d599c0d9eaf45284a6a6251",
+    "transition_regression_sha256": "303d1d5aaea2912c5d149c963cebb1f83ab9dbb66f5a29e1a8ccf7b2fe306f10",
+    "upstream_contract_sha256": "42a31b5002478c1ceeacd90ee49bfe926c4c87375b17cf90816bebe208225407"
+  },
+  "phase": "PA7_TRANSITION_EVENT_TECHNICAL_AUDIT",
+  "report_hash": "c9a2e96eb50621fdc060be00dadbe4e45997437c772665264f5d3b06988a1733",
+  "status": "PASS",
+  "variant_versions": {
+    "pa_breakout_atr_buffer": "PA7A.2",
+    "pa_breakout_exact": "PA7E.2",
+    "pa_breakout_point_buffer": "PA7P.2"
+  }
+}
