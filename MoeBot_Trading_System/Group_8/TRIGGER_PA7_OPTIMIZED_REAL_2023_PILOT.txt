@@ -1,0 +1,1 @@
+Run optimized free-only M1 January PA7 pilots for upstream and Group8-range scopes using compact staging. Keep 2024 OOS forbidden.
