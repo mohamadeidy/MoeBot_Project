@@ -1,0 +1,93 @@
+name: MoeBot Group 8 Lifecycle Audit Idempotence Fix
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_LIFECYCLE_AUDIT_IDEMPOTENCE_FIX.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  fix-review-retest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply reviewed lifecycle hardening and proven audit-idempotence fix
+        run: |
+          python "$GROUP8_ROOT/code/group8_apply_lifecycle_hardening.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --build-workflow ".github/workflows/moebot-group8-engine-build.yml"
+          python "$GROUP8_ROOT/code/group8_fix_audit_evidence_idempotence.py" \
+            --group8-root "$GROUP8_ROOT"
+      - name: Compile all Group 8 code and tests
+        run: |
+          find "$GROUP8_ROOT/code" "$GROUP8_ROOT/tests" -type f -name '*.py' -print0 | xargs -0 -n1 python -m py_compile
+      - name: Run original frozen technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+      - name: Run corrected lifecycle persistence regression matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+      - name: Independent gap-fix verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text())
+          diagnostic=json.loads((root/"reports/23_LIFECYCLE_HARDENING_V2_FAILURE_DIAGNOSTIC.json").read_text())
+          gap=json.loads((root/"reports/24_LIFECYCLE_AUDIT_IDEMPOTENCE_GAP_ANALYSIS.json").read_text())
+          post=(root/"code/group8_postprocess_v0_8_0.py").read_text()
+          test=(root/"tests/test_group8_lifecycle_persistence_v0_8_0.py").read_text()
+          if diagnostic.get("report_hash")!="3e398fbbbfc72db1545a44e5a88ec449535541348cccf537731d31052a90e6df":
+              raise SystemExit("diagnostic evidence drift")
+          if gap.get("status")!="BLOCKING_GAP_FIXED_PENDING_RETEST" or gap.get("gap_id")!="G8-ENGINE-LIFECYCLE-AUDIT-IDEMPOTENCE-003":
+              raise SystemExit("audit-idempotence gap report invalid")
+          required_post=["duplicate audit evidence identity already present","conflicting audit status on deterministic rerun","WHERE check_name=? AND scope=? AND checked_at=?"]
+          if any(x not in post for x in required_post):
+              raise SystemExit("audit duplicate prevention markers missing")
+          if "duplicate_audit_keys" not in test or "self.assertEqual(audit_before, audit_after)" not in test:
+              raise SystemExit("audit idempotence regression not strengthened")
+          if status.get("annual_execution_2023_authorized") or status.get("annual_execution_2024_authorized") or status.get("annual_execution_authorized"):
+              raise SystemExit("annual authorization must remain revoked pending technical re-freeze")
+          engine_sha=hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest()
+          if engine_sha=="58d8283d18a93b25e33f3ec5b991a926318f4591a0aa24e4fc1ee2955e7d1e88":
+              raise SystemExit("lifecycle hardening did not change engine identity")
+          print({"status":"PASS","patched_engine_sha256":engine_sha,"gap_report_hash":gap["report_hash"]})
+          PY
+      - name: Commit corrected lifecycle hardening to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            "$GROUP8_ROOT/code/group8_finalize_engine_build.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/reports/22_ENGINE_LIFECYCLE_PERSISTENCE_GAP_ANALYSIS.json" \
+            "$GROUP8_ROOT/reports/24_LIFECYCLE_AUDIT_IDEMPOTENCE_GAP_ANALYSIS.json" \
+            "$GROUP8_ROOT/STATUS.json" \
+            .github/workflows/moebot-group8-engine-build.yml
+          git diff --cached --check
+          git commit -m "Fix Group 8 lifecycle audit-evidence idempotence [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
