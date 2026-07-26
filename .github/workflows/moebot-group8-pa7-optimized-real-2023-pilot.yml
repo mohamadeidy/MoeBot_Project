@@ -1,0 +1,138 @@
+name: MoeBot Group 8 PA7 Optimized Real 2023 Free Pilot
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_OPTIMIZED_REAL_2023_PILOT.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  pilot:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scope: upstream
+            bucket_count: 8
+            bucket_index: 0
+          - scope: group8_range
+            bucket_count: 2
+            bucket_index: 0
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact free-only frozen state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());f=json.loads((r/'DESIGN_FREEZE_MANIFEST.json').read_text());c=json.loads((r/'SHARDED_STORAGE_CONTRACT.json').read_text())
+          assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()=='ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0'
+          assert f['design_freeze_hash']=='213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a'
+          assert c['storage_contract_hash']=='d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a'
+          assert c['free_only_policy']['paid_runner_allowed'] is False and c['free_only_policy']['paid_service_allowed'] is False
+          assert s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','year':2023,'free_only':True,'oos_2024':False})
+          PY
+          python -m py_compile "$GROUP8_ROOT/code/group8_pa7_materialize_inputs.py" "$GROUP8_ROOT/code/group8_pa7_scoped_shard_executor.py"
+      - name: Reclaim unused preinstalled runner storage
+        run: |
+          docker system prune -af || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean || true
+          df -h /
+      - name: Install archive tool
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+      - name: Materialize compact exact PA7 2023 staging
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-pilot/work" "$RUNNER_TEMP/g8-pilot/reports"
+          START=$(date +%s)
+          python "$GROUP8_ROOT/code/group8_pa7_materialize_inputs.py" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-pilot/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-pilot/work" \
+            --report "$RUNNER_TEMP/g8-pilot/reports/MATERIALIZATION.json"
+          END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/g8-pilot/reports/MATERIALIZATION_SECONDS.txt"
+          python .github/scripts/group8_ephemeral_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-pilot/staging.sqlite" --year 2023 --phase "pa7-optimized-${{ matrix.scope }}" \
+            --output "$RUNNER_TEMP/g8-pilot/reports/STAGING_INDEX_REPORT.json"
+      - name: Execute optimized M1 January shard
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          START=$(date +%s)
+          /usr/bin/time -v -o "$RUNNER_TEMP/g8-pilot/reports/TIME.txt" \
+            python "$GROUP8_ROOT/code/group8_pa7_scoped_shard_executor.py" \
+              --staging-db "$RUNNER_TEMP/g8-pilot/staging.sqlite" \
+              --work-db "$RUNNER_TEMP/g8-pilot/work-pa7.sqlite" \
+              --output-db "$RUNNER_TEMP/g8-pilot/pa7-shard.sqlite" \
+              --artifacts-root "$GROUP8_ROOT" --year 2023 --symbol XAUUSD_ --timeframe M1 \
+              --root-month 2023-01 --bucket-count ${{ matrix.bucket_count }} --bucket-index ${{ matrix.bucket_index }} \
+              --boundary-scope ${{ matrix.scope }} \
+              --manifest "$RUNNER_TEMP/g8-pilot/reports/SHARD_MANIFEST.json"
+          END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/g8-pilot/reports/EXECUTION_SECONDS.txt"
+          zstd -q -3 -T0 -f "$RUNNER_TEMP/g8-pilot/pa7-shard.sqlite" -o "$RUNNER_TEMP/g8-pilot/pa7-shard.sqlite.zst"
+      - name: Build pilot report
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,re
+          from pathlib import Path
+          base=Path(os.environ['RUNNER_TEMP'])/'g8-pilot';repo=Path('MoeBot_Trading_System/Group_8');m=json.loads((base/'reports/SHARD_MANIFEST.json').read_text());mat=json.loads((base/'reports/MATERIALIZATION.json').read_text());c=json.loads((repo/'SHARDED_STORAGE_CONTRACT.json').read_text())
+          scope='${{ matrix.scope }}';bc=int('${{ matrix.bucket_count }}');bi=int('${{ matrix.bucket_index }}');execution=int((base/'reports/EXECUTION_SECONDS.txt').read_text());materialization=int((base/'reports/MATERIALIZATION_SECONDS.txt').read_text());txt=(base/'reports/TIME.txt').read_text();mm=re.search(r'Maximum resident set size \(kbytes\):\s*(\d+)',txt);rss=int(mm.group(1))*1024 if mm else None;raw=base/'pa7-shard.sqlite';z=base/'pa7-shard.sqlite.zst'
+          def stable(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          report={'format_version':1,'status':'PASS','phase':'PA7_OPTIMIZED_REAL_2023_FREE_PILOT','year':2023,'symbol':'XAUUSD_','timeframe':'M1','root_month':'2023-01','boundary_scope':scope,'bucket_count':bc,'bucket_index':bi,'materialization_seconds':materialization,'execution_seconds':execution,'peak_rss_bytes':rss,'raw_shard_size_bytes':raw.stat().st_size,'compressed_shard_size_bytes':z.stat().st_size,'candidate_rows':m['table_row_counts']['price_action_pattern_candidate'],'state_rows':m['table_row_counts']['price_action_pattern_state'],'definition_coverage':m['definition_coverage'],'shard_manifest_hash':m['manifest_hash'],'shard_logical_hashes':m['table_logical_sha256'],'materialization_report_hash':mat['report_hash'],'soft_target_bytes':c['partitioning']['soft_target_uncompressed_bytes'],'hard_guard_bytes':c['partitioning']['runtime_hard_guard_bytes'],'within_soft_target':raw.stat().st_size<=c['partitioning']['soft_target_uncompressed_bytes'],'within_hard_guard':raw.stat().st_size<=c['partitioning']['runtime_hard_guard_bytes'],'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};report['report_hash']=stable(report);out=Path(os.environ['RUNNER_TEMP'])/f'pilot-{scope}.json';out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps(report,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pa7-pilot-${{ matrix.scope }}
+          path: ${{ runner.temp }}/pilot-${{ matrix.scope }}.json
+          retention-days: 2
+
+  aggregate:
+    needs: pilot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pa7-pilot-*
+          path: ${{ runner.temp }}/pilots
+          merge-multiple: true
+      - name: Aggregate and freeze pilot evidence
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'pilots';rows=[json.loads(x.read_text()) for x in sorted(p.glob('*.json'))];assert len(rows)==2 and all(r['status']=='PASS' and r['free_only'] and not r['oos_2024_accessed'] for r in rows);by={r['boundary_scope']:r for r in rows};assert set(by)=={'upstream','group8_range'}
+          def stable(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          rec={'format_version':1,'status':'PASS','phase':'PA7_OPTIMIZED_REAL_2023_FREE_PILOT_AGGREGATE','pilots':by,'policy':{'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False},'oos_2024_accessed':False};rec['report_hash']=stable(rec);out=Path('MoeBot_Trading_System/Group_8/reports/46A_PA7_OPTIMIZED_REAL_2023_FREE_PILOT.json');out.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');print(json.dumps(rec,indent=2,sort_keys=True))
+          PY
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/STATUS.json" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/contracts/UPSTREAM_INPUT_CONTRACT.json"
+      - name: Commit permanent optimized pilot evidence
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/46A_PA7_OPTIMIZED_REAL_2023_FREE_PILOT.json"
+          git commit -m "Record Group 8 optimized real 2023 free PA7 pilot [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
