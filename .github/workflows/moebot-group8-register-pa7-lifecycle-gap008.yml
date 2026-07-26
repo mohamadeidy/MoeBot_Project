@@ -48,8 +48,12 @@ jobs:
           q=dict(g);h=q.pop('report_hash');assert hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()==h
           assert g['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and g['classification']=='FROZEN_IMPLEMENTATION_SEMANTIC_VIOLATION'
           assert g['design_change_required'] is False and g['decision_required'] is False and g['oos_2024_accessed'] is False
-          for did in ('pa_breakout_exact','pa_breakout_atr_buffer','pa_breakout_point_buffer'):
-              rule=reg['definitions'][did]['lifecycle_identity_rule'].lower();assert 'lifecycle termination' in rule and 'retires' in rule
+          exact=reg['definitions']['pa_breakout_exact'];atr=reg['definitions']['pa_breakout_atr_buffer'];point=reg['definitions']['pa_breakout_point_buffer']
+          er=exact['lifecycle_identity_rule'].lower();assert exact['version']=='PA7E.2' and 'lifecycle termination' in er and 'retires' in er
+          for d,v in ((atr,'PA7A.2'),(point,'PA7P.2')):
+              assert d['version']==v
+              assert 'same independent transition-event state machine as pa_breakout_exact' in d['enumeration_rule'].lower()
+              assert 'exact boundary identity' in d['lifecycle_identity_rule'].lower()
           assert s['blocking_gap']['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and s['blocking_gap']['status']=='OPEN_CORRECTNESS_FIX_REQUIRED'
           assert s['engine_build_authorized'] is False and s['annual_execution_authorized'] is False and s['annual_execution_2023_authorized'] is False and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
           assert s['previous_closed_blocking_gap']['gap_id']=='G8-PA7-ENUMERATION-EXPLOSION-007'
