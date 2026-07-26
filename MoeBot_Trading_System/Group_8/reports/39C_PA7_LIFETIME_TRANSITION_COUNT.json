@@ -1,0 +1,473 @@
+{
+  "bar_count": 466723,
+  "bounded_range_count": 93834,
+  "causal_retirement_rules_applied": {
+    "group4": "expires_at and first causally inactive transition/interaction already used by Group8 zone state logic",
+    "group6_bpr_relations": "right-censored; final state is not back-projected historically",
+    "group6_fvg_events": "first traversed transition with directional_validity=invalidated; transition_time is already consumed by Group8 ICT4 as event/confirmation/availability time",
+    "group6_imbalance_variants": "right-censored; no causal retirement timestamp in frozen adapter",
+    "group6_liquidity_voids": "right-censored; final state is not back-projected historically",
+    "group8_bounded_ranges": "first invalidation of either locked Group4 zone, matching frozen PA6G.1 invalidation rule"
+  },
+  "counts_by_source": {
+    "group4_zones": {
+      "atr": 23551,
+      "exact": 23966,
+      "initialization": 18630,
+      "point": 0,
+      "rearmed": 28887,
+      "total": 47517
+    },
+    "group6_bpr_relations": {
+      "atr": 4607190,
+      "exact": 4607523,
+      "initialization": 38940,
+      "point": 0,
+      "rearmed": 9175773,
+      "total": 9214713
+    },
+    "group6_fvg_events": {
+      "atr": 182972,
+      "exact": 178078,
+      "initialization": 220364,
+      "point": 0,
+      "rearmed": 140686,
+      "total": 361050
+    },
+    "group6_imbalance_variants": {
+      "atr": 16431720,
+      "exact": 16433734,
+      "initialization": 92887,
+      "point": 0,
+      "rearmed": 32772567,
+      "total": 32865454
+    },
+    "group6_liquidity_voids": {
+      "atr": 4897528,
+      "exact": 4899001,
+      "initialization": 20138,
+      "point": 0,
+      "rearmed": 9776391,
+      "total": 9796529
+    },
+    "group8_bounded_ranges": {
+      "atr": 1057661,
+      "exact": 1070890,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 2128551,
+      "total": 2128551
+    }
+  },
+  "counts_by_source_timeframe": {
+    "group4_zones::D1": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    },
+    "group4_zones::H1": {
+      "atr": 8868,
+      "boundary_count": 3704,
+      "exact": 9057,
+      "initialization": 7229,
+      "point": 0,
+      "rearmed": 10696,
+      "total": 17925
+    },
+    "group4_zones::H4": {
+      "atr": 3877,
+      "boundary_count": 2177,
+      "exact": 4005,
+      "initialization": 4106,
+      "point": 0,
+      "rearmed": 3776,
+      "total": 7882
+    },
+    "group4_zones::M1": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    },
+    "group4_zones::M15": {
+      "atr": 10806,
+      "boundary_count": 3706,
+      "exact": 10904,
+      "initialization": 7295,
+      "point": 0,
+      "rearmed": 14415,
+      "total": 21710
+    },
+    "group4_zones::M30": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    },
+    "group4_zones::M5": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    },
+    "group6_bpr_relations::D1": {
+      "atr": 8,
+      "boundary_count": 3,
+      "exact": 9,
+      "initialization": 5,
+      "point": 0,
+      "rearmed": 12,
+      "total": 17
+    },
+    "group6_bpr_relations::H1": {
+      "atr": 4246,
+      "boundary_count": 146,
+      "exact": 4267,
+      "initialization": 279,
+      "point": 0,
+      "rearmed": 8234,
+      "total": 8513
+    },
+    "group6_bpr_relations::H4": {
+      "atr": 1196,
+      "boundary_count": 81,
+      "exact": 1216,
+      "initialization": 152,
+      "point": 0,
+      "rearmed": 2260,
+      "total": 2412
+    },
+    "group6_bpr_relations::M1": {
+      "atr": 4298765,
+      "boundary_count": 19534,
+      "exact": 4298390,
+      "initialization": 32344,
+      "point": 0,
+      "rearmed": 8564811,
+      "total": 8597155
+    },
+    "group6_bpr_relations::M15": {
+      "atr": 46080,
+      "boundary_count": 756,
+      "exact": 46095,
+      "initialization": 1415,
+      "point": 0,
+      "rearmed": 90760,
+      "total": 92175
+    },
+    "group6_bpr_relations::M30": {
+      "atr": 11442,
+      "boundary_count": 287,
+      "exact": 11468,
+      "initialization": 537,
+      "point": 0,
+      "rearmed": 22373,
+      "total": 22910
+    },
+    "group6_bpr_relations::M5": {
+      "atr": 245453,
+      "boundary_count": 2309,
+      "exact": 246078,
+      "initialization": 4208,
+      "point": 0,
+      "rearmed": 487323,
+      "total": 491531
+    },
+    "group6_fvg_events::D1": {
+      "atr": 68,
+      "boundary_count": 53,
+      "exact": 64,
+      "initialization": 104,
+      "point": 0,
+      "rearmed": 28,
+      "total": 132
+    },
+    "group6_fvg_events::H1": {
+      "atr": 1611,
+      "boundary_count": 1051,
+      "exact": 1548,
+      "initialization": 2006,
+      "point": 0,
+      "rearmed": 1153,
+      "total": 3159
+    },
+    "group6_fvg_events::H4": {
+      "atr": 551,
+      "boundary_count": 326,
+      "exact": 537,
+      "initialization": 613,
+      "point": 0,
+      "rearmed": 475,
+      "total": 1088
+    },
+    "group6_fvg_events::M1": {
+      "atr": 146592,
+      "boundary_count": 98034,
+      "exact": 143063,
+      "initialization": 175348,
+      "point": 0,
+      "rearmed": 114307,
+      "total": 289655
+    },
+    "group6_fvg_events::M15": {
+      "atr": 7050,
+      "boundary_count": 4642,
+      "exact": 6789,
+      "initialization": 8787,
+      "point": 0,
+      "rearmed": 5052,
+      "total": 13839
+    },
+    "group6_fvg_events::M30": {
+      "atr": 3364,
+      "boundary_count": 2220,
+      "exact": 3273,
+      "initialization": 4208,
+      "point": 0,
+      "rearmed": 2429,
+      "total": 6637
+    },
+    "group6_fvg_events::M5": {
+      "atr": 23736,
+      "boundary_count": 15627,
+      "exact": 22804,
+      "initialization": 29298,
+      "point": 0,
+      "rearmed": 17242,
+      "total": 46540
+    },
+    "group6_imbalance_variants::D1": {
+      "atr": 580,
+      "boundary_count": 86,
+      "exact": 603,
+      "initialization": 86,
+      "point": 0,
+      "rearmed": 1097,
+      "total": 1183
+    },
+    "group6_imbalance_variants::H1": {
+      "atr": 28724,
+      "boundary_count": 975,
+      "exact": 28903,
+      "initialization": 1196,
+      "point": 0,
+      "rearmed": 56431,
+      "total": 57627
+    },
+    "group6_imbalance_variants::H4": {
+      "atr": 3839,
+      "boundary_count": 247,
+      "exact": 3900,
+      "initialization": 268,
+      "point": 0,
+      "rearmed": 7471,
+      "total": 7739
+    },
+    "group6_imbalance_variants::M1": {
+      "atr": 15100453,
+      "boundary_count": 67390,
+      "exact": 15101099,
+      "initialization": 75376,
+      "point": 0,
+      "rearmed": 30126176,
+      "total": 30201552
+    },
+    "group6_imbalance_variants::M15": {
+      "atr": 190744,
+      "boundary_count": 3187,
+      "exact": 190494,
+      "initialization": 3560,
+      "point": 0,
+      "rearmed": 377678,
+      "total": 381238
+    },
+    "group6_imbalance_variants::M30": {
+      "atr": 72060,
+      "boundary_count": 1731,
+      "exact": 72240,
+      "initialization": 1973,
+      "point": 0,
+      "rearmed": 142327,
+      "total": 144300
+    },
+    "group6_imbalance_variants::M5": {
+      "atr": 1035320,
+      "boundary_count": 9917,
+      "exact": 1036495,
+      "initialization": 10428,
+      "point": 0,
+      "rearmed": 2061387,
+      "total": 2071815
+    },
+    "group6_liquidity_voids::D1": {
+      "atr": 49,
+      "boundary_count": 10,
+      "exact": 49,
+      "initialization": 14,
+      "point": 0,
+      "rearmed": 84,
+      "total": 98
+    },
+    "group6_liquidity_voids::H1": {
+      "atr": 5597,
+      "boundary_count": 193,
+      "exact": 5651,
+      "initialization": 198,
+      "point": 0,
+      "rearmed": 11050,
+      "total": 11248
+    },
+    "group6_liquidity_voids::H4": {
+      "atr": 983,
+      "boundary_count": 65,
+      "exact": 971,
+      "initialization": 60,
+      "point": 0,
+      "rearmed": 1894,
+      "total": 1954
+    },
+    "group6_liquidity_voids::M1": {
+      "atr": 4521921,
+      "boundary_count": 19952,
+      "exact": 4522736,
+      "initialization": 15965,
+      "point": 0,
+      "rearmed": 9028692,
+      "total": 9044657
+    },
+    "group6_liquidity_voids::M15": {
+      "atr": 50055,
+      "boundary_count": 837,
+      "exact": 50175,
+      "initialization": 830,
+      "point": 0,
+      "rearmed": 99400,
+      "total": 100230
+    },
+    "group6_liquidity_voids::M30": {
+      "atr": 16583,
+      "boundary_count": 395,
+      "exact": 16642,
+      "initialization": 409,
+      "point": 0,
+      "rearmed": 32816,
+      "total": 33225
+    },
+    "group6_liquidity_voids::M5": {
+      "atr": 302340,
+      "boundary_count": 2899,
+      "exact": 302777,
+      "initialization": 2662,
+      "point": 0,
+      "rearmed": 602455,
+      "total": 605117
+    },
+    "group8_bounded_ranges::D1": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    },
+    "group8_bounded_ranges::H1": {
+      "atr": 107051,
+      "boundary_count": 17896,
+      "exact": 109367,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 216418,
+      "total": 216418
+    },
+    "group8_bounded_ranges::H4": {
+      "atr": 19152,
+      "boundary_count": 4227,
+      "exact": 19612,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 38764,
+      "total": 38764
+    },
+    "group8_bounded_ranges::M1": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    },
+    "group8_bounded_ranges::M15": {
+      "atr": 931458,
+      "boundary_count": 71711,
+      "exact": 941911,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 1873369,
+      "total": 1873369
+    },
+    "group8_bounded_ranges::M30": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    },
+    "group8_bounded_ranges::M5": {
+      "atr": 0,
+      "boundary_count": 0,
+      "exact": 0,
+      "initialization": 0,
+      "point": 0,
+      "rearmed": 0,
+      "total": 0
+    }
+  },
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
+  "format_version": 1,
+  "fvg_terminal_transition_count": 121174,
+  "lifecycle_aware_partial_total": {
+    "atr": 27200622,
+    "exact": 27213192,
+    "initialization": 390959,
+    "point": 0,
+    "rearmed": 54022855,
+    "total": 54413814
+  },
+  "observations": {
+    "authorization_changed": false,
+    "definitions_changed": false,
+    "diagnostic_only": true,
+    "engine_changed": false,
+    "group5_group7_excluded_from_partial_scope": true,
+    "no_new_lifecycle_semantics": true,
+    "oos_2024_accessed": false,
+    "schema_changed": false,
+    "thresholds_changed": false,
+    "upstream_changed": false
+  },
+  "pre_amendment_group6_plus_group8_candidate_lower_bound": 74600565353,
+  "previous_transition_countonly_group6_plus_group8_total": null,
+  "reduction_fraction_vs_pre_amendment_lower_bound": 0.999270597833374,
+  "report_hash": "82a5c4a3a27385a9fa425c49ba99f9187d1d721004a62bea42bb68b696c2f03d",
+  "scope": "PA7_TRANSITION_LIFETIME_CARDINALITY_2023_SOURCE_GROUP4_GROUP6_GROUP8",
+  "status": "PASS"
+}
