@@ -1,1 +1,1 @@
-Extract exact source restore failure context for Group 8 Design Freeze v2 jobs 2023/2024.
+Extract only the exact source restore and schema-intake failure block for Group 8 Design Freeze v2 jobs 2023/2024. Retry 2.
