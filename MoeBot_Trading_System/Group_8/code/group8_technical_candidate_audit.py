@@ -56,8 +56,18 @@ def main()->int:
     if not checks['materializer_adapter_bound']:failures.append('materializer_not_adapter_bound')
     checks['upstream_read_only_enforced']=("mode=ro&immutable=1" in materializer_text and "mode=ro&immutable=1" in engine_text)
     if not checks['upstream_read_only_enforced']:failures.append('upstream_read_only_not_enforced')
-    checks['causality_guards_present']=all(x in engine_text for x in ['availability_time < confirmation_time','confirmation_time < event_time','lifecycle before hypothesis availability','year-end summary'])
-    if not checks['causality_guards_present']:failures.append('causality_guards_missing')
+    causal_markers=[
+        'availability_time < confirmation_time',
+        'confirmation_time < event_time',
+        'lifecycle before hypothesis availability',
+        '_active_zone_status_at',
+        'transition_time<=?',
+        'interaction_time<=?',
+    ]
+    checks['causality_guards_present']=all(x in engine_text for x in causal_markers)
+    checks['historical_zone_state_reconstruction_present']=all(x in engine_text for x in ['_active_zone_status_at','transition_time<=?','interaction_time<=?'])
+    if not checks['causality_guards_present']:failures.append({'causality_guards_missing':[x for x in causal_markers if x not in engine_text]})
+    if not checks['historical_zone_state_reconstruction_present']:failures.append('historical_zone_state_reconstruction_missing')
     checks['deterministic_identity_present']=all(x in engine_text for x in ['deterministic_id','canonical_json','stable_hash','conflicting deterministic duplicate'])
     if not checks['deterministic_identity_present']:failures.append('deterministic_identity_guards_missing')
     checks['2024_execution_not_embedded']=('2024' not in re.sub(r'EXPECTED_DEFINITION_COUNT\s*=\s*45','',engine_text))
