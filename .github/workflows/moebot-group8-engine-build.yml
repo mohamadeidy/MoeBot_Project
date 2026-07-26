@@ -1,0 +1,93 @@
+name: MoeBot Group 8 Engine Technical Build
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ENGINE_BUILD.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  technical-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile Group 8 tooling
+        run: |
+          find "$GROUP8_ROOT/code" "$GROUP8_ROOT/tests" -type f -name '*.py' -print0 | xargs -0 -n1 python -m py_compile
+      - name: Run frozen technical test matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+      - name: Independent technical candidate audit
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --output "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json"
+      - name: Freeze technical candidate identity and authorize 2023 only
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_finalize_engine_build.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --audit "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            --manifest-output "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+      - name: Independent authorization verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text())
+          manifest=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          audit=json.loads((root/"reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json").read_text())
+          if audit.get("status")!="PASS": raise SystemExit("technical audit not PASS")
+          if manifest.get("status")!="TECHNICAL_CANDIDATE_PASS": raise SystemExit("engine manifest not PASS")
+          if status.get("annual_execution_2023_authorized") is not True: raise SystemExit("2023 not authorized")
+          if status.get("annual_execution_2024_authorized") is not False: raise SystemExit("2024 prematurely authorized")
+          if status.get("officially_closed") is not False: raise SystemExit("Group 8 prematurely closed")
+          engine=root/manifest["identities"]["engine"]["path"]
+          h=hashlib.sha256(engine.read_bytes()).hexdigest()
+          if h!=manifest["identities"]["engine"]["sha256"]: raise SystemExit("engine identity mismatch")
+          print({"status":"PASS","engine_sha256":h,"2023_authorized":True,"2024_authorized":False})
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-engine-technical-candidate-v0.8.0
+          path: |
+            ${{ env.GROUP8_ROOT }}/code/moebot_group8_engine_v0_8_0.py
+            ${{ env.GROUP8_ROOT }}/code/group8_materialize_inputs.py
+            ${{ env.GROUP8_ROOT }}/tests/test_group8_engine_v0_8_0.py
+            ${{ env.GROUP8_ROOT }}/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/ENGINE_BUILD_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 90
+      - name: Commit verified technical candidate evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Freeze Group 8 v0.8.0 technical candidate [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
