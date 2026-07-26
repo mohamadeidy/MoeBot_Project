@@ -1,4 +1,4 @@
-name: MoeBot Group 8 PA7 Storage Feasibility Diagnostic
+name: MoeBot Group 8 Free Runner Capacity Probe
 
 "on":
   pull_request:
@@ -14,9 +14,9 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  storage-proof:
+  free-capacity-probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,51 +26,56 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Preflight exact lifecycle-corrected technical candidate
+      - name: Preflight exact current Group 8 technical candidate
         run: |
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
           r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());m=json.loads((r/'ENGINE_BUILD_MANIFEST.json').read_text());e='44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b'
           assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()==e
-          assert m['status']=='TECHNICAL_CANDIDATE_PASS' and m['identities']['engine']['sha256']==e and m['format_version']==5
-          assert m['closed_blocking_gap']['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008'
-          assert s['blocking_gap']['gap_id']=='G8-PA7-LIFECYCLE-RETIREMENT-008' and s['blocking_gap']['status']=='CLOSED_BY_TECHNICAL_REFREEZE'
+          assert m['status']=='TECHNICAL_CANDIDATE_PASS' and m['identities']['engine']['sha256']==e
           assert s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
-          print({'status':'PASS','engine_sha256':e,'2023_authorized':True,'2024_authorized':False})
+          print({'status':'PASS','engine_sha256':e,'free_only_probe':True,'oos_2024':False})
           PY
-          python -m py_compile "$GROUP8_ROOT/code/group8_pa7_storage_feasibility_diagnostic.py"
+          python -m py_compile "$GROUP8_ROOT/code/group8_free_capacity_probe.py"
 
-      - name: Run structural and empirical storage proof
-        env:
-          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+      - name: Record runner disk before free cleanup
         run: |
-          set -o pipefail
+          echo '=== DF BEFORE ==='
           df -h /
-          python "$GROUP8_ROOT/code/group8_pa7_storage_feasibility_diagnostic.py" \
-            --group8-root "$GROUP8_ROOT" \
-            --report "$GROUP8_ROOT/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json" \
-            2>&1 | tee "$RUNNER_TEMP/group8-pa7-storage-proof.log"
+          echo '=== LARGE PREINSTALLED DIRECTORIES ==='
+          sudo du -sh /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL 2>/dev/null || true
 
-      - name: Independent proof verification
+      - name: Reclaim only unused preinstalled runner tooling
+        run: |
+          docker system prune -af || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean || true
+          echo '=== DF AFTER FREE CLEANUP ==='
+          df -h /
+
+      - name: Run free-only capacity proof
+        run: |
+          python "$GROUP8_ROOT/code/group8_free_capacity_probe.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --output "$GROUP8_ROOT/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json"
+
+      - name: Independent capacity report verification
         run: |
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
-          p=Path('MoeBot_Trading_System/Group_8/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json');r=json.loads(p.read_text());q=dict(r);h=q.pop('report_hash')
-          assert hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()==h
-          assert r['status']=='PASS' and r['engine_sha256']=='44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b'
-          assert r['partial_transition_count']==54413814
-          s=r['structural_text_lower_bound'];assert s['bytes_per_transition']==401 and s['total_bytes']==21819939414
-          assert r['standard_public_github_runner']['documented_storage_bytes']==14000000000
-          assert r['standard_public_github_runner']['structural_bound_exceeds_documented_storage'] is True
-          assert r['mandatory_contract_checks']['write_pattern_forces_creation_state'] is True
-          assert r['mandatory_contract_checks']['full_2023_single_database_protocol'] is True
-          assert r['empirical_frozen_engine_text_payload']['sample_transition_rows']>0
-          assert r['empirical_frozen_engine_text_payload']['combined_text_bytes_min_per_transition']>401
-          assert r['conclusion']['standard_public_runner_can_materialize_required_single_database'] is False
-          obs=r['observations'];assert obs['oos_2024_accessed'] is False and all(obs[k] is False for k in ('engine_changed','definitions_changed','thresholds_changed','schema_changed','upstream_changed','authorization_changed'))
-          print({'status':'PASS','report_hash':h,'structural_lower_bound_gb':s['total_decimal_gb'],'empirical_min_projection_gb':r['empirical_frozen_engine_text_payload']['projected_partial_decimal_gb_using_sample_min'],'runner_snapshot_free_gb':r['diagnostic_runner_snapshot']['filesystem_free_bytes']/1e9})
+          p=Path('MoeBot_Trading_System/Group_8/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json');r=json.loads(p.read_text());q=dict(r);saved=q.pop('report_hash')
+          actual=hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          assert saved==actual and r['status']=='PASS'
+          assert r['fixed_text_bytes_per_transition']==401
+          assert r['structural_lower_bound_bytes']==54413814*401
+          assert r['policy']=={'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False}
+          assert r['oos_2024_accessed'] is False
+          print({'status':'PASS','free_gb':r['runner_filesystem_free_bytes']/1e9,'structural_lower_bound_gb':r['structural_lower_bound_decimal_gb'],'remaining_after_structural_gb':r['remaining_free_bytes_after_structural_bound']/1e9})
           PY
           git diff --exit-code origin/main -- \
             "$GROUP8_ROOT/STATUS.json" "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
@@ -82,19 +87,17 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: group8-pa7-storage-feasibility009
-          path: |
-            ${{ env.GROUP8_ROOT }}/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json
-            ${{ runner.temp }}/group8-pa7-storage-proof.log
+          name: group8-free-runner-capacity-probe
+          path: ${{ env.GROUP8_ROOT }}/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Commit permanent storage feasibility evidence
+      - name: Commit permanent free capacity evidence
         if: github.event_name == 'pull_request' && success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$GROUP8_ROOT/reports/43_PA7_STORAGE_FEASIBILITY_DIAGNOSTIC.json"
+          git add "$GROUP8_ROOT/reports/43B_FREE_RUNNER_CAPACITY_PROBE.json"
           git diff --cached --check
-          git commit -m "Record Group 8 PA7 storage feasibility diagnostic [skip ci]"
+          git commit -m "Record Group 8 free runner capacity probe [skip ci]"
           git push origin "HEAD:${{ github.head_ref }}"
