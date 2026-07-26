@@ -1,0 +1,1 @@
+Execute the complete fail-closed Group 8 lifecycle idempotence closure fix. Apply the reviewed lifecycle persistence hardening, audit-evidence duplicate prevention, and input-frontier checkpoint identity fix; run original frozen technical tests plus full lifecycle regression; keep annual authorization revoked; commit corrected hardening artifacts only on complete PASS.
