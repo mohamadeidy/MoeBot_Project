@@ -1,17 +1,20 @@
 {
   "adapter_map_hash": "cc76916214be35474134376c16299728db3e0a5d07ddcb58860ec5c9c3244d77",
   "annual_dependency_registry_hash": "ad0157c56ea793ed49fe20c5b90f606388f17ade93f12450d98596506ef91e97",
-  "annual_execution_2023_authorized": false,
+  "annual_execution_2023_authorized": true,
   "annual_execution_2024_authorized": false,
-  "annual_execution_authorized": false,
+  "annual_execution_authorized": true,
   "blocking_gap": {
+    "corrected_engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
     "definitions_changed": false,
     "diagnostic_report_hash": "78ff7696f1140a7dc60b7f495db8898eba341201c1ae5036c37b771039915e81",
+    "engine_build_manifest_hash": "be29f8d088d7220222438863fe1dea5db8f208eb9fbd967f7561a1bfc106855c",
     "gap_id": "G8-ICT-LOCKED-CONTEXT-005",
     "previous_engine_sha256": "10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f",
     "schema_changed": false,
     "severity": "BLOCKING",
-    "status": "FIXED_PENDING_REFREEZE",
+    "status": "CLOSED_BY_TECHNICAL_REFREEZE",
+    "technical_audit_hash": "7abea1e44bccf3739b4348bbab43079d7d406ca289c64ae38321324ae516a594",
     "thresholds_changed": false,
     "upstream_changed": false
   },
@@ -32,17 +35,19 @@
   "design_contract_audit_hash": "e22af5a58ce5fdc840a69dae5305963f663cf036f23b77c26ffc66272fd7a0f5",
   "design_frozen": true,
   "engine_build": {
+    "annual_validator_sha256": "0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293",
+    "closed_gap_id": "G8-ICT-LOCKED-CONTEXT-005",
     "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
-    "engine_build_manifest_hash": "c7ff28d2ca698ff1c6130a682604ce15c60d324f4ac105df112a48d998ca551e",
-    "engine_sha256": "10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f",
+    "engine_build_manifest_hash": "be29f8d088d7220222438863fe1dea5db8f208eb9fbd967f7561a1bfc106855c",
+    "engine_sha256": "61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8",
     "engine_version": "0.8.0",
     "materializer_sha256": "bd6927c0195e0b3a8070f6921fe19b09ea5eb003e1053592d6b9551a8aaf901d",
-    "postprocessor_sha256": "59a23e003919ba025d375cfda3ba1dee7020836835e9cf0bb320fff606d172c3",
+    "postprocessor_sha256": "ed0ec59c7c357b28a52bfe15b368d1b33b0312a71f300d3cac658eb7d7bd19ef",
     "schema_version": "8.0.0",
-    "status": "STALE_PENDING_TECHNICAL_REFREEZE",
-    "technical_audit_hash": "ce7d5f3133251dff23b010bde4cace6561c11ae94184a66dfd56ae2a38a63b67"
+    "status": "TECHNICAL_CANDIDATE_PASS",
+    "technical_audit_hash": "7abea1e44bccf3739b4348bbab43079d7d406ca289c64ae38321324ae516a594"
   },
-  "engine_build_authorized": false,
+  "engine_build_authorized": true,
   "group": 8,
   "lineage": "dukascopy_rebuild_v1_corrected_runtime_v3_group8_v1",
   "logical_dependency_lineage_id": "moebot-group8-upstream-corrected-v3-g7-v075-v1",
@@ -55,6 +60,6 @@
   "required_group7_closure_tag": "moebot-group7-v0.7.5-closure",
   "required_group7_data_release_tag": "moebot-group7-v0.7.5",
   "source_semantics_evidence_hash": "0eb61856e271f5f2130b45207237d5975d01e63a776ecfb665e6f8ff39e6d597",
-  "status": "BLOCKING_GAP_G8_ICT_LOCKED_CONTEXT_FIXED_PENDING_TECHNICAL_REFREEZE",
+  "status": "ENGINE_TECHNICAL_CANDIDATE_PASS_2023_AUTHORIZED",
   "value_binding_hash": "c25b0c279e104c9e2034dca549d0bbfb9b624009ea1671927223ae8767a2d39b"
 }

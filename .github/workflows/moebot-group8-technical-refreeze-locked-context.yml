@@ -1,0 +1,124 @@
+name: MoeBot Group 8 Technical Re-freeze After Locked Context Fix
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_TECHNICAL_REFREEZE_LOCKED_CONTEXT.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  technical-refreeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact fixed-pending-refreeze state
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text())
+          d=json.loads((root/"reports/27_LOCKED_CONTEXT_GAP_DIAGNOSTIC.json").read_text())
+          g=json.loads((root/"reports/28_LOCKED_CONTEXT_GAP_ANALYSIS.json").read_text())
+          if s.get("officially_closed") is not False: raise SystemExit("Group 8 already closed")
+          if s.get("design_frozen") is not True: raise SystemExit("design not frozen")
+          if s.get("status")!="BLOCKING_GAP_G8_ICT_LOCKED_CONTEXT_FIXED_PENDING_TECHNICAL_REFREEZE": raise SystemExit("wrong technical refreeze phase")
+          if any(s.get(k) for k in ("annual_execution_authorized","annual_execution_2023_authorized","annual_execution_2024_authorized")): raise SystemExit("annual execution must remain revoked")
+          if d.get("status")!="GAP_REPRODUCED" or d.get("report_hash")!="78ff7696f1140a7dc60b7f495db8898eba341201c1ae5036c37b771039915e81": raise SystemExit("diagnostic identity mismatch")
+          if g.get("status")!="BLOCKING_GAP_FIXED_PENDING_TECHNICAL_REFREEZE" or g.get("gap_id")!="G8-ICT-LOCKED-CONTEXT-005": raise SystemExit("gap analysis state mismatch")
+          if any(g.get(k) is not False for k in ("definitions_changed","thresholds_changed","schema_changed","upstream_changed")): raise SystemExit("frozen semantics mutation flag")
+          print({"status":"PASS","gap_id":g["gap_id"],"violations_reproduced":d["post_invalidation_violation_count"]})
+          PY
+      - name: Compile Group 8 implementation and validation tooling
+        run: |
+          find "$GROUP8_ROOT/code" "$GROUP8_ROOT/tests" -type f -name '*.py' -print0 | xargs -0 -n1 python -m py_compile
+      - name: Run original frozen technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+      - name: Run full lifecycle and locked-context regression matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+      - name: Independent strengthened technical candidate audit
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_technical_candidate_audit.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --output "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json"
+      - name: Re-freeze exact technical identities and authorize 2023 only
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_refreeze_engine_build_after_locked_context.py" \
+            --group8-root "$GROUP8_ROOT" \
+            --audit "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            --manifest-output "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+      - name: Run annual validation tooling regressions against re-frozen identities
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
+      - name: Independent final re-freeze verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          s=json.loads((root/"STATUS.json").read_text());m=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text());a=json.loads((root/"reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json").read_text());f=json.loads((root/"DESIGN_FREEZE_MANIFEST.json").read_text())
+          if a.get("status")!="PASS" or a.get("checks",{}).get("locked_context_hardening_present") is not True or a.get("checks",{}).get("locked_context_gap_identity_valid") is not True: raise SystemExit("strengthened audit not PASS")
+          if m.get("status")!="TECHNICAL_CANDIDATE_PASS" or m.get("format_version")!=2: raise SystemExit("technical manifest not re-frozen")
+          if m.get("design_freeze_hash")!=f.get("design_freeze_hash") or m.get("definition_registry_hash")!=f.get("definition_registry_hash") or m.get("upstream_contract_hash")!=f.get("upstream_contract_hash"): raise SystemExit("frozen design identity drift")
+          required=("engine","materializer","postprocessor","annual_validator","tests","lifecycle_tests","technical_audit","locked_context_gap_analysis","locked_context_gap_diagnostic","schema","definitions","config","upstream_contract")
+          for key in required:
+              rec=m.get("identities",{}).get(key)
+              if not rec: raise SystemExit(f"missing technical identity:{key}")
+              p=root/rec["path"]
+              if p.stat().st_size!=int(rec["size_bytes"]) or hashlib.sha256(p.read_bytes()).hexdigest()!=rec["sha256"]: raise SystemExit(f"technical identity mismatch:{key}")
+          if s.get("status")!="ENGINE_TECHNICAL_CANDIDATE_PASS_2023_AUTHORIZED" or s.get("annual_execution_2023_authorized") is not True or s.get("annual_execution_2024_authorized") is not False: raise SystemExit("annual authorization state invalid")
+          if s.get("blocking_gap",{}).get("status")!="CLOSED_BY_TECHNICAL_REFREEZE": raise SystemExit("blocking gap not closed by refreeze")
+          print({"status":"PASS","engine_sha256":m["identities"]["engine"]["sha256"],"annual_validator_sha256":m["identities"]["annual_validator"]["sha256"],"manifest_hash":m["manifest_hash"],"2023_authorized":True,"2024_authorized":False})
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group8-technical-refreeze-locked-context
+          path: |
+            ${{ env.GROUP8_ROOT }}/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json
+            ${{ env.GROUP8_ROOT }}/reports/27_LOCKED_CONTEXT_GAP_DIAGNOSTIC.json
+            ${{ env.GROUP8_ROOT }}/reports/28_LOCKED_CONTEXT_GAP_ANALYSIS.json
+            ${{ env.GROUP8_ROOT }}/ENGINE_BUILD_MANIFEST.json
+            ${{ env.GROUP8_ROOT }}/STATUS.json
+          retention-days: 90
+      - name: Commit verified technical re-freeze evidence
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
+            "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Re-freeze Group 8 after locked-context fix [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
