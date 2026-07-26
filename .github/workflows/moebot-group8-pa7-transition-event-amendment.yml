@@ -97,7 +97,7 @@ jobs:
           expected={"pa_breakout_exact":"PA7E.2","pa_breakout_atr_buffer":"PA7A.2","pa_breakout_point_buffer":"PA7P.2"}
           for k,v in expected.items():
               d=reg["definitions"][k]
-              if d.get("version")!=v or d.get("persistent_state_records_forbidden") is not True or d.get("transition_rule")!="NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY": raise SystemExit(f"{k} amendment mismatch")
+              if d.get("version")!=v or d.get("persistent_state_records_forbidden") is not True or d.get("transition_rule")!="NOT_BEYOND_BOUNDARY -> BEYOND_BOUNDARY only": raise SystemExit(f"{k} amendment mismatch")
               if d.get("state_key")!=["symbol","timeframe","direction","exact_boundary_identity","pa7_variant"]: raise SystemExit(f"{k} state key mismatch")
           if freeze.get("definition_registry_hash")!=reg.get("registry_hash"): raise SystemExit("freeze/registry lineage mismatch")
           if freeze.get("design_amendment",{}).get("gap_id")!="G8-PA7-ENUMERATION-EXPLOSION-007": raise SystemExit("freeze amendment gap mismatch")
