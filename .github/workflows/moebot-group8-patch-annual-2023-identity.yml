@@ -1,0 +1,56 @@
+name: MoeBot Group 8 Patch Annual 2023 Frozen Identity
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PATCH_ANNUAL_2023_IDENTITY.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply exact annual workflow identity patch
+        run: |
+          python "$GROUP8_ROOT/code/group8_patch_annual_2023_workflow_identity.py" --repo-root .
+      - name: Independently verify only the new frozen identities are pinned
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          build=json.loads((root/"ENGINE_BUILD_MANIFEST.json").read_text())
+          wf=Path(".github/workflows/moebot-group8-annual-2023-validation.yml").read_text()
+          engine="61aa4cb2328b3424008703392501d94d7cbaf5733944e55ae0e45db7926191e8"
+          validator="0521d536d575e756be815b3d23a6313ceeee2e0f5a464357aecf19dcabb2c293"
+          old="10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f"
+          if build["identities"]["engine"]["sha256"]!=engine or build["identities"]["annual_validator"]["sha256"]!=validator: raise SystemExit("manifest identity mismatch")
+          if old in wf or wf.count(engine)!=1 or wf.count(validator)!=1: raise SystemExit("workflow identity pinning invalid")
+          if "for name,ident in build[\"identities\"].items()" not in wf: raise SystemExit("full technical identity loop missing")
+          print({"status":"PASS","engine_sha256":engine,"annual_validator_sha256":validator})
+          PY
+      - name: Commit corrected annual workflow
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/moebot-group8-annual-2023-validation.yml
+          git diff --cached --check
+          git commit -m "Pin Group 8 annual 2023 to re-frozen identities [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
