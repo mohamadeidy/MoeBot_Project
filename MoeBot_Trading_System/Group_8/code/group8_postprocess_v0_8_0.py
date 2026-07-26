@@ -494,47 +494,54 @@ def _write_pattern_terminal_state(engine: Any, candidate: Any, *, state: str, so
     )
 
 
+def first_bounded_range_invalidator(engine: Any, candidate: Any) -> dict[str, Any] | None:
+    """Return the first causal invalidator for the candidate's two locked Group4 boundaries."""
+    features = json.loads(candidate["features_json"])
+    zone_ids = [features.get("lower_zone_id"), features.get("upper_zone_id")]
+    invalidators: list[dict[str, Any]] = []
+    for zone_id in [z for z in zone_ids if z]:
+        for tr in engine.input.execute(
+            "SELECT * FROM group4__zone_transitions WHERE zone_id=? AND transition_time>? ORDER BY transition_time,transition_id",
+            (zone_id, int(candidate["availability_time"])),
+        ):
+            if not engine._status_active(str(tr["to_status"])):
+                invalidators.append({
+                    "source_type": "group4_zone_transitions",
+                    "source_id": tr["transition_id"],
+                    "event_time": int(tr["transition_time"]),
+                    "confirmation_time": int(tr["transition_time"]),
+                    "availability_time": int(tr["transition_time"]),
+                    "source_bar_id": tr["bar_id"],
+                    "details": {"zone_id": zone_id, "from_status": tr["from_status"], "to_status": tr["to_status"], "reason": tr["reason"]},
+                })
+                break
+        for ev in engine.input.execute(
+            "SELECT * FROM group4__zone_interactions WHERE zone_id=? AND interaction_time>? ORDER BY interaction_time,interaction_id",
+            (zone_id, int(candidate["availability_time"])),
+        ):
+            if not engine._status_active(str(ev["status_after"])):
+                invalidators.append({
+                    "source_type": "group4_zone_interactions",
+                    "source_id": ev["interaction_id"],
+                    "event_time": int(ev["interaction_time"]),
+                    "confirmation_time": int(ev["interaction_time"]),
+                    "availability_time": int(ev["interaction_time"]),
+                    "source_bar_id": ev["bar_id"],
+                    "details": {"zone_id": zone_id, "event_type": ev["event_type"], "status_after": ev["status_after"]},
+                })
+                break
+    if not invalidators:
+        return None
+    return min(invalidators, key=lambda x: (x["availability_time"], x["source_type"], str(x["source_id"])))
+
+
 def _finalize_bounded_ranges(engine: Any) -> None:
     candidates = engine.out.execute(
         "SELECT * FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context' ORDER BY availability_time,candidate_id"
     ).fetchall()
     for candidate in candidates:
-        features = json.loads(candidate["features_json"])
-        zone_ids = [features.get("lower_zone_id"), features.get("upper_zone_id")]
-        invalidators: list[dict[str, Any]] = []
-        for zone_id in [z for z in zone_ids if z]:
-            for tr in engine.input.execute(
-                "SELECT * FROM group4__zone_transitions WHERE zone_id=? AND transition_time>? ORDER BY transition_time,transition_id",
-                (zone_id, int(candidate["availability_time"])),
-            ):
-                if not engine._status_active(str(tr["to_status"])):
-                    invalidators.append({
-                        "source_type": "group4_zone_transitions",
-                        "source_id": tr["transition_id"],
-                        "event_time": int(tr["transition_time"]),
-                        "confirmation_time": int(tr["transition_time"]),
-                        "availability_time": int(tr["transition_time"]),
-                        "source_bar_id": tr["bar_id"],
-                        "details": {"zone_id": zone_id, "from_status": tr["from_status"], "to_status": tr["to_status"], "reason": tr["reason"]},
-                    })
-                    break
-            for ev in engine.input.execute(
-                "SELECT * FROM group4__zone_interactions WHERE zone_id=? AND interaction_time>? ORDER BY interaction_time,interaction_id",
-                (zone_id, int(candidate["availability_time"])),
-            ):
-                if not engine._status_active(str(ev["status_after"])):
-                    invalidators.append({
-                        "source_type": "group4_zone_interactions",
-                        "source_id": ev["interaction_id"],
-                        "event_time": int(ev["interaction_time"]),
-                        "confirmation_time": int(ev["interaction_time"]),
-                        "availability_time": int(ev["interaction_time"]),
-                        "source_bar_id": ev["bar_id"],
-                        "details": {"zone_id": zone_id, "event_type": ev["event_type"], "status_after": ev["status_after"]},
-                    })
-                    break
-        if invalidators:
-            inv = min(invalidators, key=lambda x: (x["availability_time"], x["source_type"], str(x["source_id"])))
+        inv = first_bounded_range_invalidator(engine, candidate)
+        if inv is not None:
             _write_pattern_terminal_state(
                 engine, candidate, state="invalidated", source_bar_id=inv["source_bar_id"],
                 event_time=inv["event_time"], availability_time=inv["availability_time"], details=inv["details"],

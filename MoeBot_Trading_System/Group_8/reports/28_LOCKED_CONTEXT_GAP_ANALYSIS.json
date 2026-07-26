@@ -1,0 +1,18 @@
+{
+  "acceptance_rule": "For every ict_premium_discount_context linked to an invalidated pa_bounded_range_context, interpretation.availability_time < invalidation.availability_time.",
+  "annual_authorization_revoked_pending_refreeze": true,
+  "definitions_changed": false,
+  "diagnostic_report_hash": "78ff7696f1140a7dc60b7f495db8898eba341201c1ae5036c37b771039915e81",
+  "diagnostic_violation_count": 153,
+  "format_version": 1,
+  "gap_id": "G8-ICT-LOCKED-CONTEXT-005",
+  "minimal_correct_fix": "Centralize the exact bounded-range invalidator, reuse it during ICT enumeration and lifecycle finalization, stop enumeration when bar availability reaches the invalidation availability, and independently audit zero post-invalidation interpretations.",
+  "phase": "ENGINE_REVIEW_GAP_ANALYSIS",
+  "report_hash": "0b1a66e08aa2b065e9ac8b1bb1a3a832459d43a5dc4bf74318984142ea3eef86",
+  "root_cause": "ict_premium_discount_context enumerated every later bar from the bounded-range source bar without applying the frozen bounded-range invalidation horizon; lifecycle finalization computed that horizon only after ICT enumeration.",
+  "schema_changed": false,
+  "severity": "BLOCKING",
+  "status": "BLOCKING_GAP_FIXED_PENDING_TECHNICAL_REFREEZE",
+  "thresholds_changed": false,
+  "upstream_changed": false
+}

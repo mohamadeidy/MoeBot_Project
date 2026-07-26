@@ -1,0 +1,82 @@
+name: MoeBot Group 8 Locked Context Semantics Fix v2
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_LOCKED_CONTEXT_FIX_V2.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  fix-review-retest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply formatting-tolerant proven locked-context fix
+        run: |
+          python "$GROUP8_ROOT/code/group8_fix_locked_context_semantics_v2.py" --group8-root "$GROUP8_ROOT"
+      - name: Compile changed implementation and all Group 8 tests
+        run: |
+          find "$GROUP8_ROOT/code" "$GROUP8_ROOT/tests" -type f -name '*.py' -print0 | xargs -0 -n1 python -m py_compile
+      - name: Run original frozen technical matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_engine_v0_8_0.py"
+      - name: Run strengthened lifecycle and locked-context regression matrix
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
+      - name: Independent fix verification
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          d=json.loads((root/"reports/27_LOCKED_CONTEXT_GAP_DIAGNOSTIC.json").read_text())
+          g=json.loads((root/"reports/28_LOCKED_CONTEXT_GAP_ANALYSIS.json").read_text())
+          s=json.loads((root/"STATUS.json").read_text())
+          engine=(root/"code/moebot_group8_engine_v0_8_0.py").read_text()
+          post=(root/"code/group8_postprocess_v0_8_0.py").read_text()
+          annual=(root/"code/group8_annual_validation.py").read_text()
+          test=(root/"tests/test_group8_lifecycle_persistence_v0_8_0.py").read_text()
+          if d.get("report_hash")!="78ff7696f1140a7dc60b7f495db8898eba341201c1ae5036c37b771039915e81" or int(d.get("post_invalidation_violation_count",0))<=0: raise SystemExit("diagnostic evidence drift")
+          if g.get("status")!="BLOCKING_GAP_FIXED_PENDING_TECHNICAL_REFREEZE" or g.get("gap_id")!="G8-ICT-LOCKED-CONTEXT-005": raise SystemExit("gap analysis invalid")
+          required=[("first_bounded_range_invalidator",post),("bar.available_at>=invalidation_availability",engine),("locked_context:ict_premium_discount_context",engine),("locked_context_violations",annual),("test_ict_premium_discount_never_survives_locked_range_invalidation",test)]
+          for marker,text in required:
+              if marker not in text: raise SystemExit(f"required marker missing:{marker}")
+          if s.get("annual_execution_authorized") or s.get("annual_execution_2023_authorized") or s.get("annual_execution_2024_authorized") or s.get("engine_build_authorized"): raise SystemExit("stale execution authorization not revoked")
+          old="10350f255f8853f9e4baa7a955403e914f24e75281c3b4b9d4f2b63b932d8c7f";new=hashlib.sha256((root/"code/moebot_group8_engine_v0_8_0.py").read_bytes()).hexdigest()
+          if new==old: raise SystemExit("engine identity did not change")
+          print({"status":"PASS","new_engine_sha256":new,"gap_report_hash":g["report_hash"]})
+          PY
+      - name: Commit corrected implementation to PR branch
+        if: github.event_name == 'pull_request' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" \
+            "$GROUP8_ROOT/code/group8_annual_validation.py" \
+            "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py" \
+            "$GROUP8_ROOT/reports/28_LOCKED_CONTEXT_GAP_ANALYSIS.json" \
+            "$GROUP8_ROOT/STATUS.json"
+          git diff --cached --check
+          git commit -m "Fix Group 8 ICT locked-context semantics [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"

@@ -533,7 +533,9 @@ class Group8Engine:
         self.out.commit()
 
     def process_ict(self) -> None:
-        symbols=sorted({s for s,_ in self.bars_by_tf}); default_symbol=symbols[0] if len(symbols)==1 else "UNKNOWN"; valid_leg_ids={str(r["leg_id"]):dict(r) for r in self._validated_legs()}
+        from group8_postprocess_v0_8_0 import first_bounded_range_invalidator
+        symbols=sorted({s for s,_ in self.bars_by_tf}); default_symbol=symbols[0] if len(symbols)==1 else "UNKNOWN"
+        valid_leg_ids={str(r["leg_id"]):dict(r) for r in self._validated_legs()}
         for ev in self.input.execute("SELECT * FROM group6__group6_evidence WHERE lower(source_group) IN ('group5','5') ORDER BY availability_time,evidence_id"):
             if str(ev["subject_id"]) not in valid_leg_ids: continue
             leg=valid_leg_ids[str(ev["subject_id"])]; liq=self.input.execute("SELECT * FROM group5__liquidity_events WHERE event_id=?",(ev["source_id"],)).fetchone()
@@ -547,9 +549,12 @@ class Group8Engine:
         for rg in self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context'").fetchall():
             midpoint=(float(rg["lower"])+float(rg["upper"]))/2; src=self._bar_by_id(rg["source_bar_id"])
             if not src:continue
+            invalidator=first_bounded_range_invalidator(self,rg)
+            invalidation_availability=int(invalidator["availability_time"]) if invalidator is not None else None
             key,idx=self.bar_pos[src.id]
             for bar in self.bars_by_tf[key][idx:]:
                 if bar.available_at<rg["availability_time"]:continue
+                if invalidation_availability is not None and bar.available_at>=invalidation_availability:break
                 loc="discount" if bar.close<midpoint else "premium" if bar.close>midpoint else "equilibrium"; self._write_interpretation("ict_premium_discount_context",symbol=bar.symbol,timeframe=bar.timeframe,direction="neutral",event_time=bar.close_time,confirmation_time=bar.close_time,availability_time=max_time(bar.available_at,rg["availability_time"]),upstream_refs=[self._ref("group8","price_action_pattern_candidate",rg["candidate_id"],rg["availability_time"]),self._ref("source","bars",bar.id,bar.available_at,event_time=bar.close_time,timeframe=bar.timeframe)],reasons=[loc],evidence_strength={"location":loc,"midpoint":midpoint,"close":bar.close})
         fvg_by_id={str(r["fvg_id"]):dict(r) for r in self.input.execute("SELECT * FROM group6__fvg_events")}
         for tr in self.input.execute("SELECT * FROM group6__fvg_state_transitions ORDER BY transition_time,transition_id"):
@@ -607,6 +612,8 @@ class Group8Engine:
         for table,where in causal_queries.items():
             n=self.out.execute(f"SELECT COUNT(*) FROM {table} WHERE {where}").fetchone()[0]
             if n:failures.append(f"causality:{table}:{n}")
+        locked_context_violations=self.out.execute("""SELECT COUNT(*) FROM school_interpretation i JOIN invalidation_record inv ON inv.subject_type='price_action_pattern_candidate' AND inv.rule_id='pa_bounded_range_context.invalidation_rule' AND inv.subject_id=json_extract(i.upstream_refs_json,'$[0].source_id') WHERE i.definition_id='ict_premium_discount_context' AND i.availability_time>=inv.availability_time""").fetchone()[0]
+        if locked_context_violations:failures.append(f"locked_context:ict_premium_discount_context:{locked_context_violations}")
         n=self.out.execute("SELECT COUNT(*) FROM hypothesis_lifecycle_event l JOIN narrative_hypothesis h USING(hypothesis_id) WHERE l.availability_time<h.availability_time").fetchone()[0]
         if n:failures.append(f"lifecycle_before_creation:{n}")
         for table,idc in (("price_action_pattern_candidate","candidate_id"),("school_interpretation","interpretation_id"),("narrative_hypothesis","hypothesis_id")):
