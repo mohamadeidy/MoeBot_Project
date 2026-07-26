@@ -57,14 +57,6 @@ jobs:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
         run: |
           python "$GROUP8_ROOT/tests/test_group8_lifecycle_persistence_v0_8_0.py"
-      - name: Run annual validation tooling regressions
-        env:
-          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
-        run: |
-          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
-          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
-          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
-          python "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
       - name: Independent strengthened technical candidate audit
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
@@ -80,6 +72,14 @@ jobs:
             --group8-root "$GROUP8_ROOT" \
             --audit "$GROUP8_ROOT/reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json" \
             --manifest-output "$GROUP8_ROOT/ENGINE_BUILD_MANIFEST.json"
+      - name: Run annual validation tooling regressions against re-frozen identities
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python "$GROUP8_ROOT/tests/test_group8_annual_validation_tooling.py"
+          python "$GROUP8_ROOT/tests/test_group8_annual_finalizer.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_freeze.py"
+          python "$GROUP8_ROOT/tests/test_group8_oos_crossyear_closure.py"
       - name: Independent final re-freeze verification
         run: |
           python - <<'PY'
