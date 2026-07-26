@@ -1,2 +1,2 @@
 Trigger exact PA7 transition storage feasibility proof on the lifecycle-corrected 2023 technical candidate.
-Free-only continuation: rerun proof before selecting the least-invasive zero-cost execution path.
+Free-only continuation: measure reclaimed zero-cost runner capacity before storage architecture amendment.
