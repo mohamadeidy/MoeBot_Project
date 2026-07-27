@@ -1,0 +1,1 @@
+Prove the FREE-ONLY incremental PA7 query catalog built one shard at a time is exactly identical to the one-shot catalog by candidate IDs, hashes, counts and logical fingerprint, and fails closed on duplicate shard append. Keep 2024 OOS forbidden.
