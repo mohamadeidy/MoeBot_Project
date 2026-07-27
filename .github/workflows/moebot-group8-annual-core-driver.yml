@@ -1,0 +1,52 @@
+name: MoeBot Group 8 Annual Core Exact Parity
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ANNUAL_CORE_DRIVER.txt"
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight annual 2023 free-only authorization
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text())
+          assert s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False
+          assert s['blocking_gap'] is None and s['officially_closed'] is False
+          assert s['free_only_policy']['paid_runner_allowed'] is False and s['free_only_policy']['paid_service_allowed'] is False
+          print({'status':'PASS','annual_2023':True,'2024_oos':False,'free_only':True})
+          PY
+      - name: Compile annual core driver
+        run: |
+          python -m py_compile "$GROUP8_ROOT/code/group8_annual_core_driver.py" "$GROUP8_ROOT/tests/test_group8_annual_core_driver.py"
+      - name: Run exact core subset parity
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          python -m unittest "$GROUP8_ROOT/tests/test_group8_annual_core_driver.py"
+      - name: Audit frozen surfaces unchanged
+        run: |
+          git diff --exit-code origin/main -- \
+            "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" \
+            "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" \
+            "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" \
+            "$GROUP8_ROOT/STATUS.json"
