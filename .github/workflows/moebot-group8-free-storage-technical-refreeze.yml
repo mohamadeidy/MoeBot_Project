@@ -91,9 +91,12 @@ jobs:
             "$GROUP8_ROOT/tests/test_group8_context_rejection_fastpath.py" \
             "$GROUP8_ROOT/tests/test_group8_structural_narrative_fastpath.py"
 
-      - name: Independent free-only audit and technical refreeze
+      - name: Generate free-only technical refreeze artifacts
         run: |
           python "$GROUP8_ROOT/code/group8_free_storage_technical_refreeze.py"
+
+      - name: Verify generated refreeze hashes and authorization boundaries
+        run: |
           python - <<'PY'
           import hashlib,json
           from pathlib import Path
