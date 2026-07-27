@@ -1,0 +1,1 @@
+Prove a one-read-per-PA7-bundle distributed pass1 plus compact exact-breakout projection and pass2 merge reproduces the centralized frozen relevant-query catalog exactly, with complete once-only shard coverage and no 2024 access.
