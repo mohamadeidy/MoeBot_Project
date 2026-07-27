@@ -1,0 +1,1 @@
+Run the Group 8 PA7-dependent derived-layer exact parity gate for Annual 2023. Use only the free execution path and keep 2024 OOS forbidden.
