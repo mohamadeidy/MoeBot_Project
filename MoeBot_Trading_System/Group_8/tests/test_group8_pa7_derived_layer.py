@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import sqlite3,tempfile,unittest
+import json,sqlite3,tempfile,unittest
 from pathlib import Path
 from moebot_group8_engine_v0_8_0 import Group8Engine
 from group8_annual_core_driver import AnnualCoreEngine
@@ -16,14 +16,18 @@ def rows(db,table,idc,hashc,defs):
         q=','.join('?' for _ in defs);return {(r[0],r[1]) for r in c.execute(f'SELECT {idc},{hashc} FROM {table} WHERE definition_id IN ({q})',tuple(sorted(defs)))}
     finally:c.close()
 
-def detail(db,ids):
+def sign_selection(db):
+    c=sqlite3.connect(db);c.row_factory=sqlite3.Row;out={}
+    try:
+        for r in c.execute("SELECT definition_id,upstream_refs_json FROM school_interpretation WHERE definition_id IN ('wyckoff_sign_of_strength','wyckoff_sign_of_weakness')"):
+            refs=json.loads(r['upstream_refs_json']);key=(r['definition_id'],refs[0]['source_id'],refs[1]['source_id']);out[key]=refs[2]['source_id']
+        return out
+    finally:c.close()
+
+def candidate_detail(db,table,id_):
     c=sqlite3.connect(db);c.row_factory=sqlite3.Row
     try:
-        out=[]
-        for ident in sorted(ids)[:8]:
-            r=c.execute('SELECT interpretation_id,definition_id,availability_time,upstream_refs_json FROM school_interpretation WHERE interpretation_id=?',(ident,)).fetchone()
-            if r:out.append(dict(r))
-        return out
+        r=c.execute(f'SELECT candidate_id,availability_time,lower,direction,features_json FROM {table} WHERE candidate_id=?',(id_,)).fetchone();return dict(r) if r else None
     finally:c.close()
 
 class PA7DerivedLayerParity(unittest.TestCase):
@@ -48,7 +52,12 @@ class PA7DerivedLayerParity(unittest.TestCase):
             finally:d.close()
             got=rows(coredb,'school_interpretation','interpretation_id','interpretation_hash',DERIVED_INTERPRETATIONS);exp=rows(refdb,'school_interpretation','interpretation_id','interpretation_hash',DERIVED_INTERPRETATIONS)
             if got!=exp:
-                g={x[0] for x in got};e={x[0] for x in exp};print('DERIVED_EXTRA_DETAIL',detail(coredb,g-e));print('DERIVED_MISSING_DETAIL',detail(refdb,e-g))
+                gs=sign_selection(coredb);es=sign_selection(refdb);diff=[]
+                for key in sorted(set(gs)|set(es)):
+                    if gs.get(key)!=es.get(key):
+                        g=gs.get(key);e=es.get(key);diff.append({'key':key,'got':candidate_detail(cat,'pa7_candidate_catalog',g) if g else None,'expected':candidate_detail(refdb,'price_action_pattern_candidate',e) if e else None})
+                        if len(diff)>=12:break
+                print('PAIRED_SIGN_SELECTION_DIFF',json.dumps(diff,sort_keys=True))
             self.assertEqual(got,exp)
             self.assertEqual(rows(coredb,'narrative_hypothesis','hypothesis_id','hypothesis_hash',DERIVED_HYPOTHESES),rows(refdb,'narrative_hypothesis','hypothesis_id','hypothesis_hash',DERIVED_HYPOTHESES))
 
