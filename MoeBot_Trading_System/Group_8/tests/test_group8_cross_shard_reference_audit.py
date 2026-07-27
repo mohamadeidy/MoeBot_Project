@@ -32,13 +32,13 @@ class CrossShardRefAuditTest(unittest.TestCase):
    try:self.assertEqual(g.run_global_finalizer()['status'],'PASS')
    finally:g.close()
    r=audit(coredb,cat,t/'audit.json');self.assertEqual(r['status'],'PASS');self.assertEqual(r['unresolved_group8_reference_count'],0);self.assertGreater(r['checked_reference_count'],0)
+   # Negative fixture remains append-only: add a synthetic evidence row with a
+   # missing Group8 source instead of mutating an immutable production-style row.
    con=sqlite3.connect(coredb)
    try:
-    row=con.execute("SELECT shared_evidence_id FROM shared_evidence WHERE lower(source_group)='group8' LIMIT 1").fetchone()
-    if row is not None:
-     con.execute("UPDATE shared_evidence SET source_type='price_action_pattern_candidate',source_id='g8_missing_shared_source' WHERE shared_evidence_id=?",(row[0],));con.commit()
+    con.execute("INSERT INTO shared_evidence(shared_evidence_id,source_group,source_type,source_id,subject_ids_json,relation_type,availability_time,details_json,shared_evidence_hash) VALUES(?,?,?,?,?,?,?,?,?)",('fixture_missing_shared_source','group8','price_action_pattern_candidate','g8_missing_shared_source','[]','fixture_negative_reference',0,'{}','fixture_hash'))
+    con.commit()
    finally:con.close()
-   if row is not None:
-    with self.assertRaisesRegex(RuntimeError,'unresolved Group8 references'):audit(coredb,cat,t/'audit-bad.json')
+   with self.assertRaisesRegex(RuntimeError,'unresolved Group8 references'):audit(coredb,cat,t/'audit-bad.json')
 
 if __name__=='__main__':unittest.main()
