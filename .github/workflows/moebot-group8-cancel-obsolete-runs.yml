@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   cancel-obsolete:
-    runs-on: ubuntu-slim
+    runs-on: macos-15
     timeout-minutes: 10
     steps:
       - name: Cancel only superseded Group 8 executions
@@ -20,6 +20,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          uname -m
           for RUN_ID in 30243494474 30256391297; do
             echo "Cancelling superseded run ${RUN_ID}"
             curl -fsS -L -X POST \
