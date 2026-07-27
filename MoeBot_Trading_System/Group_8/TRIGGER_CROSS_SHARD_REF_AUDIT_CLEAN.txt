@@ -1,0 +1,2 @@
+Run the clean finalized Group 8 cross-shard reference audit from current main and require zero unresolved Group8-domain references without changing frozen semantics or accessing 2024 OOS.
+Convergence rerun includes explicit shared_evidence Group8 source-reference coverage.
