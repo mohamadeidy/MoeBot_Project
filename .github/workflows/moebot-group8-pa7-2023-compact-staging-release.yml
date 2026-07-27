@@ -41,7 +41,7 @@ jobs:
           assert s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
           print({'status':'PASS','year':2023,'free_only':True,'2024_oos':False})
           PY
-          python -m py_compile "$GROUP8_ROOT/code/group8_pa7_materialize_inputs.py" "$GROUP8_ROOT/code/group8_pa7_shard_executor.py"
+          python -m py_compile "$GROUP8_ROOT/code/group8_pa7_materialize_inputs.py" "$GROUP8_ROOT/code/group8_pa7_shard_executor.py" .github/scripts/group8_pa7_compact_staging_indexes.py
       - name: Reclaim unused preinstalled storage
         run: |
           docker system prune -af || true
@@ -62,16 +62,16 @@ jobs:
             --work-dir "$RUNNER_TEMP/g8-staging/work" \
             --report "$RUNNER_TEMP/g8-staging/reports/MATERIALIZATION.json"
           END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/g8-staging/reports/MATERIALIZATION_SECONDS.txt"
-      - name: Add frozen-query support indexes and normalize SQLite file
+      - name: Add compact PA7 support indexes and normalize SQLite file
         run: |
-          python .github/scripts/group8_ephemeral_staging_indexes.py \
+          python .github/scripts/group8_pa7_compact_staging_indexes.py \
             --database "$RUNNER_TEMP/g8-staging/staging.sqlite" --year 2023 --phase pa7-reusable-staging \
             --output "$RUNNER_TEMP/g8-staging/reports/STAGING_INDEX_REPORT.json"
           python - <<'PY'
           import sqlite3,os
           from pathlib import Path
           p=Path(os.environ['RUNNER_TEMP'])/'g8-staging/staging.sqlite'
-          con=sqlite3.connect(p);con.execute('PRAGMA wal_checkpoint(TRUNCATE)');con.execute('PRAGMA journal_mode=DELETE');con.execute('PRAGMA synchronous=FULL');con.commit();con.close()
+          con=sqlite3.connect(p);con.execute('PRAGMA wal_checkpoint(TRUNCATE)');con.execute('PRAGMA journal_mode=DELETE');con.execute('PRAGMA synchronous=FULL');con.commit();qc=con.execute('PRAGMA quick_check').fetchone()[0];ic=con.execute('PRAGMA integrity_check').fetchone()[0];con.close();assert qc=='ok' and ic=='ok'
           PY
       - name: Verify compact staging is accepted by exact PA7 engine
         env:
@@ -83,8 +83,7 @@ jobs:
           from group8_pa7_shard_executor import PA7ShardEngine,ShardSpec
           root=Path('MoeBot_Trading_System/Group_8').resolve();db=Path(os.environ['RUNNER_TEMP'])/'g8-staging/staging.sqlite'
           e=PA7ShardEngine(staging_db=db,output_db=Path(os.environ['RUNNER_TEMP'])/'g8-staging/accept.sqlite',artifacts_root=root,year=2023,symbol='XAUUSD_',spec=ShardSpec(2023,'XAUUSD_','M1','2023-01',8,0))
-          try:
-              e.load_bars();e.retain_target_timeframe();assert e.bars_by_tf[('XAUUSD_','M1')]
+          try:e.load_bars();e.retain_target_timeframe();assert e.bars_by_tf[('XAUUSD_','M1')]
           finally:e.close()
           print({'status':'PASS','compact_staging_engine_acceptance':True})
           PY
