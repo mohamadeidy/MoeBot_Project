@@ -14,7 +14,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any,Iterable
 
-from group8_pa7_relevant_catalog import init_catalog,_levels,_match,_insert,finalize as finalize_catalog,KEEP_AT_RANGE_LEVEL,EXACT,FAILED,stable
+from group8_pa7_relevant_catalog import init_catalog,_levels,_match,_insert,finalize as finalize_catalog,EXACT,FAILED,stable
 
 COLS=('candidate_id','definition_id','symbol','timeframe','direction','source_bar_id','related_source_bar_id','event_time','confirmation_time','availability_time','lower','upper','features_json','candidate_hash')
 
@@ -40,7 +40,7 @@ def _auth(group8_root:Path,year:int)->None:
   if s.get('annual_execution_2024_authorized') is not True:raise RuntimeError('2024 OOS is forbidden')
 
 def _init_exact(path:Path)->sqlite3.Connection:
- path.unlink(missing_ok=True);c=sqlite3.connect(path);c.row_factory=sqlite3.Row
+ path.unlink(missing_ok=True);path.parent.mkdir(parents=True,exist_ok=True);c=sqlite3.connect(path);c.row_factory=sqlite3.Row
  c.executescript('''PRAGMA journal_mode=OFF;PRAGMA synchronous=OFF;
  CREATE TABLE exact_projection(shard_identity TEXT NOT NULL,candidate_id TEXT PRIMARY KEY,definition_id TEXT NOT NULL,symbol TEXT NOT NULL,timeframe TEXT NOT NULL,direction TEXT NOT NULL,source_bar_id INTEGER,related_source_bar_id INTEGER,event_time INTEGER NOT NULL,confirmation_time INTEGER NOT NULL,availability_time INTEGER NOT NULL,lower REAL,upper REAL,features_json TEXT NOT NULL,candidate_hash TEXT NOT NULL);
  CREATE INDEX ix_exact_level ON exact_projection(symbol,timeframe,lower,availability_time,candidate_id);
@@ -53,9 +53,9 @@ def _insert_exact(out:sqlite3.Connection,sid:str,row:sqlite3.Row)->None:
 
 
 def project_bundle(*,core_db:Path,shards:list[tuple[str,Path]],pass1_db:Path,exact_db:Path,report_path:Path,group8_root:Path,year:int)->dict[str,Any]:
- _auth(group8_root,year);init_catalog(core_db,pass1_db);p=sqlite3.connect(pass1_db);p.row_factory=sqlite3.Row;e=_init_exact(exact_db)
+ _auth(group8_root,year);pass1_db.parent.mkdir(parents=True,exist_ok=True);init_catalog(core_db,pass1_db);p=sqlite3.connect(pass1_db);p.row_factory=sqlite3.Row;e=_init_exact(exact_db)
  try:
-  ranges=_levels(p,'target_range_level');rejections={(int(r[0]),str(r[1])) for r in p.execute('SELECT source_bar_id,direction FROM rejection_key')};seen=set();inserted=matched_failed=exact_rows=0
+  ranges=_levels(p,'target_range_level');rejections={(int(r[0]),str(r[1])) for r in p.execute('SELECT source_bar_id,direction FROM rejection_key')};seen=set();inserted=matched_failed=0
   for sid,db in shards:
    if sid in seen:raise RuntimeError(f'duplicate bundle shard identity:{sid}')
    seen.add(sid);src=sqlite3.connect(f'file:{Path(db).resolve()}?mode=ro&immutable=1',uri=True);src.row_factory=sqlite3.Row
@@ -63,7 +63,7 @@ def project_bundle(*,core_db:Path,shards:list[tuple[str,Path]],pass1_db:Path,exa
     if src.execute('PRAGMA quick_check').fetchone()[0]!='ok' or src.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or src.execute('PRAGMA foreign_key_check').fetchall():raise RuntimeError(f'invalid shard:{sid}')
     sql="SELECT candidate_id,definition_id,symbol,timeframe,direction,source_bar_id,related_source_bar_id,event_time,confirmation_time,availability_time,lower,upper,features_json,candidate_hash FROM price_action_pattern_candidate WHERE definition_id IN ('pa_breakout_exact','pa_failed_breakout','pa_retest') ORDER BY candidate_id"
     for row in src.execute(sql):
-     if row['definition_id']==EXACT:_insert_exact(e,sid,row);exact_rows+=1
+     if row['definition_id']==EXACT:_insert_exact(e,sid,row)
      target=_match(ranges,row['symbol'],row['timeframe'],row['lower']);rej=(row['definition_id']==FAILED and row['source_bar_id'] is not None and (int(row['source_bar_id']),str(row['direction'])) in rejections)
      if target or rej:
       if _insert(p,row):inserted+=1
@@ -89,7 +89,7 @@ def _verify_projection_bindings(db_paths:list[Path],reports:list[dict[str,Any]],
 def merge_pass1(*,core_db:Path,pa7_release_report:Path,partial_dbs:list[Path],projection_report_paths:list[Path],output_catalog:Path,report_path:Path,year:int)->dict[str,Any]:
  release=load(pa7_release_report);expected=_release_shards(release,year);reports=[load(p) for p in projection_report_paths]
  for i,r in enumerate(reports):verify_hash(r,f'projection_{i}')
- _verify_projection_bindings(partial_dbs,reports,'pass1_db');init_catalog(core_db,output_catalog);out=sqlite3.connect(output_catalog);out.row_factory=sqlite3.Row;seen=set();inserted=0
+ _verify_projection_bindings(partial_dbs,reports,'pass1_db');output_catalog.parent.mkdir(parents=True,exist_ok=True);init_catalog(core_db,output_catalog);out=sqlite3.connect(output_catalog);out.row_factory=sqlite3.Row;seen=set();inserted=0
  try:
   for db in partial_dbs:
    src=sqlite3.connect(f'file:{Path(db).resolve()}?mode=ro&immutable=1',uri=True);src.row_factory=sqlite3.Row
@@ -105,30 +105,30 @@ def merge_pass1(*,core_db:Path,pa7_release_report:Path,partial_dbs:list[Path],pr
    finally:src.close()
    out.commit()
   if seen!=expected:raise RuntimeError(f'pass1 shard coverage mismatch:{len(seen)}!={len(expected)}')
-  n,h=logical_candidates(out);rec={'format_version':1,'status':'PASS','year':year,'source_shard_count':len(seen),'candidate_rows':n,'logical_candidate_sha256':h,'exhaustion_level_count':int(out.execute('SELECT COUNT(*) FROM exhaustion_level').fetchone()[0]),'processed_pass1_count':int(out.execute('SELECT COUNT(*) FROM processed WHERE phase=1').fetchone()[0]),'merged_inserted':inserted,'catalog_db':{'filename':output_catalog.name,'size_bytes':output_catalog.stat().st_size,'sha256':sha(output_catalog)},'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable(rec);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');return rec
+  n,h=logical_candidates(out);rec={'format_version':1,'status':'PASS','year':year,'source_shard_count':len(seen),'candidate_rows':n,'logical_candidate_sha256':h,'exhaustion_level_count':int(out.execute('SELECT COUNT(*) FROM exhaustion_level').fetchone()[0]),'processed_pass1_count':int(out.execute('SELECT COUNT(*) FROM processed WHERE phase=1').fetchone()[0]),'merged_inserted':inserted,'catalog_db':{'filename':output_catalog.name,'size_bytes':output_catalog.stat().st_size,'sha256':sha(output_catalog)},'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable(rec);report_path.parent.mkdir(parents=True,exist_ok=True);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');return rec
  finally:out.close()
 
 
 def project_pass2(*,seed_catalog:Path,exact_db:Path,projection_report_path:Path,delta_db:Path,report_path:Path,year:int)->dict[str,Any]:
  pr=load(projection_report_path);verify_hash(pr,'projection')
  if sha(exact_db)!=pr['exact_db']['sha256']:raise RuntimeError('exact projection identity mismatch')
- seed=sqlite3.connect(f'file:{seed_catalog.resolve()}?mode=ro&immutable=1',uri=True);levels=_levels(seed,'exhaustion_level');seed.close();src=sqlite3.connect(f'file:{exact_db.resolve()}?mode=ro&immutable=1',uri=True);src.row_factory=sqlite3.Row;delta_db.unlink(missing_ok=True);out=sqlite3.connect(delta_db);out.row_factory=sqlite3.Row
+ seed=sqlite3.connect(f'file:{seed_catalog.resolve()}?mode=ro&immutable=1',uri=True);levels=_levels(seed,'exhaustion_level');seed.close();src=sqlite3.connect(f'file:{exact_db.resolve()}?mode=ro&immutable=1',uri=True);src.row_factory=sqlite3.Row;delta_db.unlink(missing_ok=True);delta_db.parent.mkdir(parents=True,exist_ok=True);out=sqlite3.connect(delta_db);out.row_factory=sqlite3.Row
  try:
-  out.executescript('''PRAGMA journal_mode=OFF;PRAGMA synchronous=OFF;CREATE TABLE pa7_candidate_delta(candidate_id TEXT PRIMARY KEY,definition_id TEXT NOT NULL,symbol TEXT NOT NULL,timeframe TEXT NOT NULL,direction TEXT NOT NULL,source_bar_id INTEGER,related_source_bar_id INTEGER,event_time INTEGER NOT NULL,confirmation_time INTEGER NOT NULL,availability_time INTEGER NOT NULL,lower REAL,upper REAL,features_json TEXT NOT NULL,candidate_hash TEXT NOT NULL);CREATE TABLE processed(shard_identity TEXT PRIMARY KEY) WITHOUT ROWID;''');inserted=0
+  out.executescript('''PRAGMA journal_mode=OFF;PRAGMA synchronous=OFF;CREATE TABLE pa7_candidate_delta(candidate_id TEXT PRIMARY KEY,definition_id TEXT NOT NULL,symbol TEXT NOT NULL,timeframe TEXT NOT NULL,direction TEXT NOT NULL,source_bar_id INTEGER,related_source_bar_id INTEGER,event_time INTEGER NOT NULL,confirmation_time INTEGER NOT NULL,availability_time INTEGER NOT NULL,lower REAL,upper REAL,features_json TEXT NOT NULL,candidate_hash TEXT NOT NULL);CREATE TABLE processed(shard_identity TEXT PRIMARY KEY) WITHOUT ROWID;''')
   for row in src.execute('SELECT * FROM exact_projection ORDER BY candidate_id'):
    if _match(levels,row['symbol'],row['timeframe'],row['lower']):
     vals=tuple(row[c] for c in COLS)
-    try:out.execute('INSERT INTO pa7_candidate_delta VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',vals);inserted+=1
+    try:out.execute('INSERT INTO pa7_candidate_delta VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',vals)
     except sqlite3.IntegrityError as e:raise RuntimeError(f'duplicate pass2 delta candidate:{row["candidate_id"]}') from e
   for sid, in src.execute('SELECT shard_identity FROM projection_source ORDER BY shard_identity'):out.execute('INSERT INTO processed VALUES(?)',(str(sid),))
-  out.commit();n,h=logical_candidates(out,'pa7_candidate_delta');rec={'format_version':1,'status':'PASS','year':year,'source_shards':sorted(str(r[0]) for r in out.execute('SELECT shard_identity FROM processed')),'source_shard_count':int(out.execute('SELECT COUNT(*) FROM processed').fetchone()[0]),'candidate_rows':n,'logical_candidate_sha256':h,'delta_db':{'filename':delta_db.name,'size_bytes':delta_db.stat().st_size,'sha256':sha(delta_db)},'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable(rec);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');return rec
+  out.commit();n,h=logical_candidates(out,'pa7_candidate_delta');rec={'format_version':1,'status':'PASS','year':year,'source_shards':sorted(str(r[0]) for r in out.execute('SELECT shard_identity FROM processed')),'source_shard_count':int(out.execute('SELECT COUNT(*) FROM processed').fetchone()[0]),'candidate_rows':n,'logical_candidate_sha256':h,'delta_db':{'filename':delta_db.name,'size_bytes':delta_db.stat().st_size,'sha256':sha(delta_db)},'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable(rec);report_path.parent.mkdir(parents=True,exist_ok=True);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');return rec
  finally:src.close();out.close()
 
 
 def merge_pass2(*,seed_catalog:Path,pa7_release_report:Path,delta_dbs:list[Path],delta_report_paths:list[Path],output_catalog:Path,final_report_path:Path,year:int)->dict[str,Any]:
  release=load(pa7_release_report);expected=_release_shards(release,year);reports=[load(p) for p in delta_report_paths]
  for i,r in enumerate(reports):verify_hash(r,f'delta_{i}')
- _verify_projection_bindings(delta_dbs,reports,'delta_db');output_catalog.unlink(missing_ok=True);shutil.copy2(seed_catalog,output_catalog);out=sqlite3.connect(output_catalog);out.row_factory=sqlite3.Row;seen=set()
+ _verify_projection_bindings(delta_dbs,reports,'delta_db');output_catalog.parent.mkdir(parents=True,exist_ok=True);output_catalog.unlink(missing_ok=True);shutil.copy2(seed_catalog,output_catalog);out=sqlite3.connect(output_catalog);out.row_factory=sqlite3.Row;seen=set()
  try:
   for db in delta_dbs:
    src=sqlite3.connect(f'file:{Path(db).resolve()}?mode=ro&immutable=1',uri=True);src.row_factory=sqlite3.Row
@@ -163,7 +163,7 @@ def main()->int:
  d=s.add_parser('merge-pass2');d.add_argument('--seed-catalog',type=Path,required=True);d.add_argument('--pa7-release-report',type=Path,required=True);d.add_argument('--delta-db',type=Path,action='append',required=True);d.add_argument('--delta-report',type=Path,action='append',required=True);d.add_argument('--catalog',type=Path,required=True);d.add_argument('--report',type=Path,required=True);d.add_argument('--year',type=int,required=True)
  x=p.parse_args()
  if x.cmd=='project-bundle':r=project_bundle(core_db=x.core_db,shards=_pairs(x.shard),pass1_db=x.pass1_db,exact_db=x.exact_db,report_path=x.report,group8_root=x.group8_root,year=x.year)
- elif x.cmd=='merge-pass1':r=merge_pass1(core_db=x.core_db,pa7_release_report=x.pa7_release_report,partial_dbs=x.partial_db,projection_report_paths=x.projection_report,catalog=x.catalog if False else x.catalog,output_catalog=x.catalog,report_path=x.report,year=x.year)
+ elif x.cmd=='merge-pass1':r=merge_pass1(core_db=x.core_db,pa7_release_report=x.pa7_release_report,partial_dbs=x.partial_db,projection_report_paths=x.projection_report,output_catalog=x.catalog,report_path=x.report,year=x.year)
  elif x.cmd=='project-pass2':r=project_pass2(seed_catalog=x.seed_catalog,exact_db=x.exact_db,projection_report_path=x.projection_report,delta_db=x.delta_db,report_path=x.report,year=x.year)
  else:r=merge_pass2(seed_catalog=x.seed_catalog,pa7_release_report=x.pa7_release_report,delta_dbs=x.delta_db,delta_report_paths=x.delta_report,output_catalog=x.catalog,final_report_path=x.report,year=x.year)
  print(json.dumps({'status':r['status'],'report_hash':r.get('report_hash'),'candidate_rows':r.get('candidate_rows')},indent=2,sort_keys=True));return 0
