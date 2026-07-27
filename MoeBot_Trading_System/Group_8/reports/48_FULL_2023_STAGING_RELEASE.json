@@ -1,0 +1,93 @@
+{
+  "archive_filename": "MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst",
+  "artifact_kind": "GROUP8_FULL_STAGING",
+  "compressed_sha256": "e5e377ce698e7b016bb14b96081a0c5e8839fe822a337e9e1ead4e44d6fdbd04",
+  "compressed_size_bytes": 1861386088,
+  "compression": "zstd -6 -T0",
+  "compression_seconds": 38,
+  "database_identities": {
+    "group2": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group2_XAUUSD_2023_v0.2.1_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "6f9be91a8b5a5f819ed28e05194276145aa243c5208e55a47dd164f5b894840c",
+      "size_bytes": 467169280
+    },
+    "group3": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group3_XAUUSD_2023_v0.1.1_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "11616537c0c6934be177379204249d9613617b0840644b5c8e4544e07d308bd8",
+      "size_bytes": 1191497728
+    },
+    "group4": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group4_XAUUSD_2023_v0.1.6_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "65b636c5840d1a3d718492a6e6b64d34528eddd5ad2358729b01df3f6867de02",
+      "size_bytes": 38682624
+    },
+    "group5": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group5_XAUUSD_2023_v0.1.6_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "50368ddd9be75aaed5c13e2d0c353f259449fbf7407a00d78c5aa5d097acea9e",
+      "size_bytes": 82915328
+    },
+    "group6": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group6_XAUUSD_2023_v0.6.4_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "d57a862a9d617243940dfc09f64969b916eb716b9936d66c3d6dc9658aa50e6b",
+      "size_bytes": 2156191744
+    },
+    "group7": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "31c845ec0f66e5fcf9ab32f9dc00fc38d1b32f59fb283b054cef7cd0b6625318",
+      "size_bytes": 8115548160
+    },
+    "source": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "source_2023_rebuilt_dukascopy_v1.sqlite",
+      "schema_version": null,
+      "sha256": "68b48fd154f6a41ae1a7d2a2d835abb91a944cdf8bcdbda0618e632076a9a9c1",
+      "size_bytes": 120107008
+    }
+  },
+  "design_freeze_hash": "213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a",
+  "engine_sha256": "ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0",
+  "format_version": 1,
+  "free_only": true,
+  "materialization_report_hash": "317dd63a27ee86d89e0c5d7596bf443c0d0368139887f173306113e7b9a3622b",
+  "materialization_seconds": 356,
+  "oos_2024_accessed": false,
+  "paid_runner_used": false,
+  "paid_service_used": false,
+  "part_count": 1,
+  "parts": [
+    {
+      "filename": "MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst.part-000",
+      "sha256": "e5e377ce698e7b016bb14b96081a0c5e8839fe822a337e9e1ead4e44d6fdbd04",
+      "size_bytes": 1861386088,
+      "url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group8-full-staging-2023-v1/MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst.part-000"
+    }
+  ],
+  "raw_sha256": "edada1e9bf01eae8a960be44caa3ab1e119957a785eab8614ab723c3d5a9ce77",
+  "raw_size_bytes": 7316660224,
+  "release_tag": "moebot-group8-full-staging-2023-v1",
+  "report_hash": "d5f66e7c43fc9c5c829a48018b43a4a2be640c7978fc9a7b210549553a9ba760",
+  "scope": "FULL_GROUP8_ADAPTER_STAGING",
+  "staging_index_report_hash": "a333fe174f8a73fd11571e19912a9bc574bb5df118cd22961fe253900501f12d",
+  "status": "PASS",
+  "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
+  "year": 2023
+}
