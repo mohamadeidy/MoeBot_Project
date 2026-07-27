@@ -50,12 +50,14 @@ def _local_group8_ref_errors(c:sqlite3.Connection)->int:
 
 
 def create_sidecars(databases:Iterable[Path],outdir:Path)->dict[str,Any]:
- outdir.mkdir(parents=True,exist_ok=True);handles:dict[tuple[str,str],TextIO]={};counts={(t,p):0 for t in TABLES for p in HEX};db_count=0;local_ref_errors=0
+ paths=[Path(x).resolve() for x in databases]
+ outdir.mkdir(parents=True,exist_ok=True);handles:dict[tuple[str,str],TextIO]={};counts={(t,p):0 for t in TABLES for p in HEX};db_count=0;local_ref_errors=0;sources=[]
  try:
   for t in TABLES:
    for p in HEX:handles[(t,p)]=(outdir/f'{t}_{p}.pairs').open('a',encoding='utf-8',newline='')
-  for db in databases:
-   c=sqlite3.connect(f'file:{Path(db).resolve()}?mode=ro&immutable=1',uri=True)
+  for db in paths:
+   sources.append({'filename':db.name,'size_bytes':db.stat().st_size,'sha256':sha(db)})
+   c=sqlite3.connect(f'file:{db}?mode=ro&immutable=1',uri=True)
    try:
     if c.execute('PRAGMA quick_check').fetchone()[0]!='ok' or c.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise RuntimeError(f'invalid sqlite:{db}')
     if c.execute('PRAGMA foreign_key_check').fetchall():raise RuntimeError(f'foreign-key error:{db}')
@@ -80,7 +82,7 @@ def create_sidecars(databases:Iterable[Path],outdir:Path)->dict[str,Any]:
     prev=rid
    path.write_text(('\n'.join(lines)+'\n') if lines else '')
    files[f'{key}_{p}']={'filename':path.name,'rows':len(lines),'size_bytes':path.stat().st_size,'sha256':sha(path)};total+=len(lines)
- rec={'format_version':1,'status':'PASS','database_count':db_count,'total_pair_rows':total,'local_group8_reference_errors':0,'files':files,'free_only':True,'paid_runner_used':False,'paid_service_used':False};rec['report_hash']=stable(rec);return rec
+ rec={'format_version':2,'status':'PASS','database_count':db_count,'source_databases':sources,'total_pair_rows':total,'local_group8_reference_errors':0,'files':files,'free_only':True,'paid_runner_used':False,'paid_service_used':False};rec['report_hash']=stable(rec);return rec
 
 
 def _read_line(f:TextIO):
@@ -90,7 +92,7 @@ def _read_line(f:TextIO):
 
 
 def merge_prefix(inputs:Iterable[Path],output:Path)->dict[str,Any]:
- paths=[Path(p) for p in inputs];streams=[p.open('r',encoding='utf-8') for p in paths];heap=[]
+ paths=[Path(p).resolve() for p in inputs];input_meta=[{'filename':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in paths];streams=[p.open('r',encoding='utf-8') for p in paths];heap=[]
  try:
   for i,f in enumerate(streams):
    item=_read_line(f)
@@ -103,7 +105,7 @@ def merge_prefix(inputs:Iterable[Path],output:Path)->dict[str,Any]:
     prev=rid;blob=rid.encode()+b'\0'+rh.encode()+b'\n';out.write(blob);h.update(blob);count+=1
     item=_read_line(streams[i])
     if item:heapq.heappush(heap,(item[0],item[1],i))
-  return {'status':'PASS','input_count':len(paths),'row_count':count,'canonical_stream_sha256':h.hexdigest(),'file_sha256':sha(output),'file_size_bytes':output.stat().st_size}
+  return {'format_version':2,'status':'PASS','inputs':input_meta,'input_count':len(paths),'row_count':count,'canonical_stream_sha256':h.hexdigest(),'file_sha256':sha(output),'file_size_bytes':output.stat().st_size}
  finally:
   for f in streams:f.close()
 
