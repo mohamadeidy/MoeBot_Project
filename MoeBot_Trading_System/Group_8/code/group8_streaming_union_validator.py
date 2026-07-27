@@ -82,7 +82,7 @@ def append_shard(ledger:Path,db:Path,manifest_path:Path)->dict[str,Any]:
 def finalize(ledger:Path,output:Path)->dict[str,Any]:
     c=sqlite3.connect(ledger)
     try:
-        meta=_meta(c);full=meta['full_annual_union']=='1';shard_count=int(c.execute('SELECT COUNT(*) FROM shard').fetchone()[0]);total_bytes=int(c.execute('SELECT COALESCE(SUM(file_size_bytes),0) FROM shard').fetchone()[0])
+        meta=_meta(c);full=meta['full_annual_union']=='1';year=int(meta['year']);shard_count=int(c.execute('SELECT COUNT(*) FROM shard').fetchone()[0]);total_bytes=int(c.execute('SELECT COALESCE(SUM(file_size_bytes),0) FROM shard').fetchone()[0])
         unresolved=[]
         for st,sid,tt,tid,sh in c.execute('SELECT source_table,source_id,target_type,target_id,shard_id FROM refs ORDER BY target_id'):
             if c.execute('SELECT 1 FROM domain WHERE row_id=? LIMIT 1',(tid,)).fetchone() is None:unresolved.append({'source_table':st,'source_id':sid,'target_type':tt,'target_id':tid,'shard_id':sh})
@@ -96,7 +96,7 @@ def finalize(ledger:Path,output:Path)->dict[str,Any]:
                 h.update(str(rid).encode());h.update(b'\0');h.update(str(rh).encode());h.update(b'\n')
             counts[table]=n;hashes[table]=h.hexdigest()
         gp={'tables':{t:{'count':counts[t],'logical_sha256':hashes[t]} for t in sorted(counts)}};global_sha=stable_hash(gp)
-        rec={'format_version':1,'status':'PASS','year':int(meta['year']),'symbol':meta['symbol'],'full_annual_union':full,'shard_count':shard_count,'total_shard_bytes':total_bytes,'storage_contract_hash':meta['storage_contract_hash'],'design_freeze_hash':meta['design_freeze_hash'],'engine_sha256':meta['engine_sha256'],'table_row_counts':counts,'table_logical_sha256':hashes,'global_logical_sha256':global_sha,'unresolved_group8_reference_count':len(unresolved),'unresolved_group8_reference_sample':unresolved[:20],'duplicate_domain_id_count':0,'registry_conflict_count':0,'oos_2024_accessed':int(meta['year'])==2024}
+        rec={'format_version':1,'status':'PASS','year':year,'symbol':meta['symbol'],'full_annual_union':full,'shard_count':shard_count,'total_shard_bytes':total_bytes,'storage_contract_hash':meta['storage_contract_hash'],'design_freeze_hash':meta['design_freeze_hash'],'engine_sha256':meta['engine_sha256'],'table_row_counts':counts,'table_logical_sha256':hashes,'global_logical_sha256':global_sha,'unresolved_group8_reference_count':len(unresolved),'unresolved_group8_reference_sample':unresolved[:20],'duplicate_domain_id_count':0,'registry_conflict_count':0,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024}
         rec['report_hash']=stable_hash(rec);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');return rec
     finally:c.close()
 
