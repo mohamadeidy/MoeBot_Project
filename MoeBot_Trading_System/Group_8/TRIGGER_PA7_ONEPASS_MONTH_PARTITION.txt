@@ -1,1 +1,2 @@
 Prove one exact PA7 engine pass per timeframe/scope/bucket can be partitioned back into the twelve frozen causal-root monthly shards with identical shard IDs, candidate/state IDs and hashes, logical fingerprints, definition coverage, and annual followup finalization, without changing frozen semantics or accessing 2024.
+Rebased onto current main for convergence-mode parity rerun.
