@@ -31,6 +31,21 @@ jobs:
       - name: Prove catalog-driven derived exact parity
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
-        run: python -m unittest "$GROUP8_ROOT/tests/test_group8_pa7_derived_layer.py"
+        run: |
+          set +e
+          python -m unittest -v "$GROUP8_ROOT/tests/test_group8_pa7_derived_layer.py" > "$RUNNER_TEMP/derived-parity.log" 2>&1
+          RC=$?
+          cat "$RUNNER_TEMP/derived-parity.log"
+          echo "$RC" > "$RUNNER_TEMP/derived-parity.exit"
+          exit "$RC"
+      - name: Upload derived parity diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-pa7-derived-parity-diagnostic
+          path: |
+            ${{ runner.temp }}/derived-parity.log
+            ${{ runner.temp }}/derived-parity.exit
+          retention-days: 7
       - name: Audit frozen surfaces unchanged
         run: git diff --exit-code origin/main -- "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" "$GROUP8_ROOT/STATUS.json"
