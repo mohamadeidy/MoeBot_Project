@@ -93,7 +93,22 @@ jobs:
 
       - name: Generate free-only technical refreeze artifacts
         run: |
-          python "$GROUP8_ROOT/code/group8_free_storage_technical_refreeze.py"
+          set +e
+          python "$GROUP8_ROOT/code/group8_free_storage_technical_refreeze.py" > "$RUNNER_TEMP/refreeze-generator.log" 2>&1
+          RC=$?
+          cat "$RUNNER_TEMP/refreeze-generator.log"
+          echo "$RC" > "$RUNNER_TEMP/refreeze-generator.exit"
+          exit "$RC"
+
+      - name: Upload refreeze generator diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-free-storage-refreeze-diagnostic
+          path: |
+            ${{ runner.temp }}/refreeze-generator.log
+            ${{ runner.temp }}/refreeze-generator.exit
+          retention-days: 7
 
       - name: Verify generated refreeze hashes and authorization boundaries
         run: |
