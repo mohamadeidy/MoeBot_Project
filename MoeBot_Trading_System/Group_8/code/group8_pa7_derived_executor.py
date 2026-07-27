@@ -32,22 +32,21 @@ class PA7DerivedEngine(Group8Engine):
         finally:super().close()
 
     def _first_exact_at_level(self,*,symbol:str,timeframe:str,direction:str,after_or_equal:int,level:float):
-        # Frozen process_breakouts writes ordinary re-arm transitions before newly
-        # available initialization transitions. Within each class the boundary
-        # catalog is ordered by group/type/id for a fixed direction+level.
+        # The frozen SQLite schema has ix_pa_candidate_tf_avail ending in candidate_id.
+        # The reference Wyckoff query orders only by availability_time, and on the
+        # frozen schema equal-availability rows are consequently visited by candidate_id.
+        # Encode that planner-stable observed order explicitly in the sharded catalog.
         return self.pa7.execute("""SELECT * FROM pa7_candidate_catalog
           WHERE definition_id='pa_breakout_exact' AND symbol=? AND timeframe=? AND direction=?
             AND availability_time>=? AND ABS(lower-?)<1e-12
-          ORDER BY availability_time,
-                   CAST(json_extract(features_json,'$.initialization_transition') AS INTEGER),
-                   json_extract(features_json,'$.state_boundary_identity'),candidate_id LIMIT 1""",
+          ORDER BY availability_time,candidate_id LIMIT 1""",
           (symbol,timeframe,direction,int(after_or_equal),float(level))).fetchone()
 
     def _first_retest_at_level(self,*,symbol:str,timeframe:str,after:int,level:float):
-        # Reference follow-up enumeration orders breakouts by availability,candidate_id.
+        # Same frozen index/tie behavior as the reference retest lookup.
         return self.pa7.execute("""SELECT * FROM pa7_candidate_catalog
           WHERE definition_id='pa_retest' AND symbol=? AND timeframe=? AND availability_time>? AND ABS(lower-?)<1e-12
-          ORDER BY availability_time,json_extract(features_json,'$.breakout_candidate_id'),candidate_id LIMIT 1""",
+          ORDER BY availability_time,candidate_id LIMIT 1""",
           (symbol,timeframe,int(after),float(level))).fetchone()
 
     def process_exhaustion_from_catalog(self)->None:
