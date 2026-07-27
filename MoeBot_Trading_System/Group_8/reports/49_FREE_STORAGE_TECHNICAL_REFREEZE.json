@@ -1,0 +1,98 @@
+{
+  "annual_2023_authorized_after_refreeze": true,
+  "annual_2024_authorized_after_refreeze": false,
+  "boundary_scope_union_parity_gate": "PASS",
+  "classification": "PHYSICAL_STORAGE_HANDOFF_CAPACITY",
+  "compact_full_staging_equivalence_gate": "PASS",
+  "context_rejection_parity_gate": "PASS",
+  "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "design_freeze_hash": "213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a",
+  "engine_sha256": "ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0",
+  "execution_identities": {
+    "context_rejection_fastpath": {
+      "path": "code/group8_context_rejection_fastpath.py",
+      "sha256": "1f032213643e6332e83345ef4ce6f420077f0291aad97720e9b58e17d4e63d87",
+      "size_bytes": 7691
+    },
+    "context_rejection_fastpath_tests": {
+      "path": "tests/test_group8_context_rejection_fastpath.py",
+      "sha256": "7a5bf6bd9b10aa7afa397ceb60682e10a907eaef6476d0dd85ad4e6b3a0e2620",
+      "size_bytes": 1495
+    },
+    "full_2023_staging_release": {
+      "path": "reports/48_FULL_2023_STAGING_RELEASE.json",
+      "sha256": "9eeffff83258ab8fe45aedc74e46dc733bdaf9cc35acbb33dbd5f6fb5452b3d7",
+      "size_bytes": 3927
+    },
+    "pa7_boundary_scope_tests": {
+      "path": "tests/test_group8_pa7_boundary_scope_split.py",
+      "sha256": "76e2a75512ef151d3ed5e39bf0cf4be92fc29e01b306ffaa0b24442f3ffe0189",
+      "size_bytes": 2665
+    },
+    "pa7_compact_materializer": {
+      "path": "code/group8_pa7_materialize_inputs.py",
+      "sha256": "a5323a4903d38fd0a570ec208e1b3c2595efdba4ce4f283f614dfd30882eabee",
+      "size_bytes": 5888
+    },
+    "pa7_compact_staging_tests": {
+      "path": "tests/test_group8_pa7_compact_staging.py",
+      "sha256": "bc56b0001b9627ff161551ff3290b6c9c5f7ca464c3650cc2d2daf9c8c46ada0",
+      "size_bytes": 3139
+    },
+    "pa7_scoped_shard_executor": {
+      "path": "code/group8_pa7_scoped_shard_executor.py",
+      "sha256": "bae378e422d9041cd92cfdc66e4229d06ce39fcf60d874fecb953f95293ff58c",
+      "size_bytes": 4732
+    },
+    "pa7_shard_executor": {
+      "path": "code/group8_pa7_shard_executor.py",
+      "sha256": "a88d6f497c947a20f66a7d0b2796acd7e7e037e45742e5c3be41809d83327316",
+      "size_bytes": 18137
+    },
+    "pa7_sharded_parity_tests": {
+      "path": "tests/test_group8_pa7_sharded_parity_v0_8_0.py",
+      "sha256": "48d71680ba0c47cfff7df61d3bb86e792394e41a1feeabbb625086fe1b438f52",
+      "size_bytes": 4174
+    },
+    "shard_union_tests": {
+      "path": "tests/test_group8_shard_union_validator.py",
+      "sha256": "6702b8c7425d0bf3ecce1088cecc0cba68b65772e04a4b69e3c21ebb658c5526",
+      "size_bytes": 1639
+    },
+    "shard_union_validator": {
+      "path": "code/group8_shard_union_validator.py",
+      "sha256": "d01b4677222b2820ae6e959459e4447f5e9f6cbb61d0b4272bc9f4f6b12d1af8",
+      "size_bytes": 11346
+    },
+    "storage_contract": {
+      "path": "SHARDED_STORAGE_CONTRACT.json",
+      "sha256": "639ac2fd354356b35747849dbcfaf55acc673ca4c7aae06ca8bd6d61d4b055e9",
+      "size_bytes": 5098
+    },
+    "structural_narrative_fastpath": {
+      "path": "code/group8_structural_narrative_fastpath.py",
+      "sha256": "b6027d0494976e5e2bbe5db3cc7863545be336e9f03184c565170ca0cd18e854",
+      "size_bytes": 7682
+    },
+    "structural_narrative_fastpath_tests": {
+      "path": "tests/test_group8_structural_narrative_fastpath.py",
+      "sha256": "e6b998dbe759b5efbab2da47737a9c86eaaff2acb5a62dce62bc73af74eb08e8",
+      "size_bytes": 2064
+    }
+  },
+  "format_version": 1,
+  "free_only": true,
+  "full_2023_staging_release_report_hash": "d5f66e7c43fc9c5c829a48018b43a4a2be640c7978fc9a7b210549553a9ba760",
+  "gap_id": "G8-FREE-STORAGE-CAPACITY-009",
+  "oos_2024_accessed": false,
+  "paid_runner_used": false,
+  "paid_service_used": false,
+  "report_hash": "a2117403e690bb7e2ee6b15fa9a8dd596b2d2b8ed802a057dd5fbec69bd36921",
+  "resolution": "FREE_ONLY_LOSSLESS_CAUSAL_ROOT_SHARDED_EXECUTION",
+  "semantic_regression_gate": "PASS",
+  "shard_union_validation_gate": "PASS",
+  "sharded_monolithic_parity_gate": "PASS",
+  "status": "PASS",
+  "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
+  "structural_narrative_parity_gate": "PASS"
+}
