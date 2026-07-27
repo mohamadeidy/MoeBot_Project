@@ -1,0 +1,23 @@
+name: MoeBot Group 8 OOS Freeze Tooling Expansion Check
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_OOS_FREEZE_TOOLING_EXPANSION_CHECK.txt"
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Prove expanded OOS freeze remains data-blind and identity-complete
+        env:
+          PYTHONPATH: MoeBot_Trading_System/Group_8/code:MoeBot_Trading_System/Group_8/tests
+        run: |
+          python MoeBot_Trading_System/Group_8/tests/test_group8_oos_freeze_tooling_expansion.py
