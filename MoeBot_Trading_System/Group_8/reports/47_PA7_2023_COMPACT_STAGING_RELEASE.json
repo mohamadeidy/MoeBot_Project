@@ -1,0 +1,111 @@
+{
+  "artifact_kind": "GROUP8_PA7_COMPACT_STAGING",
+  "compressed_sha256": "8bf1cf577de3cb8331178021c75e0e47d3cd076b57ab9514786d1e416cb42cea",
+  "compressed_size_bytes": 795181806,
+  "compression": "zstd -6 -T0",
+  "compression_seconds": 18,
+  "database_identities": {
+    "group2": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group2_XAUUSD_2023_v0.2.1_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "6f9be91a8b5a5f819ed28e05194276145aa243c5208e55a47dd164f5b894840c",
+      "size_bytes": 467169280
+    },
+    "group3": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group3_XAUUSD_2023_v0.1.1_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "11616537c0c6934be177379204249d9613617b0840644b5c8e4544e07d308bd8",
+      "size_bytes": 1191497728
+    },
+    "group4": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group4_XAUUSD_2023_v0.1.6_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "65b636c5840d1a3d718492a6e6b64d34528eddd5ad2358729b01df3f6867de02",
+      "size_bytes": 38682624
+    },
+    "group5": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group5_XAUUSD_2023_v0.1.6_rebuilt_dukascopy_v1_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "50368ddd9be75aaed5c13e2d0c353f259449fbf7407a00d78c5aa5d097acea9e",
+      "size_bytes": 82915328
+    },
+    "group6": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group6_XAUUSD_2023_v0.6.4_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "d57a862a9d617243940dfc09f64969b916eb716b9936d66c3d6dc9658aa50e6b",
+      "size_bytes": 2156191744
+    },
+    "group7": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "MoeBot_Group7_XAUUSD_2023_v0.7.5_corrected_v3_group8_v1.sqlite",
+      "schema_version": null,
+      "sha256": "31c845ec0f66e5fcf9ab32f9dc00fc38d1b32f59fb283b054cef7cd0b6625318",
+      "size_bytes": 8115548160
+    },
+    "source": {
+      "config_id": null,
+      "engine_version": null,
+      "filename": "source_2023_rebuilt_dukascopy_v1.sqlite",
+      "schema_version": null,
+      "sha256": "68b48fd154f6a41ae1a7d2a2d835abb91a944cdf8bcdbda0618e632076a9a9c1",
+      "size_bytes": 120107008
+    }
+  },
+  "design_freeze_hash": "213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a",
+  "engine_sha256": "ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0",
+  "filename": "MoeBot_Group8_PA7_2023_COMPACT_STAGING_v1.sqlite.zst",
+  "format_version": 1,
+  "free_only": true,
+  "materialization_report_hash": "02ace958f5a67dab2fafb95baedfafa56f232d306a535430692ac2d0d5fbc737",
+  "materialization_seconds": 250,
+  "omitted_nonconsumed_groups": [
+    "group2",
+    "group3"
+  ],
+  "oos_2024_accessed": false,
+  "paid_runner_used": false,
+  "paid_service_used": false,
+  "raw_sha256": "455a81e79a64e3c4a94d7b22ea953e313e18e9e3e77ae9c8bdcfea23b0c77f23",
+  "raw_size_bytes": 3702087680,
+  "release_tag": "moebot-group8-pa7-staging-2023-v1",
+  "release_url": "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group8-pa7-staging-2023-v1/MoeBot_Group8_PA7_2023_COMPACT_STAGING_v1.sqlite.zst",
+  "report_hash": "b41c0dcd91df8093493cec2b5957cef970ecd64a07f03b5d1cdbae6d3597b666",
+  "scope": "PA7_COMPACT_V1",
+  "staging_index_report_hash": "19750a6eb8fe3cbbbf781ffda51e7f2220ea2874ea406e8103a45d1857ab066b",
+  "status": "PASS",
+  "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
+  "verified_materialized_groups": {
+    "group4": {
+      "database_sha256": "65b636c5840d1a3d718492a6e6b64d34528eddd5ad2358729b01df3f6867de02",
+      "database_size_bytes": 38682624
+    },
+    "group5": {
+      "database_sha256": "50368ddd9be75aaed5c13e2d0c353f259449fbf7407a00d78c5aa5d097acea9e",
+      "database_size_bytes": 82915328
+    },
+    "group6": {
+      "database_sha256": "d57a862a9d617243940dfc09f64969b916eb716b9936d66c3d6dc9658aa50e6b",
+      "database_size_bytes": 2156191744
+    },
+    "group7": {
+      "database_sha256": "31c845ec0f66e5fcf9ab32f9dc00fc38d1b32f59fb283b054cef7cd0b6625318",
+      "database_size_bytes": 8115548160
+    },
+    "source": {
+      "database_sha256": "68b48fd154f6a41ae1a7d2a2d835abb91a944cdf8bcdbda0618e632076a9a9c1",
+      "database_size_bytes": 120107008
+    }
+  },
+  "year": 2023
+}

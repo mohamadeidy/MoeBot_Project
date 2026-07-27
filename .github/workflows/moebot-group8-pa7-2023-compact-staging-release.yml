@@ -1,0 +1,132 @@
+name: MoeBot Group 8 Build Reusable 2023 PA7 Compact Staging
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_2023_COMPACT_STAGING_RELEASE.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  TAG: moebot-group8-pa7-staging-2023-v1
+  ASSET: MoeBot_Group8_PA7_2023_COMPACT_STAGING_v1.sqlite.zst
+  MANIFEST_ASSET: MoeBot_Group8_PA7_2023_COMPACT_STAGING_v1.json
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight free-only and 2023-only
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());c=json.loads((r/'SHARDED_STORAGE_CONTRACT.json').read_text());f=json.loads((r/'DESIGN_FREEZE_MANIFEST.json').read_text())
+          assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()=='ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0'
+          assert c['storage_contract_hash']=='d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a'
+          assert f['design_freeze_hash']=='213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a'
+          assert c['free_only_policy']['paid_runner_allowed'] is False and c['free_only_policy']['paid_service_allowed'] is False
+          assert s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','year':2023,'free_only':True,'2024_oos':False})
+          PY
+          python -m py_compile "$GROUP8_ROOT/code/group8_pa7_materialize_inputs.py" "$GROUP8_ROOT/code/group8_pa7_shard_executor.py" .github/scripts/group8_pa7_compact_staging_indexes.py
+      - name: Reclaim unused preinstalled storage
+        run: |
+          docker system prune -af || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean || true
+          df -h /
+      - name: Install zstd
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+      - name: Materialize exact compact 2023 PA7 staging once
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-staging/work" "$RUNNER_TEMP/g8-staging/reports"
+          START=$(date +%s)
+          python "$GROUP8_ROOT/code/group8_pa7_materialize_inputs.py" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-staging/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-staging/work" \
+            --report "$RUNNER_TEMP/g8-staging/reports/MATERIALIZATION.json"
+          END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/g8-staging/reports/MATERIALIZATION_SECONDS.txt"
+      - name: Add compact PA7 support indexes and normalize SQLite file
+        run: |
+          python .github/scripts/group8_pa7_compact_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-staging/staging.sqlite" --year 2023 --phase pa7-reusable-staging \
+            --output "$RUNNER_TEMP/g8-staging/reports/STAGING_INDEX_REPORT.json"
+          python - <<'PY'
+          import sqlite3,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'g8-staging/staging.sqlite'
+          con=sqlite3.connect(p);con.execute('PRAGMA wal_checkpoint(TRUNCATE)');con.execute('PRAGMA journal_mode=DELETE');con.execute('PRAGMA synchronous=FULL');con.commit();qc=con.execute('PRAGMA quick_check').fetchone()[0];ic=con.execute('PRAGMA integrity_check').fetchone()[0];con.close();assert qc=='ok' and ic=='ok'
+          PY
+      - name: Verify compact staging is accepted by exact PA7 engine
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from group8_pa7_shard_executor import PA7ShardEngine,ShardSpec
+          root=Path('MoeBot_Trading_System/Group_8').resolve();db=Path(os.environ['RUNNER_TEMP'])/'g8-staging/staging.sqlite'
+          e=PA7ShardEngine(staging_db=db,output_db=Path(os.environ['RUNNER_TEMP'])/'g8-staging/accept.sqlite',artifacts_root=root,year=2023,symbol='XAUUSD_',spec=ShardSpec(2023,'XAUUSD_','M1','2023-01',8,0))
+          try:e.load_bars();e.retain_target_timeframe();assert e.bars_by_tf[('XAUUSD_','M1')]
+          finally:e.close()
+          print({'status':'PASS','compact_staging_engine_acceptance':True})
+          PY
+      - name: Compress and build immutable release manifest
+        run: |
+          START=$(date +%s)
+          zstd -q -6 -T0 -f "$RUNNER_TEMP/g8-staging/staging.sqlite" -o "$RUNNER_TEMP/g8-staging/$ASSET"
+          END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/g8-staging/reports/COMPRESSION_SECONDS.txt"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          base=Path(os.environ['RUNNER_TEMP'])/'g8-staging';repo=Path('MoeBot_Trading_System/Group_8');raw=base/'staging.sqlite';z=base/os.environ['ASSET'];mat=json.loads((base/'reports/MATERIALIZATION.json').read_text());idx=json.loads((base/'reports/STAGING_INDEX_REPORT.json').read_text())
+          def sha(p):
+              h=hashlib.sha256()
+              with p.open('rb') as f:
+                  for c in iter(lambda:f.read(16*1024*1024),b''):h.update(c)
+              return h.hexdigest()
+          def stable(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          rec={'format_version':1,'status':'PASS','artifact_kind':'GROUP8_PA7_COMPACT_STAGING','year':2023,'scope':'PA7_COMPACT_V1','filename':os.environ['ASSET'],'raw_size_bytes':raw.stat().st_size,'raw_sha256':sha(raw),'compressed_size_bytes':z.stat().st_size,'compressed_sha256':sha(z),'compression':'zstd -6 -T0','release_tag':os.environ['TAG'],'release_url':f"https://github.com/mohamadeidy/MoeBot_Project/releases/download/{os.environ['TAG']}/{os.environ['ASSET']}",'materialization_report_hash':mat['report_hash'],'staging_index_report_hash':idx.get('report_hash'),'database_identities':mat['database_identities'],'verified_materialized_groups':mat['verified_materialized_groups'],'omitted_nonconsumed_groups':mat['omitted_nonconsumed_groups'],'engine_sha256':'ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0','design_freeze_hash':'213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a','storage_contract_hash':'d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a','free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False,'materialization_seconds':int((base/'reports/MATERIALIZATION_SECONDS.txt').read_text()),'compression_seconds':int((base/'reports/COMPRESSION_SECONDS.txt').read_text())};rec['report_hash']=stable(rec)
+          if z.stat().st_size>=2_000_000_000:raise SystemExit(f'release asset too large for safe <2GB policy: {z.stat().st_size}')
+          (base/os.environ['MANIFEST_ASSET']).write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');(repo/'reports/47_PA7_2023_COMPACT_STAGING_RELEASE.json').write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');print(json.dumps(rec,indent=2,sort_keys=True))
+          PY
+      - name: Publish reusable staging as free GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --title "MoeBot Group 8 PA7 2023 Compact Staging v1" --notes "Free-only verified reusable 2023 PA7 compact staging. Immutable identities are in the JSON manifest. This is engineering infrastructure only; 2024 OOS remains untouched."
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/g8-staging/$ASSET" "$RUNNER_TEMP/g8-staging/$MANIFEST_ASSET" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Public redownload and SHA verification
+        run: |
+          rm -f "$RUNNER_TEMP/g8-staging/redownload.zst"
+          curl -fL --retry 5 --retry-delay 2 "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" -o "$RUNNER_TEMP/g8-staging/redownload.zst"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          base=Path(os.environ['RUNNER_TEMP'])/'g8-staging';m=json.loads((base/os.environ['MANIFEST_ASSET']).read_text());p=base/'redownload.zst';h=hashlib.sha256(p.read_bytes()).hexdigest();assert h==m['compressed_sha256'] and p.stat().st_size==m['compressed_size_bytes'];assert m['free_only'] and not m['oos_2024_accessed'];print({'status':'PASS','compressed_sha256':h,'bytes':p.stat().st_size})
+          PY
+      - name: Commit permanent release identity report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/47_PA7_2023_COMPACT_STAGING_RELEASE.json"
+          git commit -m "Record reusable Group 8 PA7 2023 compact staging release [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
