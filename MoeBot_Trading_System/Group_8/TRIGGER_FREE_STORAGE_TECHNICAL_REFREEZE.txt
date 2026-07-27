@@ -1,0 +1,1 @@
+Run the complete FREE-ONLY Group 8 sharded execution technical re-freeze. Close Gap009 only if all frozen semantic regressions, exact sharded parity, shard-union validation, staging equivalence, boundary-scope parity and fast-path parity gates pass. Authorize 2023 only; keep 2024 OOS forbidden and paid runners/services disallowed.
