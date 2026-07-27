@@ -1,0 +1,1 @@
+Prove a reduced FREE-only PA7 query catalog preserves every frozen PA7-dependent derived/global Group 8 output ID and hash while the full PA7 domain remains in lossless shards.
