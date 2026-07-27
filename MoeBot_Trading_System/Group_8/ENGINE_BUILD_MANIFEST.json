@@ -2,21 +2,23 @@
   "annual_execution_2023_authorized": true,
   "annual_execution_2024_authorized": false,
   "closed_blocking_gap": {
-    "base_technical_audit_hash": "775ddf2fdf1bfe052caae03623f18322bcd80f427cd47ae9130045a00a52112d",
-    "classification": "FROZEN_IMPLEMENTATION_SEMANTIC_VIOLATION",
-    "fix_report_hash": "b35cee4b2f1500ab5a20e8a1bfb8e0a928047d2875e6c5c2c627e8383af0fc8d",
-    "fixed_engine_sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
-    "gap_id": "G8-PA7-LIFECYCLE-RETIREMENT-008",
-    "gap_report_hash": "cdd862c7d725858be54c326300404811deee6245ddcb0da3d32a4be68b4122a8",
-    "resolution": "CAUSAL_BOUNDARY_LIFECYCLE_RETIREMENT",
-    "supplemental_technical_audit_hash": "e7e22f886ded11869e250f443200bf1c72f2135beaf2b10e5e5a39b767298ac3"
+    "classification": "PHYSICAL_STORAGE_HANDOFF_CAPACITY",
+    "design_freeze_hash": "213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a",
+    "engine_sha256": "ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0",
+    "full_2023_staging_release_report_hash": "d5f66e7c43fc9c5c829a48018b43a4a2be640c7978fc9a7b210549553a9ba760",
+    "gap_id": "G8-FREE-STORAGE-CAPACITY-009",
+    "oos_2024_accessed": false,
+    "paid_cost_authorized": false,
+    "resolution": "FREE_ONLY_LOSSLESS_CAUSAL_ROOT_SHARDED_EXECUTION",
+    "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
+    "technical_refreeze_report_hash": "a2117403e690bb7e2ee6b15fa9a8dd596b2d2b8ed802a057dd5fbec69bd36921"
   },
   "config_id": "cfg8_0e5a4dc3394efff2d2d54c20b0a93fba66b6ddd3d8e8a28a70292e6bb5755ded",
   "definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
   "design_amendment_report_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
-  "design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
+  "design_freeze_hash": "213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a",
   "engine_version": "0.8.0",
-  "format_version": 5,
+  "format_version": 6,
   "identities": {
     "annual_validator": {
       "path": "code/group8_annual_validation.py",
@@ -28,6 +30,16 @@
       "sha256": "d58015a0b99d0d38959cfc5089714aee6d19cf21d2b0eb6a38535dfe5f7ed727",
       "size_bytes": 4759
     },
+    "context_rejection_fastpath": {
+      "path": "code/group8_context_rejection_fastpath.py",
+      "sha256": "1f032213643e6332e83345ef4ce6f420077f0291aad97720e9b58e17d4e63d87",
+      "size_bytes": 7691
+    },
+    "context_rejection_fastpath_tests": {
+      "path": "tests/test_group8_context_rejection_fastpath.py",
+      "sha256": "7a5bf6bd9b10aa7afa397ceb60682e10a907eaef6476d0dd85ad4e6b3a0e2620",
+      "size_bytes": 1495
+    },
     "definitions": {
       "path": "01_DEFINITION_REGISTRY.json",
       "sha256": "b81341ea8766707e3d72c99f5d91f4efba6c22ac81202dd556894f62737fad3d",
@@ -35,13 +47,23 @@
     },
     "design_freeze": {
       "path": "DESIGN_FREEZE_MANIFEST.json",
-      "sha256": "ce02a4e403e7f3868341675c4236a8e44795792fa5e69d323f580a0799439a63",
-      "size_bytes": 2778
+      "sha256": "b7e7dd41b66f17a41a52d16250e2e4f67a939ffe5043b3aa7947cca3dbb91661",
+      "size_bytes": 3933
     },
     "engine": {
       "path": "code/moebot_group8_engine_v0_8_0.py",
-      "sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+      "sha256": "ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0",
       "size_bytes": 104121
+    },
+    "free_storage_technical_refreeze": {
+      "path": "reports/49_FREE_STORAGE_TECHNICAL_REFREEZE.json",
+      "sha256": "929a577ef1d4ea58709c0506e4c3c732f09df2c02e83ee33a6c8c18b3597d935",
+      "size_bytes": 4263
+    },
+    "full_2023_staging_release": {
+      "path": "reports/48_FULL_2023_STAGING_RELEASE.json",
+      "sha256": "9eeffff83258ab8fe45aedc74e46dc733bdaf9cc35acbb33dbd5f6fb5452b3d7",
+      "size_bytes": 3927
     },
     "lifecycle_tests": {
       "path": "tests/test_group8_lifecycle_persistence_v0_8_0.py",
@@ -52,6 +74,21 @@
       "path": "code/group8_materialize_inputs.py",
       "sha256": "bd6927c0195e0b3a8070f6921fe19b09ea5eb003e1053592d6b9551a8aaf901d",
       "size_bytes": 9717
+    },
+    "pa7_boundary_scope_tests": {
+      "path": "tests/test_group8_pa7_boundary_scope_split.py",
+      "sha256": "76e2a75512ef151d3ed5e39bf0cf4be92fc29e01b306ffaa0b24442f3ffe0189",
+      "size_bytes": 2665
+    },
+    "pa7_compact_materializer": {
+      "path": "code/group8_pa7_materialize_inputs.py",
+      "sha256": "a5323a4903d38fd0a570ec208e1b3c2595efdba4ce4f283f614dfd30882eabee",
+      "size_bytes": 5888
+    },
+    "pa7_compact_staging_tests": {
+      "path": "tests/test_group8_pa7_compact_staging.py",
+      "sha256": "bc56b0001b9627ff161551ff3290b6c9c5f7ca464c3650cc2d2daf9c8c46ada0",
+      "size_bytes": 3139
     },
     "pa7_design_amendment": {
       "path": "reports/37_PA7_TRANSITION_EVENT_DESIGN_AMENDMENT.json",
@@ -83,6 +120,21 @@
       "sha256": "039479bfc42a95cec684330f8df95a3ab3860e6392ecf9aa13e9c850a82b605a",
       "size_bytes": 1775
     },
+    "pa7_scoped_shard_executor": {
+      "path": "code/group8_pa7_scoped_shard_executor.py",
+      "sha256": "bae378e422d9041cd92cfdc66e4229d06ce39fcf60d874fecb953f95293ff58c",
+      "size_bytes": 4732
+    },
+    "pa7_shard_executor": {
+      "path": "code/group8_pa7_shard_executor.py",
+      "sha256": "a88d6f497c947a20f66a7d0b2796acd7e7e037e45742e5c3be41809d83327316",
+      "size_bytes": 18137
+    },
+    "pa7_sharded_parity_tests": {
+      "path": "tests/test_group8_pa7_sharded_parity_v0_8_0.py",
+      "sha256": "48d71680ba0c47cfff7df61d3bb86e792394e41a1feeabbb625086fe1b438f52",
+      "size_bytes": 4174
+    },
     "pa7_timeframe_tests": {
       "path": "tests/test_group8_breakout_timeframe_isolation_v0_8_0.py",
       "sha256": "d940a33c7e874c505e669ba875af0b632d17069d6d599c0d9eaf45284a6a6251",
@@ -102,6 +154,31 @@
       "path": "02_SCHEMA.sql",
       "sha256": "69382b60266857c0d5aa8662ee6d98d47ae20288bac4d76149aba438eec2d6c1",
       "size_bytes": 17297
+    },
+    "shard_union_tests": {
+      "path": "tests/test_group8_shard_union_validator.py",
+      "sha256": "6702b8c7425d0bf3ecce1088cecc0cba68b65772e04a4b69e3c21ebb658c5526",
+      "size_bytes": 1639
+    },
+    "shard_union_validator": {
+      "path": "code/group8_shard_union_validator.py",
+      "sha256": "d01b4677222b2820ae6e959459e4447f5e9f6cbb61d0b4272bc9f4f6b12d1af8",
+      "size_bytes": 11346
+    },
+    "storage_contract": {
+      "path": "SHARDED_STORAGE_CONTRACT.json",
+      "sha256": "639ac2fd354356b35747849dbcfaf55acc673ca4c7aae06ca8bd6d61d4b055e9",
+      "size_bytes": 5098
+    },
+    "structural_narrative_fastpath": {
+      "path": "code/group8_structural_narrative_fastpath.py",
+      "sha256": "b6027d0494976e5e2bbe5db3cc7863545be336e9f03184c565170ca0cd18e854",
+      "size_bytes": 7682
+    },
+    "structural_narrative_fastpath_tests": {
+      "path": "tests/test_group8_structural_narrative_fastpath.py",
+      "sha256": "e6b998dbe759b5efbab2da47737a9c86eaaff2acb5a62dce62bc73af74eb08e8",
+      "size_bytes": 2064
     },
     "technical_audit": {
       "path": "reports/20_ENGINE_TECHNICAL_CANDIDATE_AUDIT.json",
@@ -124,22 +201,22 @@
       "size_bytes": 15382
     }
   },
-  "manifest_hash": "e7b5eaac95747f0f7e6e3d7a88b4b104a14e4c7dbe9f7f0ae4f2b401e2743b39",
-  "policy": "2023 engineering validation is re-authorized only after Gap008 causal lifecycle retirement fix, complete regression matrices, independent base audit, independent PA7 lifecycle audit, and exact identity refreeze. 2024 remains forbidden until successful 2023 validation and explicit OOS freeze.",
+  "manifest_hash": "087a53942361d26d9b518359be60271c041b9887df6321e4998e2bdf48b8e366",
+  "policy": "FREE-ONLY. Lossless causal-root sharded execution is the official physical annual materialization/handoff path. No paid runner/service is authorized. 2023 engineering annual validation is authorized after full semantic/parity/union technical refreeze. 2024 OOS remains forbidden until 2023 PASS and explicit OOS freeze.",
   "previous_closed_blocking_gap": {
-    "amended_definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
-    "amended_design_freeze_hash": "7cc865da6712c343bdaeb7fce4bb9f93ce2ddf117c45367e13b8dc637e29e1b4",
-    "amended_engine_sha256": "a52cc93ec2071526c4edba78db00c7313dfb47a712a1a0f5defd76c55cac58f7",
-    "base_technical_audit_hash": "65fc359c2faa394cfb0677ab26c626beb4cac52f8a406d02f5e95680867c84f5",
-    "classification": "FROZEN_DESIGN_CARDINALITY_CONTRADICTION",
-    "design_amendment_report_hash": "591fff2d535cd27326f37a97ae4278c2a20505101ad8a032804dc657f1866996",
-    "gap_id": "G8-PA7-ENUMERATION-EXPLOSION-007",
-    "resolution": "PA7_TRANSITION_EVENT_ENUMERATION",
-    "supplemental_technical_audit_hash": "c9a2e96eb50621fdc060be00dadbe4e45997437c772665264f5d3b06988a1733"
+    "base_technical_audit_hash": "775ddf2fdf1bfe052caae03623f18322bcd80f427cd47ae9130045a00a52112d",
+    "classification": "FROZEN_IMPLEMENTATION_SEMANTIC_VIOLATION",
+    "fix_report_hash": "b35cee4b2f1500ab5a20e8a1bfb8e0a928047d2875e6c5c2c627e8383af0fc8d",
+    "fixed_engine_sha256": "44e0c1bd9dc0e32bcb00a0ee0363754d45282fcee3d81a2170f9fa6ed6cb441b",
+    "gap_id": "G8-PA7-LIFECYCLE-RETIREMENT-008",
+    "gap_report_hash": "cdd862c7d725858be54c326300404811deee6245ddcb0da3d32a4be68b4122a8",
+    "resolution": "CAUSAL_BOUNDARY_LIFECYCLE_RETIREMENT",
+    "supplemental_technical_audit_hash": "e7e22f886ded11869e250f443200bf1c72f2135beaf2b10e5e5a39b767298ac3"
   },
   "schema_version": "8.0.0",
-  "status": "TECHNICAL_CANDIDATE_PASS",
-  "supplemental_technical_audit_hash": "e7e22f886ded11869e250f443200bf1c72f2135beaf2b10e5e5a39b767298ac3",
-  "technical_audit_hash": "775ddf2fdf1bfe052caae03623f18322bcd80f427cd47ae9130045a00a52112d",
+  "status": "TECHNICAL_CANDIDATE_PASS_FREE_SHARDED",
+  "storage_contract_hash": "d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a",
+  "supplemental_technical_audit_hash": "a2117403e690bb7e2ee6b15fa9a8dd596b2d2b8ed802a057dd5fbec69bd36921",
+  "technical_audit_hash": "a2117403e690bb7e2ee6b15fa9a8dd596b2d2b8ed802a057dd5fbec69bd36921",
   "upstream_contract_hash": "f66e7adb81c6d4e5db78283ccdeb959ab1e9e5d6a13707ea848b8bdc872d449a"
 }
