@@ -1,0 +1,1 @@
+Trigger canonical FREE-only exact segmented Annual Core 2023 execution after PR #154 parity PASS and merge.
