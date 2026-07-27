@@ -1,0 +1,48 @@
+name: MoeBot Group 8 Global Finalizer Exact Domain Parity
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_GLOBAL_FINALIZER.txt"
+permissions:
+  contents: read
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Preflight free-only 2023 authorization
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('MoeBot_Trading_System/Group_8/STATUS.json').read_text());assert s['annual_execution_2023_authorized'] and not s['annual_execution_2024_authorized'];assert not s['free_only_policy']['paid_runner_allowed'] and not s['free_only_policy']['paid_service_allowed'];print({'status':'PASS','free_only':True,'2024_oos':False})
+          PY
+      - name: Compile global finalizer
+        run: python -m py_compile "$GROUP8_ROOT/code/group8_global_finalizer.py" "$GROUP8_ROOT/tests/test_group8_global_finalizer.py"
+      - name: Prove exact non-PA7 global domain parity
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: |
+          set +e
+          python -m unittest -v "$GROUP8_ROOT/tests/test_group8_global_finalizer.py" > "$RUNNER_TEMP/global-finalizer-parity.log" 2>&1
+          RC=$?;cat "$RUNNER_TEMP/global-finalizer-parity.log";echo "$RC" > "$RUNNER_TEMP/global-finalizer-parity.exit";exit "$RC"
+      - name: Upload finalizer diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-global-finalizer-parity-diagnostic
+          path: |
+            ${{ runner.temp }}/global-finalizer-parity.log
+            ${{ runner.temp }}/global-finalizer-parity.exit
+          retention-days: 7
+      - name: Audit frozen surfaces unchanged
+        run: git diff --exit-code origin/main -- "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" "$GROUP8_ROOT/STATUS.json"
