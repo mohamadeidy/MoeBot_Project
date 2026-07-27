@@ -1,1 +1,1 @@
-Verify the FREE-ONLY Group 8 Annual 2023 core driver is an exact logical subset of the frozen full reference by immutable IDs and hashes. Keep PA7, PA7-dependent derived outputs, cross-school/MTF, global lifecycle, and 2024 OOS deferred.
+Verify the FREE-ONLY Group 8 Annual 2023 core driver remains an exact logical subset of the frozen full reference after removing PA7-dependent Wyckoff loops that cannot emit inside Core. Compare immutable IDs and hashes exactly; keep PA7, PA7-derived outputs, global finalization, and 2024 OOS deferred.
