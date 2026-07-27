@@ -1,0 +1,1 @@
+Validate the FREE lossless-sharded Annual 2023 finalization and pre-2024 OOS freeze tooling without accessing 2024 data.
