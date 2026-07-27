@@ -1,0 +1,1 @@
+Build, verify, publicly redownload, and SHA-freeze one reusable 2023 PA7 compact staging release asset for all free shard jobs. Keep 2024 OOS forbidden.
