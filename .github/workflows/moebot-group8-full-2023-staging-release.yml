@@ -1,0 +1,127 @@
+name: MoeBot Group 8 Build Reusable Full 2023 Staging
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_FULL_2023_STAGING_RELEASE.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  TAG: moebot-group8-full-staging-2023-v1
+  ARCHIVE: MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst
+  MANIFEST_ASSET: MoeBot_Group8_FULL_2023_STAGING_v1.json
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight exact free-only 2023 state
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());c=json.loads((r/'SHARDED_STORAGE_CONTRACT.json').read_text());f=json.loads((r/'DESIGN_FREEZE_MANIFEST.json').read_text())
+          assert hashlib.sha256((r/'code/moebot_group8_engine_v0_8_0.py').read_bytes()).hexdigest()=='ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0'
+          assert c['storage_contract_hash']=='d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a'
+          assert f['design_freeze_hash']=='213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a'
+          assert c['free_only_policy']['paid_runner_allowed'] is False and c['free_only_policy']['paid_service_allowed'] is False
+          assert s['annual_execution_2024_authorized'] is False and s['officially_closed'] is False
+          print({'status':'PASS','year':2023,'free_only':True,'2024_oos':False})
+          PY
+      - name: Reclaim unused preinstalled storage
+        run: |
+          docker system prune -af || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean || true
+          df -h /
+      - name: Install zstd
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+      - name: Materialize exact full 2023 staging once
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-full/work" "$RUNNER_TEMP/g8-full/reports"
+          START=$(date +%s)
+          python "$GROUP8_ROOT/code/group8_materialize_inputs.py" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 \
+            --output-db "$RUNNER_TEMP/g8-full/staging.sqlite" \
+            --work-dir "$RUNNER_TEMP/g8-full/work" \
+            --report "$RUNNER_TEMP/g8-full/reports/MATERIALIZATION.json"
+          END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/g8-full/reports/MATERIALIZATION_SECONDS.txt"
+      - name: Add reusable annual support indexes and normalize file
+        run: |
+          python .github/scripts/group8_ephemeral_staging_indexes.py \
+            --database "$RUNNER_TEMP/g8-full/staging.sqlite" --year 2023 --phase full-reusable-staging \
+            --output "$RUNNER_TEMP/g8-full/reports/STAGING_INDEX_REPORT.json"
+          python - <<'PY'
+          import sqlite3,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'g8-full/staging.sqlite';con=sqlite3.connect(p);con.execute('PRAGMA wal_checkpoint(TRUNCATE)');con.execute('PRAGMA journal_mode=DELETE');con.execute('PRAGMA synchronous=FULL');con.commit();qc=con.execute('PRAGMA quick_check').fetchone()[0];ic=con.execute('PRAGMA integrity_check').fetchone()[0];con.close();assert qc=='ok' and ic=='ok';print({'status':'PASS','quick_check':qc,'integrity_check':ic})
+          PY
+      - name: Compress and split into release-safe parts
+        run: |
+          START=$(date +%s)
+          zstd -q -6 -T0 -f "$RUNNER_TEMP/g8-full/staging.sqlite" -o "$RUNNER_TEMP/g8-full/$ARCHIVE"
+          split -b 1800M -d -a 3 "$RUNNER_TEMP/g8-full/$ARCHIVE" "$RUNNER_TEMP/g8-full/$ARCHIVE.part-"
+          END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/g8-full/reports/COMPRESSION_SECONDS.txt"
+      - name: Build immutable release manifest
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          base=Path(os.environ['RUNNER_TEMP'])/'g8-full';repo=Path('MoeBot_Trading_System/Group_8');raw=base/'staging.sqlite';archive=base/os.environ['ARCHIVE'];mat=json.loads((base/'reports/MATERIALIZATION.json').read_text());idx=json.loads((base/'reports/STAGING_INDEX_REPORT.json').read_text())
+          def sha(p):
+              h=hashlib.sha256()
+              with p.open('rb') as f:
+                  for c in iter(lambda:f.read(16*1024*1024),b''):h.update(c)
+              return h.hexdigest()
+          def stable(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          parts=[]
+          for p in sorted(base.glob(os.environ['ARCHIVE']+'.part-*')):
+              if p.stat().st_size>=2_000_000_000:raise SystemExit(f'part exceeds safe release size: {p}:{p.stat().st_size}')
+              parts.append({'filename':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p),'url':f"https://github.com/mohamadeidy/MoeBot_Project/releases/download/{os.environ['TAG']}/{p.name}"})
+          rec={'format_version':1,'status':'PASS','artifact_kind':'GROUP8_FULL_STAGING','year':2023,'scope':'FULL_GROUP8_ADAPTER_STAGING','archive_filename':os.environ['ARCHIVE'],'raw_size_bytes':raw.stat().st_size,'raw_sha256':sha(raw),'compressed_size_bytes':archive.stat().st_size,'compressed_sha256':sha(archive),'compression':'zstd -6 -T0','release_tag':os.environ['TAG'],'parts':parts,'part_count':len(parts),'materialization_report_hash':mat['report_hash'],'staging_index_report_hash':idx.get('report_hash'),'database_identities':mat['database_identities'],'engine_sha256':'ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0','design_freeze_hash':'213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a','storage_contract_hash':'d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a','free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False,'materialization_seconds':int((base/'reports/MATERIALIZATION_SECONDS.txt').read_text()),'compression_seconds':int((base/'reports/COMPRESSION_SECONDS.txt').read_text())};rec['report_hash']=stable(rec);(base/os.environ['MANIFEST_ASSET']).write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');(repo/'reports/48_FULL_2023_STAGING_RELEASE.json').write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':'PASS','raw_gb':raw.stat().st_size/1e9,'compressed_gb':archive.stat().st_size/1e9,'parts':len(parts),'report_hash':rec['report_hash']},indent=2))
+          PY
+      - name: Publish free GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --title "MoeBot Group 8 Full 2023 Staging v1" --notes "Free-only reusable full 2023 Group8 adapter staging. 2024 OOS remains untouched."
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/g8-full/$ARCHIVE.part-"* "$RUNNER_TEMP/g8-full/$MANIFEST_ASSET" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Redownload all parts and verify reconstructed SHA
+        run: |
+          mkdir -p "$RUNNER_TEMP/g8-full/redownload"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads((Path(os.environ['RUNNER_TEMP'])/'g8-full'/os.environ['MANIFEST_ASSET']).read_text());p=Path(os.environ['RUNNER_TEMP'])/'g8-full/redownload/urls.txt';p.write_text('\n'.join(x['url'] for x in m['parts'])+'\n')
+          PY
+          while read -r url; do curl -fL --retry 5 --retry-delay 2 "$url" -o "$RUNNER_TEMP/g8-full/redownload/$(basename "$url")"; done < "$RUNNER_TEMP/g8-full/redownload/urls.txt"
+          cat "$RUNNER_TEMP/g8-full/redownload/$ARCHIVE.part-"* > "$RUNNER_TEMP/g8-full/redownload/$ARCHIVE"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          base=Path(os.environ['RUNNER_TEMP'])/'g8-full';m=json.loads((base/os.environ['MANIFEST_ASSET']).read_text());p=base/'redownload'/os.environ['ARCHIVE'];h=hashlib.sha256(p.read_bytes()).hexdigest();assert h==m['compressed_sha256'] and p.stat().st_size==m['compressed_size_bytes'];print({'status':'PASS','reconstructed_compressed_sha256':h,'parts':m['part_count']})
+          PY
+      - name: Commit permanent full staging release identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/48_FULL_2023_STAGING_RELEASE.json"
+          git commit -m "Record reusable Group 8 full 2023 staging release [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
