@@ -1,0 +1,40 @@
+name: MoeBot Group 8 PA7 Annual Lifecycle Shards
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_ANNUAL_LIFECYCLE_SHARDS.txt"
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Preflight free-only annual authorization
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('MoeBot_Trading_System/Group_8/STATUS.json').read_text());assert s['annual_execution_2023_authorized'] and not s['annual_execution_2024_authorized'];assert not s['free_only_policy']['paid_runner_allowed'] and not s['free_only_policy']['paid_service_allowed'];print({'status':'PASS','free_only':True,'2024_oos':False})
+          PY
+      - name: Compile annual PA7 shard executor
+        run: python -m py_compile "$GROUP8_ROOT/code/group8_pa7_annual_shard_executor.py" "$GROUP8_ROOT/tests/test_group8_pa7_annual_lifecycle_shards.py"
+      - name: Prove full annual candidate and state parity
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        run: python -m unittest "$GROUP8_ROOT/tests/test_group8_pa7_annual_lifecycle_shards.py"
+      - name: Audit frozen surfaces unchanged
+        run: |
+          git diff --exit-code origin/main -- "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" "$GROUP8_ROOT/STATUS.json"
