@@ -16,6 +16,16 @@ def rows(db,table,idc,hashc,defs):
         q=','.join('?' for _ in defs);return {(r[0],r[1]) for r in c.execute(f'SELECT {idc},{hashc} FROM {table} WHERE definition_id IN ({q})',tuple(sorted(defs)))}
     finally:c.close()
 
+def detail(db,ids):
+    c=sqlite3.connect(db);c.row_factory=sqlite3.Row
+    try:
+        out=[]
+        for ident in sorted(ids)[:8]:
+            r=c.execute('SELECT interpretation_id,definition_id,availability_time,upstream_refs_json FROM school_interpretation WHERE interpretation_id=?',(ident,)).fetchone()
+            if r:out.append(dict(r))
+        return out
+    finally:c.close()
+
 class PA7DerivedLayerParity(unittest.TestCase):
     def test_catalog_driven_derived_rows_match_full_reference_exactly(self):
         with tempfile.TemporaryDirectory() as td:
@@ -36,7 +46,10 @@ class PA7DerivedLayerParity(unittest.TestCase):
             d=PA7DerivedEngine(staging_db=stage,output_db=coredb,pa7_catalog=cat,artifacts_root=ART,year=2023,symbol='XAUUSD_')
             try:self.assertEqual(d.run_derived()['status'],'PASS')
             finally:d.close()
-            self.assertEqual(rows(coredb,'school_interpretation','interpretation_id','interpretation_hash',DERIVED_INTERPRETATIONS),rows(refdb,'school_interpretation','interpretation_id','interpretation_hash',DERIVED_INTERPRETATIONS))
+            got=rows(coredb,'school_interpretation','interpretation_id','interpretation_hash',DERIVED_INTERPRETATIONS);exp=rows(refdb,'school_interpretation','interpretation_id','interpretation_hash',DERIVED_INTERPRETATIONS)
+            if got!=exp:
+                g={x[0] for x in got};e={x[0] for x in exp};print('DERIVED_EXTRA_DETAIL',detail(coredb,g-e));print('DERIVED_MISSING_DETAIL',detail(refdb,e-g))
+            self.assertEqual(got,exp)
             self.assertEqual(rows(coredb,'narrative_hypothesis','hypothesis_id','hypothesis_hash',DERIVED_HYPOTHESES),rows(refdb,'narrative_hypothesis','hypothesis_id','hypothesis_hash',DERIVED_HYPOTHESES))
 
 if __name__=='__main__':unittest.main()
