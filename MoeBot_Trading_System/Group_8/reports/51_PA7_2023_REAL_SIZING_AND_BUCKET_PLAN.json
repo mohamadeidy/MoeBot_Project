@@ -1,0 +1,204 @@
+{
+  "format_version": 1,
+  "free_only": true,
+  "frozen_bucket_plan": {
+    "D1": {
+      "group8_range": 1,
+      "upstream": 1
+    },
+    "H1": {
+      "group8_range": 1,
+      "upstream": 2
+    },
+    "H4": {
+      "group8_range": 1,
+      "upstream": 1
+    },
+    "M1": {
+      "group8_range": 8,
+      "upstream": 128
+    },
+    "M15": {
+      "group8_range": 2,
+      "upstream": 16
+    },
+    "M30": {
+      "group8_range": 1,
+      "upstream": 1
+    },
+    "M5": {
+      "group8_range": 2,
+      "upstream": 16
+    }
+  },
+  "oos_2024_accessed": false,
+  "paid_runner_used": false,
+  "paid_service_used": false,
+  "report_hash": "e1361faf9e6d67aca5b25667445fa287509f4ce8a5dfee59544c640c4ac37df2",
+  "safety_factor_min": 2.0,
+  "samples": [
+    {
+      "bucket_count": 4,
+      "bucket_index": 0,
+      "candidate_rows": 0,
+      "definition_coverage": {},
+      "execution_seconds": 13,
+      "file_size_bytes": 278528,
+      "format_version": 1,
+      "free_only": true,
+      "manifest_hash": "1315f7f57a1e521e6efe569aa55c9dace46056e8f5db7c1d4b5a38d53d9e9942",
+      "max_rss_bytes": 656191488,
+      "month": "2023-01",
+      "oos_2024_accessed": false,
+      "paid_runner_used": false,
+      "paid_service_used": false,
+      "report_hash": "8e35057e963a56bf4e1d773f9d451bcc12dbd98af0e70bf0b3c7747a83b79b97",
+      "scope": "group8_range",
+      "shard_sha256": "011f3af9ade6d4be491b923b9e1a8abe54601ca813a62b928190d42ee88e8cc6",
+      "state_rows": 0,
+      "status": "PASS",
+      "timeframe": "M1"
+    },
+    {
+      "bucket_count": 4,
+      "bucket_index": 0,
+      "candidate_rows": 0,
+      "definition_coverage": {},
+      "execution_seconds": 15,
+      "file_size_bytes": 278528,
+      "format_version": 1,
+      "free_only": true,
+      "manifest_hash": "137d4b423f1a6fd473ed6c78307b145f446d550ff8029f53cb3088d066de4a5c",
+      "max_rss_bytes": 656130048,
+      "month": "2023-06",
+      "oos_2024_accessed": false,
+      "paid_runner_used": false,
+      "paid_service_used": false,
+      "report_hash": "66b5bd6ad7fd5b3976e9fe3ce18b18eb99ed01137091a75ca258b5587b7911e4",
+      "scope": "group8_range",
+      "shard_sha256": "011f3af9ade6d4be491b923b9e1a8abe54601ca813a62b928190d42ee88e8cc6",
+      "state_rows": 0,
+      "status": "PASS",
+      "timeframe": "M1"
+    },
+    {
+      "bucket_count": 4,
+      "bucket_index": 0,
+      "candidate_rows": 0,
+      "definition_coverage": {},
+      "execution_seconds": 13,
+      "file_size_bytes": 278528,
+      "format_version": 1,
+      "free_only": true,
+      "manifest_hash": "0abfb77763b9e3d4681dc11e9495044d0d94e5ac7a94a82011a5d7c0958461ae",
+      "max_rss_bytes": 656252928,
+      "month": "2023-12",
+      "oos_2024_accessed": false,
+      "paid_runner_used": false,
+      "paid_service_used": false,
+      "report_hash": "7aff57326374b7881f3e2f1301c28af81434c909c439c83778b395b2836b9673",
+      "scope": "group8_range",
+      "shard_sha256": "011f3af9ade6d4be491b923b9e1a8abe54601ca813a62b928190d42ee88e8cc6",
+      "state_rows": 0,
+      "status": "PASS",
+      "timeframe": "M1"
+    },
+    {
+      "bucket_count": 8,
+      "bucket_index": 0,
+      "candidate_rows": 2703189,
+      "definition_coverage": {
+        "pa_breakout_atr_buffer": 451329,
+        "pa_breakout_exact": 451226,
+        "pa_failed_breakout": 900436,
+        "pa_retest": 900198
+      },
+      "execution_seconds": 904,
+      "file_size_bytes": 5998891008,
+      "format_version": 1,
+      "free_only": true,
+      "manifest_hash": "6e60ef6b7ef3d41f81c87074ec71fe7e0bda02b8832753610d0439615ee81089",
+      "max_rss_bytes": 1040515072,
+      "month": "2023-01",
+      "oos_2024_accessed": false,
+      "paid_runner_used": false,
+      "paid_service_used": false,
+      "report_hash": "ed8ae5e501df569a581dc97fb08e9fa6fcceb687abc4f9196b6c4aa30f49c20e",
+      "scope": "upstream",
+      "shard_sha256": "a9d365d878ef442f1bc8c653d56f15a0ea7fe45d0ba7e75cb85c3dabfe328f60",
+      "state_rows": 2703189,
+      "status": "PASS",
+      "timeframe": "M1"
+    },
+    {
+      "bucket_count": 8,
+      "bucket_index": 0,
+      "candidate_rows": 2686024,
+      "definition_coverage": {
+        "pa_breakout_atr_buffer": 448519,
+        "pa_breakout_exact": 448517,
+        "pa_failed_breakout": 894503,
+        "pa_retest": 894485
+      },
+      "execution_seconds": 931,
+      "file_size_bytes": 5963182080,
+      "format_version": 1,
+      "free_only": true,
+      "manifest_hash": "aa0b80ed61b63cd98bef23ccdfe6038c7ff655e6cd535a39e11e6c5b76fc037a",
+      "max_rss_bytes": 1033584640,
+      "month": "2023-06",
+      "oos_2024_accessed": false,
+      "paid_runner_used": false,
+      "paid_service_used": false,
+      "report_hash": "cebb8d58c2c82314097551fee9202c345068385a9d30232fbde981f00919ddea",
+      "scope": "upstream",
+      "shard_sha256": "66929fcc24fd3cdec9c9b5f001c4c6cd0bdf5f0fa82c7960405067c9a4d3fd8d",
+      "state_rows": 2686024,
+      "status": "PASS",
+      "timeframe": "M1"
+    },
+    {
+      "bucket_count": 8,
+      "bucket_index": 0,
+      "candidate_rows": 426728,
+      "definition_coverage": {
+        "pa_breakout_atr_buffer": 72024,
+        "pa_breakout_exact": 72298,
+        "pa_failed_breakout": 141283,
+        "pa_retest": 141123
+      },
+      "execution_seconds": 140,
+      "file_size_bytes": 948637696,
+      "format_version": 1,
+      "free_only": true,
+      "manifest_hash": "82a78cb86ed71ddece29650c1afb3a34cd05ee21c3d01ae7db79ca7287c010f3",
+      "max_rss_bytes": 795754496,
+      "month": "2023-12",
+      "oos_2024_accessed": false,
+      "paid_runner_used": false,
+      "paid_service_used": false,
+      "report_hash": "201d6bdacc76e2a511cd1bebd15f3040151dee2fda2f6918b430944521d0882d",
+      "scope": "upstream",
+      "shard_sha256": "3ae132f8311743a962d4f8579cb21dd6fbdc193e7a5012285229f1e939d863dd",
+      "state_rows": 426728,
+      "status": "PASS",
+      "timeframe": "M1"
+    }
+  ],
+  "scope": "PA7_REAL_REUSABLE_STAGING_SIZING",
+  "status": "PASS",
+  "target_month_execution_seconds": 1200,
+  "target_uncompressed_shard_bytes": 750000000,
+  "worker_policy": "one worker per timeframe/scope/bucket_index processes 12 causal-root months sequentially and publishes each month shard immediately",
+  "worst_sample": {
+    "group8_range": {
+      "execution_seconds": 15,
+      "file_size_bytes": 278528
+    },
+    "upstream": {
+      "execution_seconds": 931,
+      "file_size_bytes": 5998891008
+    }
+  },
+  "year": 2023
+}

@@ -1,0 +1,142 @@
+name: MoeBot Group 8 PA7 2023 Reusable Sizing
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_2023_REUSABLE_SIZING.txt"
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  sample:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { scope: upstream, month: '2023-01', buckets: 8, bucket: 0 }
+          - { scope: upstream, month: '2023-06', buckets: 8, bucket: 0 }
+          - { scope: upstream, month: '2023-12', buckets: 8, bucket: 0 }
+          - { scope: group8_range, month: '2023-01', buckets: 4, bucket: 0 }
+          - { scope: group8_range, month: '2023-06', buckets: 4, bucket: 0 }
+          - { scope: group8_range, month: '2023-12', buckets: 4, bucket: 0 }
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Preflight free-only 2023 PA7 scope
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text());m=json.loads((r/'reports/47_PA7_2023_COMPACT_STAGING_RELEASE.json').read_text())
+          assert s['annual_execution_2023_authorized'] is True and s['annual_execution_2024_authorized'] is False and s['blocking_gap'] is None
+          assert s['free_only_policy']['paid_runner_allowed'] is False and s['free_only_policy']['paid_service_allowed'] is False
+          assert m['status']=='PASS' and m['year']==2023 and m['free_only'] and not m['oos_2024_accessed']
+          print({'status':'PASS','free_only':True,'2024_oos':False})
+          PY
+      - name: Reclaim unused runner storage and install zstd
+        run: |
+          docker system prune -af || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean || true
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - name: Restore reusable compact staging
+        run: |
+          mkdir -p "$RUNNER_TEMP/pa7-sample"
+          curl -fL --retry 6 --retry-delay 2 "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group8-pa7-staging-2023-v1/MoeBot_Group8_PA7_2023_COMPACT_STAGING_v1.sqlite.zst" -o "$RUNNER_TEMP/pa7-sample/staging.sqlite.zst"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          m=json.loads(Path('MoeBot_Trading_System/Group_8/reports/47_PA7_2023_COMPACT_STAGING_RELEASE.json').read_text());p=Path(os.environ['RUNNER_TEMP'])/'pa7-sample/staging.sqlite.zst';h=hashlib.sha256(p.read_bytes()).hexdigest();assert h==m['compressed_sha256'] and p.stat().st_size==m['compressed_size_bytes'];print({'status':'PASS','compressed_sha256':h})
+          PY
+          zstd -q -d -f "$RUNNER_TEMP/pa7-sample/staging.sqlite.zst" -o "$RUNNER_TEMP/pa7-sample/staging.sqlite"
+      - name: Execute real M1 sample shard
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+          SCOPE: ${{ matrix.scope }}
+          MONTH: ${{ matrix.month }}
+          BUCKETS: ${{ matrix.buckets }}
+          BUCKET: ${{ matrix.bucket }}
+        run: |
+          START=$(date +%s)
+          /usr/bin/time -v python "$GROUP8_ROOT/code/group8_pa7_scoped_shard_executor.py" \
+            --staging-db "$RUNNER_TEMP/pa7-sample/staging.sqlite" \
+            --work-db "$RUNNER_TEMP/pa7-sample/work.sqlite" \
+            --output-db "$RUNNER_TEMP/pa7-sample/shard.sqlite" \
+            --artifacts-root "$GROUP8_ROOT" --year 2023 --symbol XAUUSD_ --timeframe M1 \
+            --root-month "$MONTH" --bucket-count "$BUCKETS" --bucket-index "$BUCKET" --boundary-scope "$SCOPE" \
+            --manifest "$RUNNER_TEMP/pa7-sample/manifest.json" \
+            2> "$RUNNER_TEMP/pa7-sample/time.txt"
+          END=$(date +%s); echo $((END-START)) > "$RUNNER_TEMP/pa7-sample/seconds.txt"
+          python - <<'PY'
+          import hashlib,json,os,re
+          from pathlib import Path
+          b=Path(os.environ['RUNNER_TEMP'])/'pa7-sample';m=json.loads((b/'manifest.json').read_text());txt=(b/'time.txt').read_text();rss=None
+          x=re.search(r'Maximum resident set size \(kbytes\):\s*(\d+)',txt);rss=int(x.group(1))*1024 if x else None
+          rec={'format_version':1,'status':'PASS','scope':os.environ['SCOPE'],'month':os.environ['MONTH'],'timeframe':'M1','bucket_count':int(os.environ['BUCKETS']),'bucket_index':int(os.environ['BUCKET']),'execution_seconds':int((b/'seconds.txt').read_text()),'max_rss_bytes':rss,'file_size_bytes':m['file_size_bytes'],'candidate_rows':m['table_row_counts']['price_action_pattern_candidate'],'state_rows':m['table_row_counts']['price_action_pattern_state'],'definition_coverage':m['definition_coverage'],'shard_sha256':m['sha256'],'manifest_hash':m['manifest_hash'],'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};rec['report_hash']=hashlib.sha256(json.dumps(rec,sort_keys=True,separators=(',',':')).encode()).hexdigest();(b/'sample.json').write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');print(json.dumps(rec,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pa7-sizing-${{ matrix.scope }}-${{ matrix.month }}
+          path: ${{ runner.temp }}/pa7-sample/sample.json
+          retention-days: 7
+
+  aggregate:
+    needs: sample
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pa7-sizing-*
+          path: ${{ runner.temp }}/pa7-sizing
+          merge-multiple: false
+      - name: Freeze conservative free bucket plan
+        run: |
+          python - <<'PY'
+          import hashlib,json,math,os
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');files=sorted((Path(os.environ['RUNNER_TEMP'])/'pa7-sizing').glob('**/sample.json'));samples=[json.loads(p.read_text()) for p in files]
+          assert len(samples)==6 and all(x['status']=='PASS' and x['free_only'] and not x['oos_2024_accessed'] for x in samples)
+          def recommend(scope,base):
+              ss=[x for x in samples if x['scope']==scope];worst_size=max(x['file_size_bytes'] for x in ss);worst_sec=max(x['execution_seconds'] for x in ss)
+              # Target <= 750MB/shard and <= 20 minutes/month with >=2x safety where measurements demand it.
+              factor=max(1.0,worst_size/750_000_000,worst_sec/1200.0);pow2=1
+              while pow2<factor*2.0:pow2*=2
+              return max(base,base*pow2),worst_size,worst_sec
+          up,usz,usec=recommend('upstream',8);rg,rsz,rsec=recommend('group8_range',4)
+          # Root month already partitions the year. Lower-volume timeframes use conservative powers of two derived from historical 2023 transition ratios, never less than one.
+          plan={
+            'M1':{'upstream':up,'group8_range':rg},
+            'M15':{'upstream':max(2,up//8),'group8_range':max(2,rg//4)},
+            'M5':{'upstream':max(2,up//8),'group8_range':max(2,rg//4)},
+            'H1':{'upstream':2,'group8_range':1},
+            'M30':{'upstream':1,'group8_range':1},
+            'H4':{'upstream':1,'group8_range':1},
+            'D1':{'upstream':1,'group8_range':1},
+          }
+          rec={'format_version':1,'status':'PASS','year':2023,'scope':'PA7_REAL_REUSABLE_STAGING_SIZING','samples':samples,'worst_sample':{'upstream':{'file_size_bytes':usz,'execution_seconds':usec},'group8_range':{'file_size_bytes':rsz,'execution_seconds':rsec}},'frozen_bucket_plan':plan,'worker_policy':'one worker per timeframe/scope/bucket_index processes 12 causal-root months sequentially and publishes each month shard immediately','target_uncompressed_shard_bytes':750000000,'target_month_execution_seconds':1200,'safety_factor_min':2.0,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};rec['report_hash']=hashlib.sha256(json.dumps(rec,sort_keys=True,separators=(',',':')).encode()).hexdigest();p=root/'reports/51_PA7_2023_REAL_SIZING_AND_BUCKET_PLAN.json';p.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':'PASS','bucket_plan':plan,'report_hash':rec['report_hash']},indent=2))
+          PY
+      - name: Commit frozen free PA7 bucket plan
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/51_PA7_2023_REAL_SIZING_AND_BUCKET_PLAN.json"
+          git diff --cached --check
+          git commit -m "Freeze Group 8 PA7 2023 free bucket plan [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
