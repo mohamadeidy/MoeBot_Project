@@ -1,0 +1,1 @@
+Prove FREE distributed prefix sidecars compute the exact frozen global sorted (primary_id,row_hash) fingerprints and reject duplicate domain IDs without a monolithic annual ID ledger.
