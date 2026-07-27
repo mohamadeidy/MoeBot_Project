@@ -1,0 +1,1 @@
+Prove the streaming lossless union ledger is exactly equivalent to the existing Group 8 shard union validator without co-locating annual shard databases.
