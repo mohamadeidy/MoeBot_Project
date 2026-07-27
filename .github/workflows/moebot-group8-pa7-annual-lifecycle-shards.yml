@@ -31,10 +31,22 @@ jobs:
           PY
       - name: Compile annual PA7 shard executor
         run: python -m py_compile "$GROUP8_ROOT/code/group8_pa7_annual_shard_executor.py" "$GROUP8_ROOT/tests/test_group8_pa7_annual_lifecycle_shards.py"
-      - name: Prove full annual candidate and state parity
+      - name: Prove full annual candidate state and evidence parity
         env:
           PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
-        run: python -m unittest "$GROUP8_ROOT/tests/test_group8_pa7_annual_lifecycle_shards.py"
+        run: |
+          set +e
+          python -m unittest -v "$GROUP8_ROOT/tests/test_group8_pa7_annual_lifecycle_shards.py" > "$RUNNER_TEMP/pa7-evidence-parity.log" 2>&1
+          RC=$?;cat "$RUNNER_TEMP/pa7-evidence-parity.log";echo "$RC" > "$RUNNER_TEMP/pa7-evidence-parity.exit";exit "$RC"
+      - name: Upload PA7 evidence parity diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-pa7-evidence-parity-diagnostic
+          path: |
+            ${{ runner.temp }}/pa7-evidence-parity.log
+            ${{ runner.temp }}/pa7-evidence-parity.exit
+          retention-days: 7
       - name: Audit frozen surfaces unchanged
         run: |
           git diff --exit-code origin/main -- "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" "$GROUP8_ROOT/STATUS.json"
