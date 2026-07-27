@@ -43,6 +43,8 @@ def main()->int:
     if full.get('status')!='PASS' or full.get('year')!=2023 or full.get('free_only') is not True or full.get('paid_runner_used') is not False or full.get('paid_service_used') is not False or full.get('oos_2024_accessed') is not False: raise SystemExit('full 2023 reusable staging evidence invalid')
     q=dict(full);rh=q.pop('report_hash');
     if stable(q)!=rh: raise SystemExit('full staging report hash invalid')
+    definition_registry_hash=freeze.get('definition_registry_hash') or old_manifest.get('definition_registry_hash')
+    if not definition_registry_hash: raise SystemExit('definition registry identity missing from frozen manifests')
 
     exec_paths={
       'pa7_shard_executor':'code/group8_pa7_shard_executor.py',
@@ -64,7 +66,7 @@ def main()->int:
     audit={
       'format_version':1,'status':'PASS','gap_id':GAP,'classification':'PHYSICAL_STORAGE_HANDOFF_CAPACITY',
       'resolution':'FREE_ONLY_LOSSLESS_CAUSAL_ROOT_SHARDED_EXECUTION','engine_sha256':EXPECTED_ENGINE,
-      'definition_registry_hash':status['definition_registry_hash'],'design_freeze_hash':EXPECTED_DESIGN,'storage_contract_hash':EXPECTED_STORAGE,
+      'definition_registry_hash':definition_registry_hash,'design_freeze_hash':EXPECTED_DESIGN,'storage_contract_hash':EXPECTED_STORAGE,
       'full_2023_staging_release_report_hash':full['report_hash'],'execution_identities':execution_identities,
       'semantic_regression_gate':'PASS','sharded_monolithic_parity_gate':'PASS','shard_union_validation_gate':'PASS','compact_full_staging_equivalence_gate':'PASS','boundary_scope_union_parity_gate':'PASS','context_rejection_parity_gate':'PASS','structural_narrative_parity_gate':'PASS',
       'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False,
