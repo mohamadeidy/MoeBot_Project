@@ -1,0 +1,1 @@
+Prove every finalized Group 8 cross-shard domain reference resolves exactly through the finalized core plus the lossless PA7 relevant-query projection, with PA7-local references audited separately.
