@@ -1,0 +1,228 @@
+name: MoeBot Group 8 Annual 2023 Core Segmented FREE Release
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ANNUAL_2023_CORE_SEGMENTED.txt"
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  TAG: moebot-group8-annual-core-2023-v4-segmented
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - name: Preflight FREE-only Annual 2023 authorization
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path('MoeBot_Trading_System/Group_8');s=json.loads((r/'STATUS.json').read_text())
+          assert s['annual_execution_2023_authorized'] is True
+          assert s['annual_execution_2024_authorized'] is False
+          assert s['blocking_gap'] is None and s['officially_closed'] is False
+          assert s['free_only_policy']['paid_runner_allowed'] is False
+          assert s['free_only_policy']['paid_service_allowed'] is False
+          print({'status':'PASS','free_only':True,'year':2023,'oos_2024':False})
+          PY
+      - name: Ensure immutable prerelease container
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --title "MoeBot Group 8 Annual Core 2023 v4 Segmented" --notes "FREE-only exact segmented Annual Core 2023. 2024 OOS untouched."
+          fi
+
+  segment-1:
+    needs: prepare
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Reclaim free runner storage and restore verified staging
+        run: |
+          docker system prune -af || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean || true
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          mkdir -p "$RUNNER_TEMP/g8/staging_parts" "$RUNNER_TEMP/g8/reports"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads(Path('MoeBot_Trading_System/Group_8/reports/48_FULL_2023_STAGING_RELEASE.json').read_text());Path(os.environ['RUNNER_TEMP']+'/g8/staging_parts/urls.txt').write_text('\n'.join(x['url'] for x in m['parts'])+'\n')
+          PY
+          while read -r u; do curl -fL --retry 6 --retry-delay 2 "$u" -o "$RUNNER_TEMP/g8/staging_parts/$(basename "$u")"; done < "$RUNNER_TEMP/g8/staging_parts/urls.txt"
+          cat "$RUNNER_TEMP/g8/staging_parts/MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/staging.sqlite.zst"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          m=json.loads(Path('MoeBot_Trading_System/Group_8/reports/48_FULL_2023_STAGING_RELEASE.json').read_text());p=Path(os.environ['RUNNER_TEMP']+'/g8/staging.sqlite.zst');assert p.stat().st_size==m['compressed_size_bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==m['compressed_sha256']
+          PY
+          zstd -q -d -f "$RUNNER_TEMP/g8/staging.sqlite.zst" -o "$RUNNER_TEMP/g8/staging.sqlite"
+      - name: Execute exact segment 0..2
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code
+        run: |
+          python "$GROUP8_ROOT/code/group8_segmented_annual_core.py" --staging-db "$RUNNER_TEMP/g8/staging.sqlite" --output-db "$RUNNER_TEMP/g8/core.sqlite" --artifacts-root "$GROUP8_ROOT" --year 2023 --symbol XAUUSD_ --start 0 --end 2 --report "$RUNNER_TEMP/g8/reports/segment1.json"
+      - name: Publish SHA-bound checkpoint 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zstd -q -3 -T0 -f "$RUNNER_TEMP/g8/core.sqlite" -o "$RUNNER_TEMP/g8/checkpoint1.sqlite.zst"
+          split -b 1750000000 -d -a 3 "$RUNNER_TEMP/g8/checkpoint1.sqlite.zst" "$RUNNER_TEMP/g8/checkpoint1.sqlite.zst.part-"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          b=Path(os.environ['RUNNER_TEMP'])/'g8';sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();parts=[]
+          for p in sorted(b.glob('checkpoint1.sqlite.zst.part-*')):parts.append({'filename':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)})
+          r=json.loads((b/'reports/segment1.json').read_text());m={'status':'PASS','year':2023,'stage_end':2,'raw_size_bytes':(b/'core.sqlite').stat().st_size,'raw_sha256':sha(b/'core.sqlite'),'compressed_size_bytes':(b/'checkpoint1.sqlite.zst').stat().st_size,'compressed_sha256':sha(b/'checkpoint1.sqlite.zst'),'parts':parts,'segment_report':r,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};m['report_hash']=hashlib.sha256(json.dumps(m,sort_keys=True,separators=(',',':')).encode()).hexdigest();(b/'checkpoint1.json').write_text(json.dumps(m,indent=2,sort_keys=True)+'\n')
+          PY
+          gh release upload "$TAG" "$RUNNER_TEMP/g8/checkpoint1.sqlite.zst.part-"* "$RUNNER_TEMP/g8/checkpoint1.json" --repo "$GITHUB_REPOSITORY" --clobber
+
+  segment-2:
+    needs: segment-1
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ github.head_ref || github.ref_name }}", fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Restore staging and verified checkpoint 1
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          mkdir -p "$RUNNER_TEMP/g8/staging_parts" "$RUNNER_TEMP/g8/reports" "$RUNNER_TEMP/g8/cp"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads(Path('MoeBot_Trading_System/Group_8/reports/48_FULL_2023_STAGING_RELEASE.json').read_text());Path(os.environ['RUNNER_TEMP']+'/g8/staging_parts/urls.txt').write_text('\n'.join(x['url'] for x in m['parts'])+'\n')
+          PY
+          while read -r u; do curl -fL --retry 6 --retry-delay 2 "$u" -o "$RUNNER_TEMP/g8/staging_parts/$(basename "$u")"; done < "$RUNNER_TEMP/g8/staging_parts/urls.txt"
+          cat "$RUNNER_TEMP/g8/staging_parts/MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/staging.sqlite.zst"; zstd -q -d -f "$RUNNER_TEMP/g8/staging.sqlite.zst" -o "$RUNNER_TEMP/g8/staging.sqlite"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'checkpoint1.*' --dir "$RUNNER_TEMP/g8/cp"
+          cat "$RUNNER_TEMP/g8/cp/checkpoint1.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/checkpoint1.sqlite.zst"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          b=Path(os.environ['RUNNER_TEMP'])/'g8';m=json.loads((b/'cp/checkpoint1.json').read_text());p=b/'checkpoint1.sqlite.zst';assert hashlib.sha256(p.read_bytes()).hexdigest()==m['compressed_sha256'] and p.stat().st_size==m['compressed_size_bytes']
+          PY
+          zstd -q -d -f "$RUNNER_TEMP/g8/checkpoint1.sqlite.zst" -o "$RUNNER_TEMP/g8/core.sqlite"
+      - name: Execute exact segment 3
+        env: {PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"}
+        run: python "$GROUP8_ROOT/code/group8_segmented_annual_core.py" --staging-db "$RUNNER_TEMP/g8/staging.sqlite" --output-db "$RUNNER_TEMP/g8/core.sqlite" --artifacts-root "$GROUP8_ROOT" --year 2023 --symbol XAUUSD_ --start 3 --end 3 --report "$RUNNER_TEMP/g8/reports/segment2.json"
+      - name: Publish SHA-bound checkpoint 2
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          zstd -q -3 -T0 -f "$RUNNER_TEMP/g8/core.sqlite" -o "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst"; split -b 1750000000 -d -a 3 "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst" "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst.part-"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          b=Path(os.environ['RUNNER_TEMP'])/'g8';sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();parts=[{'filename':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in sorted(b.glob('checkpoint2.sqlite.zst.part-*'))];r=json.loads((b/'reports/segment2.json').read_text());m={'status':'PASS','year':2023,'stage_end':3,'raw_size_bytes':(b/'core.sqlite').stat().st_size,'raw_sha256':sha(b/'core.sqlite'),'compressed_size_bytes':(b/'checkpoint2.sqlite.zst').stat().st_size,'compressed_sha256':sha(b/'checkpoint2.sqlite.zst'),'parts':parts,'segment_report':r,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};m['report_hash']=hashlib.sha256(json.dumps(m,sort_keys=True,separators=(',',':')).encode()).hexdigest();(b/'checkpoint2.json').write_text(json.dumps(m,indent=2,sort_keys=True)+'\n')
+          PY
+          gh release upload "$TAG" "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst.part-"* "$RUNNER_TEMP/g8/checkpoint2.json" --repo "$GITHUB_REPOSITORY" --clobber
+
+  segment-3:
+    needs: segment-2
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ github.head_ref || github.ref_name }}", fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Restore staging and verified checkpoint 2
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          mkdir -p "$RUNNER_TEMP/g8/staging_parts" "$RUNNER_TEMP/g8/reports" "$RUNNER_TEMP/g8/cp"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads(Path('MoeBot_Trading_System/Group_8/reports/48_FULL_2023_STAGING_RELEASE.json').read_text());Path(os.environ['RUNNER_TEMP']+'/g8/staging_parts/urls.txt').write_text('\n'.join(x['url'] for x in m['parts'])+'\n')
+          PY
+          while read -r u; do curl -fL --retry 6 --retry-delay 2 "$u" -o "$RUNNER_TEMP/g8/staging_parts/$(basename "$u")"; done < "$RUNNER_TEMP/g8/staging_parts/urls.txt"
+          cat "$RUNNER_TEMP/g8/staging_parts/MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/staging.sqlite.zst"; zstd -q -d -f "$RUNNER_TEMP/g8/staging.sqlite.zst" -o "$RUNNER_TEMP/g8/staging.sqlite"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'checkpoint2.*' --dir "$RUNNER_TEMP/g8/cp"
+          cat "$RUNNER_TEMP/g8/cp/checkpoint2.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          b=Path(os.environ['RUNNER_TEMP'])/'g8';m=json.loads((b/'cp/checkpoint2.json').read_text());p=b/'checkpoint2.sqlite.zst';assert hashlib.sha256(p.read_bytes()).hexdigest()==m['compressed_sha256']
+          PY
+          zstd -q -d -f "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst" -o "$RUNNER_TEMP/g8/core.sqlite"
+      - name: Execute exact segment 4..5
+        env: {PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"}
+        run: python "$GROUP8_ROOT/code/group8_segmented_annual_core.py" --staging-db "$RUNNER_TEMP/g8/staging.sqlite" --output-db "$RUNNER_TEMP/g8/core.sqlite" --artifacts-root "$GROUP8_ROOT" --year 2023 --symbol XAUUSD_ --start 4 --end 5 --report "$RUNNER_TEMP/g8/reports/segment3.json"
+      - name: Publish SHA-bound checkpoint 3
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          zstd -q -3 -T0 -f "$RUNNER_TEMP/g8/core.sqlite" -o "$RUNNER_TEMP/g8/checkpoint3.sqlite.zst"; split -b 1750000000 -d -a 3 "$RUNNER_TEMP/g8/checkpoint3.sqlite.zst" "$RUNNER_TEMP/g8/checkpoint3.sqlite.zst.part-"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          b=Path(os.environ['RUNNER_TEMP'])/'g8';sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();parts=[{'filename':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p)} for p in sorted(b.glob('checkpoint3.sqlite.zst.part-*'))];r=json.loads((b/'reports/segment3.json').read_text());m={'status':'PASS','year':2023,'stage_end':5,'raw_size_bytes':(b/'core.sqlite').stat().st_size,'raw_sha256':sha(b/'core.sqlite'),'compressed_size_bytes':(b/'checkpoint3.sqlite.zst').stat().st_size,'compressed_sha256':sha(b/'checkpoint3.sqlite.zst'),'parts':parts,'segment_report':r,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};m['report_hash']=hashlib.sha256(json.dumps(m,sort_keys=True,separators=(',',':')).encode()).hexdigest();(b/'checkpoint3.json').write_text(json.dumps(m,indent=2,sort_keys=True)+'\n')
+          PY
+          gh release upload "$TAG" "$RUNNER_TEMP/g8/checkpoint3.sqlite.zst.part-"* "$RUNNER_TEMP/g8/checkpoint3.json" --repo "$GITHUB_REPOSITORY" --clobber
+
+  segment-4-final:
+    needs: segment-3
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ github.head_ref || github.ref_name }}", fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Restore staging and verified checkpoint 3
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          mkdir -p "$RUNNER_TEMP/g8/staging_parts" "$RUNNER_TEMP/g8/reports" "$RUNNER_TEMP/g8/cp"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads(Path('MoeBot_Trading_System/Group_8/reports/48_FULL_2023_STAGING_RELEASE.json').read_text());Path(os.environ['RUNNER_TEMP']+'/g8/staging_parts/urls.txt').write_text('\n'.join(x['url'] for x in m['parts'])+'\n')
+          PY
+          while read -r u; do curl -fL --retry 6 --retry-delay 2 "$u" -o "$RUNNER_TEMP/g8/staging_parts/$(basename "$u")"; done < "$RUNNER_TEMP/g8/staging_parts/urls.txt"
+          cat "$RUNNER_TEMP/g8/staging_parts/MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/staging.sqlite.zst"; zstd -q -d -f "$RUNNER_TEMP/g8/staging.sqlite.zst" -o "$RUNNER_TEMP/g8/staging.sqlite"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'checkpoint3.*' --dir "$RUNNER_TEMP/g8/cp"
+          cat "$RUNNER_TEMP/g8/cp/checkpoint3.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/checkpoint3.sqlite.zst"; zstd -q -d -f "$RUNNER_TEMP/g8/checkpoint3.sqlite.zst" -o "$RUNNER_TEMP/g8/core.sqlite"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          b=Path(os.environ['RUNNER_TEMP'])/'g8';m=json.loads((b/'cp/checkpoint3.json').read_text());p=b/'core.sqlite';assert p.stat().st_size==m['raw_size_bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==m['raw_sha256']
+          PY
+      - name: Execute exact final segment 6..7
+        env: {PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"}
+        run: python "$GROUP8_ROOT/code/group8_segmented_annual_core.py" --staging-db "$RUNNER_TEMP/g8/staging.sqlite" --output-db "$RUNNER_TEMP/g8/core.sqlite" --artifacts-root "$GROUP8_ROOT" --year 2023 --symbol XAUUSD_ --start 6 --end 7 --report "$RUNNER_TEMP/g8/reports/segment4.json"
+      - name: Fingerprint, publish and record official Annual Core
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          python "$GROUP8_ROOT/code/group8_sqlite_fingerprint.py" --database "$RUNNER_TEMP/g8/core.sqlite" --output "$RUNNER_TEMP/g8/reports/CORE_FINGERPRINT.json"
+          zstd -q -6 -T0 -f "$RUNNER_TEMP/g8/core.sqlite" -o "$RUNNER_TEMP/g8/MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.sqlite.zst"
+          split -b 1750000000 -d -a 3 "$RUNNER_TEMP/g8/MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.sqlite.zst" "$RUNNER_TEMP/g8/MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.sqlite.zst.part-"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path('MoeBot_Trading_System/Group_8');b=Path(os.environ['RUNNER_TEMP'])/'g8';fp=json.loads((b/'reports/CORE_FINGERPRINT.json').read_text());seg4=json.loads((b/'reports/segment4.json').read_text());sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();parts=[{'filename':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p),'url':f"https://github.com/mohamadeidy/MoeBot_Project/releases/download/{os.environ['TAG']}/{p.name}"} for p in sorted(b.glob('MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.sqlite.zst.part-*'))];rec={'format_version':4,'status':'PASS','artifact_kind':'GROUP8_ANNUAL_CORE','year':2023,'physical_role':'ANNUAL_CORE_NON_PA7','execution_mode':'EXACT_SEGMENTED_RESUMABLE','release_tag':os.environ['TAG'],'archive_filename':'MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.sqlite.zst','parts':parts,'part_count':len(parts),'raw_size_bytes':fp['database_size_bytes'],'raw_sha256':fp['database_sha256'],'logical_sha256':fp['logical_sha256'],'table_fingerprints':{k:v['logical_sha256'] for k,v in fp['tables'].items()},'table_row_counts':{k:v['row_count'] for k,v in fp['tables'].items()},'engine_sha256':'ab674be7601aed36d4d9e83eaedf7a1855f8e86297f7e9fc50ba01a9200dd4a0','design_freeze_hash':'213a7f6384462bc00e44366062d56edf1f5ed9c2bcce6307e44aff3bf2f0ea7a','storage_contract_hash':'d9d46f4f09c2558ef1373084be4aba8ec9c9744b8e0a6861c32b841f1f59e34a','final_segment_report':seg4,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};rec['report_hash']=hashlib.sha256(json.dumps(rec,sort_keys=True,separators=(',',':')).encode()).hexdigest();(root/'reports/50_ANNUAL_2023_CORE_RELEASE.json').write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');(b/'MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.json').write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n')
+          PY
+          gh release upload "$TAG" "$RUNNER_TEMP/g8/MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.sqlite.zst.part-"* "$RUNNER_TEMP/g8/MoeBot_Group8_ANNUAL_CORE_2023_v4_segmented.json" "$RUNNER_TEMP/g8/reports/CORE_FINGERPRINT.json" --repo "$GITHUB_REPOSITORY" --clobber
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/50_ANNUAL_2023_CORE_RELEASE.json"; git diff --cached --check
+          git commit -m "Record exact segmented Group 8 Annual 2023 core release [skip ci]"; git push origin "HEAD:${{ github.head_ref }}"
