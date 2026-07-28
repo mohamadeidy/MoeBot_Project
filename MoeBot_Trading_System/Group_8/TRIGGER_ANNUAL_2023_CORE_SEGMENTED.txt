@@ -1,4 +1,4 @@
 Trigger canonical FREE-only exact segmented Annual Core 2023 recovery from verified checkpoint 2.
 Stages 4, 5, 6 and 7 execute one-per-free-job with SHA-bound checkpoint chaining.
-Superseded combined-stage run 30300503427 reached the 360-minute free-job ceiling without a semantic failure.
-No frozen semantics, configuration, schema, thresholds, IDs, causal timestamps or 2024 OOS access are changed.
+Run 30363302278 proved stage 4 was dominated by repeated read-only lifecycle status point queries and reached the 360-minute free-job ceiling without a semantic failure.
+The same exact lifecycle ordering and tie-break semantics are now served from immutable in-memory indexes; frozen semantics, configuration, schema, thresholds, IDs, causal timestamps and 2024 OOS access remain unchanged.
