@@ -1,0 +1,3 @@
+Prove two clean FREE-only finalized Group 8 core reconstructions from the same immutable Annual Core and PA7 relevant catalog have the exact same logical fingerprint, causality, no trading outputs, and zero unresolved Group8 references.
+Convergence rerun captures the exact reconstruction traceback for in-place root-cause repair.
+Inline PR failure diagnostic enabled for authoritative traceback retrieval.

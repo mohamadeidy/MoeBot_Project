@@ -1,0 +1,55 @@
+name: MoeBot Group 8 Final Core Reconstruction Driver Clean
+
+"on":
+  pull_request:
+    branches: [agent/group8-cross-shard-ref-audit-clean, main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_RECONSTRUCTION_DRIVER_CLEAN.txt"
+permissions:
+  contents: read
+  pull-requests: write
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Compile
+        run: python -m py_compile "$GROUP8_ROOT/code/group8_reconstruct_final_core.py" "$GROUP8_ROOT/tests/test_group8_reconstruct_final_core.py"
+      - name: Prove clean reconstruction logical idempotence
+        env:
+          PYTHONPATH: ${{ env.GROUP8_ROOT }}/code:${{ env.GROUP8_ROOT }}/tests
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v "$GROUP8_ROOT/tests/test_group8_reconstruct_final_core.py" 2>&1 | tee /tmp/group8-reconstruction-parity.log
+      - name: Upload diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group8-reconstruction-parity-diagnostic
+          path: /tmp/group8-reconstruction-parity.log
+          if-no-files-found: error
+          retention-days: 1
+      - name: Publish failure traceback to PR
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          {
+            echo '### Group 8 reconstruction parity diagnostic'
+            echo '```text'
+            tail -n 80 /tmp/group8-reconstruction-parity.log
+            echo '```'
+          } > /tmp/group8-reconstruction-pr.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/group8-reconstruction-pr.md
+      - name: Audit frozen surfaces unchanged
+        run: git diff --exit-code origin/main -- "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" "$GROUP8_ROOT/STATUS.json"
