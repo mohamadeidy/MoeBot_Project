@@ -1,10 +1,14 @@
-name: MoeBot Group 8 PA7 Annual 2023 One-Pass ARM64 Release
+name: MoeBot Group 8 PA7 Annual 2023 One-Pass FREE Release
 
 "on":
   pull_request:
     branches: [agent/group8-pa7-onepass-month-partition, main]
     paths:
       - "MoeBot_Trading_System/Group_8/TRIGGER_PA7_ANNUAL_2023_ONEPASS_ARM.txt"
+
+concurrency:
+  group: moebot-group8-pa7-annual-2023-onepass-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -62,7 +66,9 @@ jobs:
             for scope in ('upstream','group8_range'):
               if not inv[tf][scope]['root_windows']:continue
               count=int(plan[tf][scope])
-              for bucket in range(count):include.append({'worker_id':f'{tf}-{scope}-{bucket:03d}','timeframe':tf,'scope':scope,'bucket_count':count,'bucket_index':bucket})
+              for bucket in range(count):
+                use_x64=tf=='M1' and scope=='upstream'
+                include.append({'worker_id':f'{tf}-{scope}-{bucket:03d}','timeframe':tf,'scope':scope,'bucket_count':count,'bucket_index':bucket,'runner':'ubuntu-latest' if use_x64 else 'ubuntu-24.04-arm','runner_class':'STANDARD_GITHUB_HOSTED_X64' if use_x64 else 'STANDARD_GITHUB_HOSTED_ARM64'})
           assert len(include)<=256
           with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('matrix='+json.dumps({'include':include},separators=(',',':'))+'\n');f.write(f'worker_count={len(include)}\n')
           print({'worker_count':len(include)})
@@ -71,7 +77,7 @@ jobs:
         env: {GH_TOKEN: "${{ github.token }}"}
         run: |
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --title "MoeBot Group 8 PA7 Annual 2023 v3 One-Pass ARM" --notes "FREE-ONLY exact one-pass-per-bucket PA7 Annual 2023. Frozen monthly shards preserved; 2024 OOS untouched."
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --title "MoeBot Group 8 PA7 Annual 2023 v3 One-Pass FREE" --notes "FREE-ONLY exact one-pass-per-bucket PA7 Annual 2023. Frozen monthly shards preserved; 2024 OOS untouched."
           fi
 
   shard-workers:
@@ -80,7 +86,7 @@ jobs:
       fail-fast: false
       max-parallel: 20
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
     env:
       WORKER_ID: ${{ matrix.worker_id }}
@@ -88,6 +94,7 @@ jobs:
       SCOPE: ${{ matrix.scope }}
       BUCKET_COUNT: ${{ matrix.bucket_count }}
       BUCKET_INDEX: ${{ matrix.bucket_index }}
+      RUNNER_CLASS: ${{ matrix.runner_class }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,7 +102,36 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - name: Preflight worker and reclaim free ARM storage
+      - id: reuse
+        name: Reuse existing verified worker release
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pa7-existing" "$RUNNER_TEMP/pa7"
+          if gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "${WORKER_ID}.json" --dir "$RUNNER_TEMP/pa7-existing" --clobber >/dev/null 2>&1; then
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets > "$RUNNER_TEMP/pa7-assets.json"
+            if python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'pa7-existing'/(os.environ['WORKER_ID']+'.json');wr=json.loads(p.read_text());q=dict(wr);saved=q.pop('report_hash');stable=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          assert stable(q)==saved and wr['status']=='PASS' and wr['worker_id']==os.environ['WORKER_ID'] and wr['year']==2023
+          assert wr['timeframe']==os.environ['TF'] and wr['scope']==os.environ['SCOPE'] and wr['bucket_count']==int(os.environ['BUCKET_COUNT']) and wr['bucket_start']==wr['bucket_end']==int(os.environ['BUCKET_INDEX'])
+          assert wr['execution_mode']=='ONE_ENGINE_PASS_THEN_EXACT_MONTH_PARTITION' and wr['free_only'] and not wr['paid_runner_used'] and not wr['paid_service_used'] and not wr['oos_2024_accessed']
+          names={a['name'] for a in json.loads((Path(os.environ['RUNNER_TEMP'])/'pa7-assets.json').read_text())['assets']};required={wr['report_asset'],*(x['filename'] for x in wr['bundle_parts'])};assert required<=names
+          print({'status':'PASS','worker':wr['worker_id'],'reuse':True,'runner_class':wr['runner_class']})
+          PY
+            then
+              cp "$RUNNER_TEMP/pa7-existing/${WORKER_ID}.json" "$RUNNER_TEMP/pa7/${WORKER_ID}.json"
+              echo "reuse=true" >> "$GITHUB_OUTPUT"
+            else
+              rm -f "$RUNNER_TEMP/pa7-existing/${WORKER_ID}.json"
+              echo "reuse=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "reuse=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Preflight worker and reclaim free runner storage
+        if: steps.reuse.outputs.reuse != 'true'
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -112,6 +148,7 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq zstd
           df -h /
       - name: Restore verified compact PA7 staging
+        if: steps.reuse.outputs.reuse != 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/pa7/payload"
           curl -fL --retry 6 --retry-delay 2 "https://github.com/mohamadeidy/MoeBot_Project/releases/download/moebot-group8-pa7-staging-2023-v1/MoeBot_Group8_PA7_2023_COMPACT_STAGING_v1.sqlite.zst" -o "$RUNNER_TEMP/pa7/staging.sqlite.zst"
@@ -122,6 +159,7 @@ jobs:
           PY
           zstd -q -d -f "$RUNNER_TEMP/pa7/staging.sqlite.zst" -o "$RUNNER_TEMP/pa7/staging.sqlite";rm -f "$RUNNER_TEMP/pa7/staging.sqlite.zst"
       - name: Execute one exact PA7 pass and partition all frozen root months
+        if: steps.reuse.outputs.reuse != 'true'
         env: {PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"}
         run: |
           set -euo pipefail
@@ -142,6 +180,7 @@ jobs:
             m=json.loads(mp.read_text());q=dict(m);saved=q.pop('manifest_hash');db=Path(str(mp).replace('.manifest.json','.sqlite'));assert stable(q)==saved and m['status']=='PASS' and m['year']==2023 and not m['oos_2024_accessed'] and m['annual_breakout_followup_finalized'] is True;assert m['file_size_bytes']==db.stat().st_size<=2_500_000_000 and hashlib.sha256(db.read_bytes()).hexdigest()==m['sha256']
           PY
       - name: Package one-pass worker bundle and report
+        if: steps.reuse.outputs.reuse != 'true'
         run: |
           tar -C "$RUNNER_TEMP/pa7" -cf - payload | zstd -q -3 -T0 | split -b 1750000000 -d -a 3 - "$RUNNER_TEMP/pa7/${WORKER_ID}.tar.zst.part-"
           python - <<'PY'
@@ -158,9 +197,10 @@ jobs:
             m=json.loads(p.read_text());mans.append({'shard_id':m['shard_id'],'filename':p.name.replace('.manifest.json','.sqlite'),'manifest_filename':p.name,'timeframe':m['timeframe'],'boundary_scope':m['boundary_scope'],'causal_root_window':m['causal_root_window'],'bucket_index':m['bucket_index'],'bucket_count':m['bucket_count'],'file_size_bytes':m['file_size_bytes'],'sha256':m['sha256'],'manifest_hash':m['manifest_hash'],'table_row_counts':m['table_row_counts'],'table_logical_sha256':m['table_logical_sha256'],'definition_coverage':m['definition_coverage']});raw+=int(m['file_size_bytes']);cands+=int(m['table_row_counts'].get('price_action_pattern_candidate',0));states+=int(m['table_row_counts'].get('price_action_pattern_state',0));defs.update({k:int(v) for k,v in m['definition_coverage'].items()})
           parts=[]
           for p in sorted(base.glob(os.environ['WORKER_ID']+'.tar.zst.part-*')):assert p.stat().st_size<1_800_000_000;parts.append({'filename':p.name,'size_bytes':p.stat().st_size,'sha256':sha(p),'url':f"https://github.com/mohamadeidy/MoeBot_Project/releases/download/{os.environ['TAG']}/{p.name}"})
-          b=int(os.environ['BUCKET_INDEX']);rec={'format_version':4,'status':'PASS','worker_id':os.environ['WORKER_ID'],'year':2023,'timeframe':os.environ['TF'],'scope':os.environ['SCOPE'],'bucket_count':int(os.environ['BUCKET_COUNT']),'bucket_start':b,'bucket_end':b,'shard_count':len(mans),'raw_shard_bytes':raw,'candidate_rows':cands,'state_rows':states,'definition_coverage':dict(sorted(defs.items())),'shards':mans,'bundle_parts':parts,'report_asset':os.environ['WORKER_ID']+'.json','execution_mode':'ONE_ENGINE_PASS_THEN_EXACT_MONTH_PARTITION','runner_class':'STANDARD_GITHUB_HOSTED_ARM64','free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};stable=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest();rec['report_hash']=stable(rec);(base/(os.environ['WORKER_ID']+'.json')).write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n')
+          b=int(os.environ['BUCKET_INDEX']);rec={'format_version':4,'status':'PASS','worker_id':os.environ['WORKER_ID'],'year':2023,'timeframe':os.environ['TF'],'scope':os.environ['SCOPE'],'bucket_count':int(os.environ['BUCKET_COUNT']),'bucket_start':b,'bucket_end':b,'shard_count':len(mans),'raw_shard_bytes':raw,'candidate_rows':cands,'state_rows':states,'definition_coverage':dict(sorted(defs.items())),'shards':mans,'bundle_parts':parts,'report_asset':os.environ['WORKER_ID']+'.json','execution_mode':'ONE_ENGINE_PASS_THEN_EXACT_MONTH_PARTITION','runner_class':os.environ['RUNNER_CLASS'],'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};stable=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest();rec['report_hash']=stable(rec);(base/(os.environ['WORKER_ID']+'.json')).write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n')
           PY
       - name: Upload immutable one-pass worker bundle
+        if: steps.reuse.outputs.reuse != 'true'
         env: {GH_TOKEN: "${{ github.token }}"}
         run: gh release upload "$TAG" "$RUNNER_TEMP/pa7/${WORKER_ID}.tar.zst.part-"* "$RUNNER_TEMP/pa7/${WORKER_ID}.json" --repo "$GITHUB_REPOSITORY" --clobber
       - uses: actions/upload-artifact@v4
@@ -196,9 +236,9 @@ jobs:
             for scope in ('upstream','group8_range'):
               for month in inv[tf][scope]['root_windows']:
                 for b in range(int(plan[tf][scope])):expected.add((tf,scope,month,b,int(plan[tf][scope])))
-          actual={};defs=Counter();raw=cands=states=0;bundles=[];stable=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          actual={};defs=Counter();raw=cands=states=0;bundles=[];runner_classes=set();stable=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
           for wr in reports:
-            assert wr['status']=='PASS' and wr['execution_mode']=='ONE_ENGINE_PASS_THEN_EXACT_MONTH_PARTITION' and wr['free_only'] and not wr['paid_runner_used'] and not wr['paid_service_used'] and not wr['oos_2024_accessed'];q=dict(wr);saved=q.pop('report_hash');assert stable(q)==saved;bundles.append({'worker_id':wr['worker_id'],'parts':wr['bundle_parts'],'report_asset':wr['report_asset'],'report_hash':saved})
+            assert wr['status']=='PASS' and wr['execution_mode']=='ONE_ENGINE_PASS_THEN_EXACT_MONTH_PARTITION' and wr['free_only'] and not wr['paid_runner_used'] and not wr['paid_service_used'] and not wr['oos_2024_accessed'];q=dict(wr);saved=q.pop('report_hash');assert stable(q)==saved;runner_classes.add(wr['runner_class']);bundles.append({'worker_id':wr['worker_id'],'parts':wr['bundle_parts'],'report_asset':wr['report_asset'],'report_hash':saved,'runner_class':wr['runner_class']})
             for s in wr['shards']:
               key=(s['timeframe'],s['boundary_scope'],s['causal_root_window'],int(s['bucket_index']),int(s['bucket_count']))
               if key in actual:raise SystemExit(f'duplicate shard key:{key}')
@@ -212,7 +252,8 @@ jobs:
           shards=[]
           for key in sorted(actual):
             s=actual[key];shards.append({'timeframe':key[0],'scope':key[1],'root_window':key[2],'bucket_index':key[3],'bucket_count':key[4],'shard_id':s['shard_id'],'filename':s['filename'],'manifest_filename':s['manifest_filename'],'file_size_bytes':s['file_size_bytes'],'sha256':s['sha256'],'manifest_hash':s['manifest_hash'],'table_row_counts':s['table_row_counts'],'table_logical_sha256':s['table_logical_sha256'],'definition_coverage':s['definition_coverage']})
-          rec={'format_version':4,'status':'PASS','artifact_kind':'GROUP8_PA7_ANNUAL_2023_SHARDED_RELEASE','year':2023,'release_tag':os.environ['TAG'],'runner_class':'STANDARD_GITHUB_HOSTED_ARM64','execution_mode':'ONE_ENGINE_PASS_THEN_EXACT_MONTH_PARTITION','worker_count':len(reports),'shard_count':len(actual),'expected_shard_count':len(expected),'raw_shard_bytes':raw,'candidate_rows':cands,'state_rows':states,'definition_coverage':dict(sorted(defs.items())),'bucket_plan':plan,'root_window_inventory_report_hash':json.loads((root/'reports/52_PA7_2023_ROOT_WINDOW_INVENTORY.json').read_text())['report_hash'],'sizing_report_hash':json.loads((root/'reports/51_PA7_2023_REAL_SIZING_AND_BUCKET_PLAN.json').read_text())['report_hash'],'bundles':bundles,'shards':shards,'complete_once_only_coverage':True,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};rec['report_hash']=stable(rec);(root/'reports/53_PA7_ANNUAL_2023_RELEASE.json').write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');print({'status':'PASS','workers':len(reports),'shards':len(actual),'report_hash':rec['report_hash']})
+          classes=sorted(runner_classes);runner_class=classes[0] if len(classes)==1 else 'STANDARD_GITHUB_HOSTED_FREE_MIXED'
+          rec={'format_version':4,'status':'PASS','artifact_kind':'GROUP8_PA7_ANNUAL_2023_SHARDED_RELEASE','year':2023,'release_tag':os.environ['TAG'],'runner_class':runner_class,'runner_classes':classes,'execution_mode':'ONE_ENGINE_PASS_THEN_EXACT_MONTH_PARTITION','worker_count':len(reports),'shard_count':len(actual),'expected_shard_count':len(expected),'raw_shard_bytes':raw,'candidate_rows':cands,'state_rows':states,'definition_coverage':dict(sorted(defs.items())),'bucket_plan':plan,'root_window_inventory_report_hash':json.loads((root/'reports/52_PA7_2023_ROOT_WINDOW_INVENTORY.json').read_text())['report_hash'],'sizing_report_hash':json.loads((root/'reports/51_PA7_2023_REAL_SIZING_AND_BUCKET_PLAN.json').read_text())['report_hash'],'bundles':bundles,'shards':shards,'complete_once_only_coverage':True,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':False};rec['report_hash']=stable(rec);(root/'reports/53_PA7_ANNUAL_2023_RELEASE.json').write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');print({'status':'PASS','workers':len(reports),'shards':len(actual),'report_hash':rec['report_hash']})
           PY
       - name: Commit official one-pass PA7 Annual 2023 release index
         run: |
