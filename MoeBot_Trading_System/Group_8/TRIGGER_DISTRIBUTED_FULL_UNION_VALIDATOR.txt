@@ -1,0 +1,3 @@
+Prove the FREE distributed sidecar architecture reproduces the exact frozen full-union candidate/state/table/global logical fingerprints, complete source coverage, duplicate rejection, registry consistency, and zero unresolved Group8 references without a monolithic annual ID ledger.
+Convergence rerun captures the exact parity traceback for in-place root-cause repair.
+Publish the exact failure traceback to this canonical PR if the regression fails again.
