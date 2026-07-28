@@ -2,9 +2,10 @@
 """Audit every Group8-domain reference in the finalized non-PA7 core.
 
 Candidate references may resolve either in the finalized core or in the reduced PA7
-query catalog. Other Group8 subjects resolve in the finalized core. PA7 shard-local
-chain references are audited separately by logical-sidecar generation; legitimate
-PA7-to-core references are resolved here.
+query catalog. Frozen upstream references use both domain-type source_type values and,
+for some pattern/school objects, definition IDs such as pa_bounded_range_context.
+The audit therefore resolves explicit domain types directly and definition-typed
+references by exact (primary_id, definition_id) identity. No domain row is modified.
 """
 from __future__ import annotations
 import argparse,json,sqlite3,hashlib
@@ -38,16 +39,23 @@ def audit(core_db:Path,pa7_catalog:Path,report:Path)->dict[str,Any]:
   rec=MAP.get(kind)
   if not rec:return False
   return c.execute(f'SELECT 1 FROM {rec[0]} WHERE {rec[1]}=? LIMIT 1',(rid,)).fetchone() is not None
+ def exists_definition_typed(kind:str,rid:str)->bool:
+  """Resolve frozen source_type values that are definition IDs, not table names."""
+  nonlocal checked;checked+=1
+  if c.execute('SELECT 1 FROM price_action_pattern_candidate WHERE candidate_id=? AND definition_id=? UNION ALL SELECT 1 FROM pa7.pa7_candidate_catalog WHERE candidate_id=? AND definition_id=? LIMIT 1',(rid,kind,rid,kind)).fetchone() is not None:return True
+  checked+=1
+  if c.execute('SELECT 1 FROM school_interpretation WHERE interpretation_id=? AND definition_id=? LIMIT 1',(rid,kind)).fetchone() is not None:return True
+  checked+=1
+  return c.execute('SELECT 1 FROM narrative_hypothesis WHERE hypothesis_id=? AND definition_id=? LIMIT 1',(rid,kind)).fetchone() is not None
+ def exists_group8_ref(kind:str,rid:str)->bool:
+  return exists(kind,rid) if kind in MAP else exists_definition_typed(kind,rid)
  def exists_untyped_subject(rid:str)->bool:
-  # shared_evidence stores only subject IDs, not their subject types. Resolve the ID
-  # against every frozen Group8 domain rather than assuming only interpretation/
-  # hypothesis subjects. This is audit-only and cannot alter any domain row.
   for kind in MAP:
    if exists(kind,rid):return True
   return False
  def check(kind:str,rid:Any,where:str):
   if rid is None:return
-  if not exists(kind,str(rid)) and len(un)<100:un.append({'where':where,'target_type':kind,'target_id':str(rid)})
+  if not exists_group8_ref(kind,str(rid)) and len(un)<100:un.append({'where':where,'target_type':kind,'target_id':str(rid)})
  try:
   for table,idc in (('price_action_pattern_candidate','candidate_id'),('school_interpretation','interpretation_id'),('narrative_hypothesis','hypothesis_id')):
    for row in c.execute(f'SELECT {idc},upstream_refs_json FROM {table}'):
