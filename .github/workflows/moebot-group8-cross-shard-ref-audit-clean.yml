@@ -7,6 +7,7 @@ name: MoeBot Group 8 Cross-Shard Reference Audit Clean
       - "MoeBot_Trading_System/Group_8/TRIGGER_CROSS_SHARD_REF_AUDIT_CLEAN.txt"
 permissions:
   contents: read
+  pull-requests: write
 env:
   GROUP8_ROOT: MoeBot_Trading_System/Group_8
   PYTHONUNBUFFERED: "1"
@@ -36,5 +37,19 @@ jobs:
           path: /tmp/group8-cross-shard-audit.log
           if-no-files-found: error
           retention-days: 1
+      - name: Publish failure traceback to PR
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          {
+            echo '### Group 8 cross-shard audit diagnostic'
+            echo '```text'
+            tail -n 80 /tmp/group8-cross-shard-audit.log
+            echo '```'
+          } > /tmp/group8-cross-shard-audit-pr.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/group8-cross-shard-audit-pr.md
       - name: Audit frozen surfaces unchanged
         run: git diff --exit-code origin/main -- "$GROUP8_ROOT/FROZEN_CONFIG.json" "$GROUP8_ROOT/01_DEFINITION_REGISTRY.json" "$GROUP8_ROOT/02_SCHEMA.sql" "$GROUP8_ROOT/DESIGN_FREEZE_MANIFEST.json" "$GROUP8_ROOT/SHARDED_STORAGE_CONTRACT.json" "$GROUP8_ROOT/code/moebot_group8_engine_v0_8_0.py" "$GROUP8_ROOT/code/group8_postprocess_v0_8_0.py" "$GROUP8_ROOT/STATUS.json"
