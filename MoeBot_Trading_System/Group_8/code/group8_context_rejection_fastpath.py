@@ -8,6 +8,7 @@ same causal availability/lifecycle checks and geometry predicate.
 from __future__ import annotations
 
 import json
+from bisect import bisect_right
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -70,16 +71,55 @@ class IndexedContextRejectionEngine(Group8Engine):
             rows.append({'group':'group8','type':'pa_bounded_range_context','id':r['candidate_id'],'availability':int(r['availability_time']),'event':int(r['event_time']),'lower':float(r['lower']),'upper':float(r['upper'])})
         return rows
 
+    @staticmethod
+    def _collapse_status_rows(rows:list[Any],time_col:str,status_col:str)->tuple[list[int],list[str]]:
+        """Collapse ordered same-time transitions to the exact final SQL tie-break row."""
+        times:list[int]=[];statuses:list[str]=[]
+        for row in rows:
+            t=int(row[time_col]);status=str(row[status_col])
+            if times and times[-1]==t:statuses[-1]=status
+            else:times.append(t);statuses.append(status)
+        return times,statuses
+
+    def _build_context_status_indexes(self)->None:
+        # These scans preserve the original ORDER BY tie-breaks while removing millions
+        # of semantically identical point queries from the annual hot loop.
+        self._g4_transition_index={}
+        grouped:dict[str,list[Any]]={}
+        for r in self.input.execute("SELECT zone_id,transition_time,transition_id,to_status FROM group4__zone_transitions ORDER BY zone_id,transition_time,transition_id"):
+            grouped.setdefault(str(r['zone_id']),[]).append(r)
+        for zone_id,rows in grouped.items():self._g4_transition_index[zone_id]=self._collapse_status_rows(rows,'transition_time','to_status')
+        self._g4_interaction_index={};grouped={}
+        for r in self.input.execute("SELECT zone_id,interaction_time,interaction_id,status_after FROM group4__zone_interactions ORDER BY zone_id,interaction_time,interaction_id"):
+            grouped.setdefault(str(r['zone_id']),[]).append(r)
+        for zone_id,rows in grouped.items():self._g4_interaction_index[zone_id]=self._collapse_status_rows(rows,'interaction_time','status_after')
+        self._g7_transition_index={};grouped={}
+        for r in self.input.execute("SELECT zone_id,transition_time,transition_ordinal,status FROM group7__zone_state_transitions ORDER BY zone_id,transition_time,transition_ordinal"):
+            grouped.setdefault(str(r['zone_id']),[]).append(r)
+        for zone_id,rows in grouped.items():self._g7_transition_index[zone_id]=self._collapse_status_rows(rows,'transition_time','status')
+
+    @staticmethod
+    def _status_at(index:dict[str,tuple[list[int],list[str]]],zone_id:str,availability:int)->str|None:
+        rec=index.get(zone_id)
+        if not rec:return None
+        times,statuses=rec;i=bisect_right(times,availability)-1
+        return statuses[i] if i>=0 else None
+
     def _context_boundary_active(self,bnd:Mapping[str,Any],availability:int)->bool:
         if int(bnd['availability'])>availability:return False
         expires=bnd.get('expires_at')
         if expires is not None and int(expires)<availability:return False
-        if bnd['group']=='group4':return self._status_active(self._active_zone_status_at(str(bnd['id']),str(bnd.get('base_status','active')),availability))
+        if bnd['group']=='group4':
+            status=self._status_at(self._g4_transition_index,str(bnd['id']),availability)
+            if status is None:status=self._status_at(self._g4_interaction_index,str(bnd['id']),availability)
+            return self._status_active(status if status is not None else 'active')
         if bnd['group']=='group7':
-            tr=self.input.execute("SELECT status FROM group7__zone_state_transitions WHERE zone_id=? AND transition_time<=? ORDER BY transition_time DESC,transition_ordinal DESC LIMIT 1",(bnd['id'],availability)).fetchone();return not tr or self._status_active(str(tr[0]))
+            status=self._status_at(self._g7_transition_index,str(bnd['id']),availability)
+            return status is None or self._status_active(status)
         return True
 
     def process_context_rejections_fast(self)->None:
+        self._build_context_status_indexes()
         rejections=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id IN ('pa_pin_bar_like','pa_rejection_close') ORDER BY availability_time,candidate_id").fetchall();indices={}
         for key in self.bars_by_tf:
             rows=[BoundaryRecord(b,float(b['lower']),float(b['upper'])) for b in self._context_boundary_catalog(*key)];indices[key]=IntervalNode(rows) if rows else None
