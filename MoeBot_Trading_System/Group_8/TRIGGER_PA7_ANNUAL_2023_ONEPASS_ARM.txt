@@ -1,0 +1,1 @@
+Execute the canonical FREE-only PA7 Annual 2023 release after merged exact one-pass parity #155. Use one frozen engine pass per (timeframe, boundary scope, bucket), partition exactly to frozen causal-root monthly shards, require complete once-only coverage and SHA-bound release identities, and do not access 2024 OOS.

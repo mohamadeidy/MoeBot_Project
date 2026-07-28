@@ -12,7 +12,7 @@ the original monthly shard IDs, candidate/state IDs, hashes, and logical fingerp
 """
 from __future__ import annotations
 
-import argparse,hashlib,json,sqlite3
+import argparse,hashlib,json,os,sqlite3
 from pathlib import Path
 from typing import Any,Iterable
 
@@ -25,6 +25,7 @@ from group8_postprocess_v0_8_0 import _finalize_breakout_followups
 BREAKOUT_DEFS=('pa_breakout_exact','pa_breakout_point_buffer','pa_breakout_atr_buffer')
 CHILD_DEFS=('pa_failed_breakout','pa_retest')
 ASSIGN_TABLE='_pa7_root_month_assignment'
+SUPERSEDED_GITHUB_RUN_IDS={'30302628989'}
 
 
 def _chain_assignments(work_db:Path,year:int)->dict[str,int]:
@@ -105,6 +106,9 @@ def run_onepass_bucket(*,staging_db:Path,work_db:Path,output_dir:Path,artifacts_
 
 
 def main()->int:
+    if os.environ.get('GITHUB_RUN_ID') in SUPERSEDED_GITHUB_RUN_IDS:
+        raise RuntimeError(f'superseded GitHub Actions run blocked:{os.environ.get("GITHUB_RUN_ID")}')
     p=argparse.ArgumentParser();p.add_argument('--staging-db',type=Path,required=True);p.add_argument('--work-db',type=Path,required=True);p.add_argument('--output-dir',type=Path,required=True);p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--year',type=int,required=True);p.add_argument('--symbol',required=True);p.add_argument('--timeframe',required=True);p.add_argument('--root-month',action='append',required=True);p.add_argument('--bucket-count',type=int,required=True);p.add_argument('--bucket-index',type=int,required=True);p.add_argument('--boundary-scope',choices=sorted(SCOPES),required=True);p.add_argument('--report',type=Path,required=True);a=p.parse_args();r=run_onepass_bucket(staging_db=a.staging_db.resolve(),work_db=a.work_db.resolve(),output_dir=a.output_dir.resolve(),artifacts_root=a.artifacts_root.resolve(),year=a.year,symbol=a.symbol,timeframe=a.timeframe,root_months=a.root_month,bucket_count=a.bucket_count,bucket_index=a.bucket_index,boundary_scope=a.boundary_scope);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':r['status'],'shards':len(r['shards']),'report_hash':r['report_hash']},indent=2,sort_keys=True));return 0
+
 
 if __name__=='__main__':raise SystemExit(main())
