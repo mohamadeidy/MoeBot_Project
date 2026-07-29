@@ -85,20 +85,26 @@ class IndexedContextRejectionEngine(Group8Engine):
             else:times.append(t);statuses.append(status)
         return times,statuses
 
-    def _build_context_status_indexes(self)->None:
-        # These scans preserve the original ORDER BY tie-breaks while removing millions
-        # of semantically identical point queries from the annual hot loop.
+    def _build_context_status_indexes(self,g4_zone_ids:set[str],g7_zone_ids:set[str])->None:
+        # Restrict lifecycle scans to zones that can actually participate in the
+        # frozen symbol/timeframe catalogs. The join changes only physical access;
+        # ordering and exact SQL tie-break semantics remain unchanged.
+        self.input.execute("CREATE TEMP TABLE IF NOT EXISTS _g8_relevant_g4_zone(zone_id TEXT PRIMARY KEY) WITHOUT ROWID")
+        self.input.execute("CREATE TEMP TABLE IF NOT EXISTS _g8_relevant_g7_zone(zone_id TEXT PRIMARY KEY) WITHOUT ROWID")
+        self.input.execute("DELETE FROM _g8_relevant_g4_zone");self.input.execute("DELETE FROM _g8_relevant_g7_zone")
+        self.input.executemany("INSERT INTO _g8_relevant_g4_zone(zone_id) VALUES (?)",((x,) for x in sorted(g4_zone_ids)))
+        self.input.executemany("INSERT INTO _g8_relevant_g7_zone(zone_id) VALUES (?)",((x,) for x in sorted(g7_zone_ids)))
         self._g4_transition_index={}
         grouped:dict[str,list[Any]]={}
-        for r in self.input.execute("SELECT zone_id,transition_time,transition_id,to_status FROM group4__zone_transitions ORDER BY zone_id,transition_time,transition_id"):
+        for r in self.input.execute("SELECT t.zone_id,t.transition_time,t.transition_id,t.to_status FROM group4__zone_transitions t JOIN _g8_relevant_g4_zone z ON z.zone_id=t.zone_id ORDER BY t.zone_id,t.transition_time,t.transition_id"):
             grouped.setdefault(str(r['zone_id']),[]).append(r)
         for zone_id,rows in grouped.items():self._g4_transition_index[zone_id]=self._collapse_status_rows(rows,'transition_time','to_status')
         self._g4_interaction_index={};grouped={}
-        for r in self.input.execute("SELECT zone_id,interaction_time,interaction_id,status_after FROM group4__zone_interactions ORDER BY zone_id,interaction_time,interaction_id"):
+        for r in self.input.execute("SELECT i.zone_id,i.interaction_time,i.interaction_id,i.status_after FROM group4__zone_interactions i JOIN _g8_relevant_g4_zone z ON z.zone_id=i.zone_id ORDER BY i.zone_id,i.interaction_time,i.interaction_id"):
             grouped.setdefault(str(r['zone_id']),[]).append(r)
         for zone_id,rows in grouped.items():self._g4_interaction_index[zone_id]=self._collapse_status_rows(rows,'interaction_time','status_after')
         self._g7_transition_index={};grouped={}
-        for r in self.input.execute("SELECT zone_id,transition_time,transition_ordinal,status FROM group7__zone_state_transitions ORDER BY zone_id,transition_time,transition_ordinal"):
+        for r in self.input.execute("SELECT t.zone_id,t.transition_time,t.transition_ordinal,t.status FROM group7__zone_state_transitions t JOIN _g8_relevant_g7_zone z ON z.zone_id=t.zone_id ORDER BY t.zone_id,t.transition_time,t.transition_ordinal"):
             grouped.setdefault(str(r['zone_id']),[]).append(r)
         for zone_id,rows in grouped.items():self._g7_transition_index[zone_id]=self._collapse_status_rows(rows,'transition_time','status')
 
@@ -123,10 +129,13 @@ class IndexedContextRejectionEngine(Group8Engine):
         return True
 
     def process_context_rejections_fast(self)->None:
-        self._build_context_status_indexes()
-        rejections=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id IN ('pa_pin_bar_like','pa_rejection_close') ORDER BY availability_time,candidate_id").fetchall();indices={}
+        rejections=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id IN ('pa_pin_bar_like','pa_rejection_close') ORDER BY availability_time,candidate_id").fetchall();indices={};catalogs={}
         for key in self.bars_by_tf:
-            rows=[BoundaryRecord(b,float(b['lower']),float(b['upper'])) for b in self._context_boundary_catalog(*key)];indices[key]=IntervalNode(rows) if rows else None
+            catalog=self._context_boundary_catalog(*key);catalogs[key]=catalog
+            rows=[BoundaryRecord(b,float(b['lower']),float(b['upper'])) for b in catalog];indices[key]=IntervalNode(rows) if rows else None
+        g4_zone_ids={str(b['id']) for catalog in catalogs.values() for b in catalog if b['group']=='group4'}
+        g7_zone_ids={str(b['id']) for catalog in catalogs.values() for b in catalog if b['group']=='group7'}
+        self._build_context_status_indexes(g4_zone_ids,g7_zone_ids)
         for p in rejections:
             bar=self._bar_by_id(p['source_bar_id'])
             if bar is None:continue
