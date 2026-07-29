@@ -63,9 +63,13 @@ class IndexedContextRejectionEngine(Group8Engine):
                 seen.add(float(val));rows.append({'group':'group5','type':'liquidity_pools','id':f"{r['pool_id']}:{label}",'source_id':r['pool_id'],'availability':int(r['available_at']),'event':int(r['origin_time']),'lower':float(val),'upper':float(val),'expires_at':int(r['expires_at']) if r['expires_at'] is not None else None})
         for t,idc,avc,lowc,upc,eventc in [('fvg_events','fvg_id','availability_time','lower','upper','creation_time'),('imbalance_variants','variant_id','availability_time','lower','upper','availability_time'),('liquidity_voids','void_id','availability_time','lower','upper','start_time'),('bpr_relations','bpr_id','availability_time','lower','upper','creation_time')]:
             cols={x[1] for x in self.input.execute(f"PRAGMA table_info('group6__{t}')")};event_expr=eventc if eventc in cols else avc
-            for r in self.input.execute(f"SELECT {idc} id,{avc} av,{lowc} lo,{upc} hi,{event_expr} ev FROM group6__{t} WHERE timeframe=?",(tf,)):
+            where="timeframe=?";params:[Any]=[tf]
+            if 'symbol' in cols:where+=" AND symbol=?";params.append(symbol)
+            for r in self.input.execute(f"SELECT {idc} id,{avc} av,{lowc} lo,{upc} hi,{event_expr} ev FROM group6__{t} WHERE {where}",params):
                 rows.append({'group':'group6','type':t,'id':r['id'],'availability':int(r['av']),'event':int(r['ev']),'lower':float(r['lo']),'upper':float(r['hi'])})
-        for r in self.input.execute("SELECT * FROM group7__institutional_zones WHERE timeframe=?",(tf,)):
+        g7cols={x[1] for x in self.input.execute("PRAGMA table_info('group7__institutional_zones')")};g7where="timeframe=?";g7params:[Any]=[tf]
+        if 'symbol' in g7cols:g7where+=" AND symbol=?";g7params.append(symbol)
+        for r in self.input.execute(f"SELECT * FROM group7__institutional_zones WHERE {g7where}",g7params):
             rows.append({'group':'group7','type':'institutional_zones','id':r['zone_id'],'availability':int(r['availability_time']),'event':int(r['event_time']),'lower':float(r['lower']),'upper':float(r['upper'])})
         for r in self.out.execute("SELECT candidate_id,availability_time,event_time,lower,upper FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context' AND symbol=? AND timeframe=?",(symbol,tf)):
             rows.append({'group':'group8','type':'pa_bounded_range_context','id':r['candidate_id'],'availability':int(r['availability_time']),'event':int(r['event_time']),'lower':float(r['lower']),'upper':float(r['upper'])})
