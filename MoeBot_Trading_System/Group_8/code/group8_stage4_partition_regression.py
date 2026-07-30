@@ -86,6 +86,10 @@ def _install_allowlist(con:sqlite3.Connection,ids:set[str])->None:
     con.execute("CREATE TEMP TABLE IF NOT EXISTS stage4_fixture_allowlist(candidate_id TEXT PRIMARY KEY)")
     con.execute("DELETE FROM stage4_fixture_allowlist")
     con.executemany("INSERT INTO stage4_fixture_allowlist(candidate_id) VALUES(?)",[(x,) for x in sorted(ids)])
+    # PRAGMA temp_store cannot change inside an active transaction. The allowlist is
+    # TEMP connection state and survives this commit, so close only the fixture setup
+    # transaction before the unchanged engine applies its physical SQLite tuning.
+    con.commit()
 
 
 class _Rows:
