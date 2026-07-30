@@ -1,7 +1,10 @@
-Trigger canonical FREE-only exact segmented Annual Core 2023 recovery from verified checkpoint 2.
-Stages 4, 5, 6 and 7 execute one-per-free-job with SHA-bound checkpoint chaining.
-Run 30528404287 restored and verified checkpoint 2, then exact stage 4 reached the 360-minute free-job ceiling without a semantic assertion failure and produced no checkpoint-3 artifact.
-The canonical fast path remains scoped by frozen symbol/timeframe catalogs for Group 6 and Group 7 boundaries.
-The exact stage-4 Group 4 and Group 7 lifecycle indexes now use bounded batched zone_id IN probes over the same existing indexes, preserving the original per-zone transition-time and transition-ID/ordinal ORDER BY tie-breaks, same-time collapse behavior, status logic, IDs and causal timestamps while eliminating thousands of connection round trips.
-Connection-local SQLite cache, mmap, in-memory temp/journal and synchronous settings remain physical-only and do not change persisted rows, frozen semantics, configuration, schema, thresholds, IDs or causal timestamps.
+Trigger canonical FREE-only Annual Core 2023 gated recovery from verified checkpoint 2.
+Previous run 30528404287 is superseded after exact one-shot stage 4 reached the 360-minute free-job ceiling and produced no checkpoint-3 artifact.
+The old one-shot stage-4 official path is prohibited.
+Candidate physical plan: g8-stage4-context-rejections-sha256-mod24-v1 with 24 deterministic partitions.
+The workflow must first pass exact parity, real negative regressions, 24 full-data full-job benchmarks, <=240-minute worst-wall safety, YAML validation, FREE-only validation and confirmed 2024 lock.
+Only after every gate passes may the ordered ranges 00-00 through 23-23 resume from checkpoint 2.
+Each range verifies and publishes a SHA-bound parent/output manifest and cannot publish checkpoint 3.
+Only complete ordered 24-partition coverage may publish checkpoint 3, after which frozen stages 5-7 may run.
+No frozen semantics, config, schema, thresholds, IDs, event_time, confirmation_time, availability_time or upstream lineage changes are authorized.
 Frozen 2024 OOS access remains locked.
