@@ -1,6 +1,6 @@
 Trigger canonical FREE-only exact segmented Annual Core 2023 recovery from verified checkpoint 2.
 Stages 4, 5, 6 and 7 execute one-per-free-job with SHA-bound checkpoint chaining.
-Run 30433408006 restored and verified checkpoint 2, then exact stage 4 again reached the 360-minute free-job ceiling without a semantic assertion failure.
-The canonical fast path now scopes Group 6 and Group 7 boundary catalog scans by symbol whenever the frozen upstream table exposes a symbol column, matching the original bar-scoped boundary semantics while removing irrelevant cross-symbol candidates.
-The exact stage-4 lifecycle indexes are additionally restricted to the Group 4 and Group 7 zone IDs present in those frozen symbol/timeframe catalogs through temporary join tables, preserving the original ORDER BY tie-breaks, status logic, IDs and causal timestamps while eliminating irrelevant full-table lifecycle scans.
+Run 30468549685 restored and verified checkpoint 2, then exact stage 4 reached the 360-minute free-job ceiling without a semantic assertion failure and produced no checkpoint-3 artifact.
+The canonical fast path remains scoped by frozen symbol/timeframe catalogs for Group 6 and Group 7 boundaries.
+The exact stage-4 Group 4 and Group 7 lifecycle indexes now use the staging database's frozen zone_id indexes through direct per-relevant-zone probes instead of planner-dependent lifecycle-table joins. Each probe retains the original transition-time and transition-ID/ordinal ORDER BY tie-breaks, collapse behavior, status logic, IDs and causal timestamps while preventing irrelevant full lifecycle-table scans.
 Frozen semantics, configuration, schema, thresholds, IDs, causal timestamps and 2024 OOS access remain unchanged.
