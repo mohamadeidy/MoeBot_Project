@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Exact resumable Annual Core execution for FREE standard-runner time limits.
 
-Stage 4 is physical-only deterministic partition execution. Every partition requires
-the exact preceding receipt chain; retries of the current partition are idempotent.
-No individual partition can publish the unchanged logical stage checkpoint.
+Official stage 4 is physical-only deterministic partition execution. Every official
+partition requires the exact preceding receipt chain; retries of the current
+partition are idempotent. BENCHMARK_ONLY executes one partition on an isolated
+checkpoint-2 copy, bypassing only official prior-receipt ordering. It cannot
+finalize, publish checkpoint 3, or represent official chain progress.
 """
 from __future__ import annotations
 import argparse,json
@@ -71,8 +73,10 @@ def _validate_final_domain(e:AnnualCoreEngine)->dict[str,Any]:
  }
 
 
-def run_segment(*,staging_db:Path,output_db:Path,artifacts_root:Path,year:int,symbol:str,start:int,end:int,stage4_partition:int|None=None,stage4_finalize:bool=False)->dict[str,Any]:
+def run_segment(*,staging_db:Path,output_db:Path,artifacts_root:Path,year:int,symbol:str,start:int,end:int,stage4_partition:int|None=None,stage4_finalize:bool=False,benchmark_only:bool=False)->dict[str,Any]:
  if not (0<=start<=end<len(STAGES)):raise ValueError(f'invalid stage interval:{start}..{end}')
+ if benchmark_only and stage4_partition is None:raise ValueError('BENCHMARK_ONLY requires one stage-4 partition')
+ if benchmark_only and stage4_finalize:raise ValueError('BENCHMARK_ONLY cannot finalize stage 4')
  if stage4_partition is not None and stage4_finalize:raise ValueError('partition execution and finalization are mutually exclusive')
  if (stage4_partition is not None or stage4_finalize) and (start!=4 or end!=4):raise ValueError('stage-4 partition operations require --start 4 --end 4')
  if stage4_partition is not None and not (0<=stage4_partition<STAGE4_PARTITION_COUNT):raise ValueError(f'invalid stage-4 partition:{stage4_partition}')
@@ -84,16 +88,21 @@ def run_segment(*,staging_db:Path,output_db:Path,artifacts_root:Path,year:int,sy
   e.load_bars()
   if start>0 and not _checkpoint_complete(e,STAGES[start-1][0]):raise RuntimeError(f'missing preceding checkpoint:{STAGES[start-1][0]}')
   if stage4_partition is not None:
-   existing=_enforce_stage4_execution_order(e,stage4_partition)
+   existing=None if benchmark_only else _enforce_stage4_execution_order(e,stage4_partition)
+   if benchmark_only:
+    # Fail closed: benchmark input must be pristine checkpoint 2 with no stage-4 receipts.
+    for i in range(STAGE4_PARTITION_COUNT):
+     if _validated_receipt(e,i) is not None:raise RuntimeError(f'BENCHMARK_ONLY input contains stage-4 receipt:{i}')
    receipt=e.process_context_rejections_fast(partition_index=stage4_partition)
    if existing is not None and receipt!=existing:raise RuntimeError(f'non-idempotent stage-4 retry:{stage4_partition}')
-   return {'format_version':2,'status':'PASS','year':year,'physical_role':'ANNUAL_CORE_STAGE4_PARTITION','stage':4,'partition_index':stage4_partition,'partition_count':STAGE4_PARTITION_COUNT,'plan':e.stage4_partition_plan(),'receipt':receipt,'idempotent_retry':existing is not None,'checkpoint_3_published':False,'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False,'oos_2024_accessed':year==2024}
+   role='BENCHMARK_ONLY_STAGE4_PARTITION' if benchmark_only else 'ANNUAL_CORE_STAGE4_PARTITION'
+   return {'format_version':3,'status':'PASS','year':year,'physical_role':role,'benchmark_only':benchmark_only,'official_chain_progress':False if benchmark_only else True,'stage':4,'partition_index':stage4_partition,'partition_count':STAGE4_PARTITION_COUNT,'plan':e.stage4_partition_plan(),'receipt':receipt,'idempotent_retry':False if benchmark_only else existing is not None,'checkpoint_3_published':False,'official_receipt_published':False if benchmark_only else None,'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False,'oos_2024_accessed':year==2024}
   if stage4_finalize:
    for i in range(STAGE4_PARTITION_COUNT):
     if _validated_receipt(e,i) is None:raise RuntimeError(f'missing stage-4 partition receipt:{i}')
    aggregate=e.verify_stage4_partition_coverage();checkpoint(e,STAGES[4][0])
    if not _checkpoint_complete(e,STAGES[4][0]):raise RuntimeError('stage-4 final checkpoint coverage incomplete')
-   return {'format_version':2,'status':'PASS','year':year,'physical_role':'ANNUAL_CORE_STAGE4_FINALIZATION','stage':4,'partition_count':STAGE4_PARTITION_COUNT,'plan':e.stage4_partition_plan(),'aggregate':aggregate,'checkpoint_3_published':True,'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False,'oos_2024_accessed':year==2024}
+   return {'format_version':3,'status':'PASS','year':year,'physical_role':'ANNUAL_CORE_STAGE4_FINALIZATION','stage':4,'partition_count':STAGE4_PARTITION_COUNT,'plan':e.stage4_partition_plan(),'aggregate':aggregate,'checkpoint_3_published':True,'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False,'oos_2024_accessed':year==2024}
   executed=[]
   for idx in range(start,end+1):
    stage,method=STAGES[idx]
@@ -106,10 +115,10 @@ def run_segment(*,staging_db:Path,output_db:Path,artifacts_root:Path,year:int,sy
   if complete:
    for stage,_ in STAGES:
     if not _checkpoint_complete(e,stage):raise RuntimeError(f'incomplete final checkpoint coverage:{stage}')
-  return {'format_version':2,'status':'PASS','year':year,'physical_role':'ANNUAL_CORE_NON_PA7_SEGMENT','stage_start':start,'stage_end':end,'stage_names':executed,'complete':complete,'definition_coverage':coverage,'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False,'oos_2024_accessed':year==2024}
+  return {'format_version':3,'status':'PASS','year':year,'physical_role':'ANNUAL_CORE_NON_PA7_SEGMENT','stage_start':start,'stage_end':end,'stage_names':executed,'complete':complete,'definition_coverage':coverage,'free_only':True,'paid_runner_allowed':False,'paid_service_allowed':False,'oos_2024_accessed':year==2024}
  finally:e.close()
 
 
 def main()->int:
- p=argparse.ArgumentParser();p.add_argument('--staging-db',type=Path,required=True);p.add_argument('--output-db',type=Path,required=True);p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--year',type=int,required=True);p.add_argument('--symbol',required=True);p.add_argument('--start',type=int,required=True);p.add_argument('--end',type=int,required=True);p.add_argument('--stage4-partition',type=int);p.add_argument('--stage4-finalize',action='store_true');p.add_argument('--report',type=Path,required=True);a=p.parse_args();r=run_segment(staging_db=a.staging_db.resolve(),output_db=a.output_db.resolve(),artifacts_root=a.artifacts_root.resolve(),year=a.year,symbol=a.symbol,start=a.start,end=a.end,stage4_partition=a.stage4_partition,stage4_finalize=a.stage4_finalize);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,indent=2,sort_keys=True)+'\n');print(json.dumps(r,indent=2,sort_keys=True));return 0
+ p=argparse.ArgumentParser();p.add_argument('--staging-db',type=Path,required=True);p.add_argument('--output-db',type=Path,required=True);p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--year',type=int,required=True);p.add_argument('--symbol',required=True);p.add_argument('--start',type=int,required=True);p.add_argument('--end',type=int,required=True);p.add_argument('--stage4-partition',type=int);p.add_argument('--stage4-finalize',action='store_true');p.add_argument('--benchmark-only',action='store_true');p.add_argument('--report',type=Path,required=True);a=p.parse_args();r=run_segment(staging_db=a.staging_db.resolve(),output_db=a.output_db.resolve(),artifacts_root=a.artifacts_root.resolve(),year=a.year,symbol=a.symbol,start=a.start,end=a.end,stage4_partition=a.stage4_partition,stage4_finalize=a.stage4_finalize,benchmark_only=a.benchmark_only);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,indent=2,sort_keys=True)+'\n');print(json.dumps(r,indent=2,sort_keys=True));return 0
 if __name__=='__main__':raise SystemExit(main())
