@@ -86,10 +86,6 @@ class IndexedContextRejectionEngine(Group8Engine):
         return times,statuses
 
     def _build_context_status_indexes(self,g4_zone_ids:set[str],g7_zone_ids:set[str])->None:
-        # Staging materialization creates exact zone_id indexes. Probe each relevant
-        # frozen catalog ID directly so SQLite never performs a full lifecycle-table
-        # scan before applying the relevant-zone filter. Per-zone ORDER BY clauses
-        # preserve the original transition-time and tie-break semantics exactly.
         self._g4_transition_index={}
         for zone_id in sorted(g4_zone_ids):
             rows=self.input.execute("SELECT transition_time,transition_id,to_status FROM group4__zone_transitions WHERE zone_id=? ORDER BY transition_time,transition_id",(zone_id,)).fetchall()
@@ -123,7 +119,17 @@ class IndexedContextRejectionEngine(Group8Engine):
             return status is None or self._status_active(status)
         return True
 
+    def _apply_physical_sqlite_tuning(self)->None:
+        """Apply connection-local performance settings without changing logical data."""
+        for conn in (self.input,self.out):
+            conn.execute("PRAGMA temp_store=MEMORY")
+            conn.execute("PRAGMA cache_size=-1048576")
+            conn.execute("PRAGMA mmap_size=4294967296")
+        self.out.execute("PRAGMA synchronous=OFF")
+        self.out.execute("PRAGMA journal_mode=MEMORY")
+
     def process_context_rejections_fast(self)->None:
+        self._apply_physical_sqlite_tuning()
         rejections=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id IN ('pa_pin_bar_like','pa_rejection_close') ORDER BY availability_time,candidate_id").fetchall();indices={};catalogs={}
         for key in self.bars_by_tf:
             catalog=self._context_boundary_catalog(*key);catalogs[key]=catalog
