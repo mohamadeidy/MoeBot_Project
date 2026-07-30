@@ -85,19 +85,27 @@ class IndexedContextRejectionEngine(Group8Engine):
             else:times.append(t);statuses.append(status)
         return times,statuses
 
+    def _load_status_index_batched(self,table:str,zone_ids:set[str],time_col:str,tie_col:str,status_col:str)->dict[str,tuple[list[int],list[str]]]:
+        """Load the same per-zone ordered rows through bounded indexed IN probes."""
+        result:dict[str,tuple[list[int],list[str]]]={}
+        ordered=sorted(zone_ids)
+        for start in range(0,len(ordered),400):
+            batch=ordered[start:start+400]
+            placeholders=','.join('?' for _ in batch)
+            sql=f"SELECT zone_id,{time_col},{tie_col},{status_col} FROM {table} WHERE zone_id IN ({placeholders}) ORDER BY zone_id,{time_col},{tie_col}"
+            current=None;rows=[]
+            for row in self.input.execute(sql,batch):
+                zone_id=str(row['zone_id'])
+                if current is not None and zone_id!=current:
+                    result[current]=self._collapse_status_rows(rows,time_col,status_col);rows=[]
+                current=zone_id;rows.append(row)
+            if current is not None:result[current]=self._collapse_status_rows(rows,time_col,status_col)
+        return result
+
     def _build_context_status_indexes(self,g4_zone_ids:set[str],g7_zone_ids:set[str])->None:
-        self._g4_transition_index={}
-        for zone_id in sorted(g4_zone_ids):
-            rows=self.input.execute("SELECT transition_time,transition_id,to_status FROM group4__zone_transitions WHERE zone_id=? ORDER BY transition_time,transition_id",(zone_id,)).fetchall()
-            if rows:self._g4_transition_index[zone_id]=self._collapse_status_rows(rows,'transition_time','to_status')
-        self._g4_interaction_index={}
-        for zone_id in sorted(g4_zone_ids):
-            rows=self.input.execute("SELECT interaction_time,interaction_id,status_after FROM group4__zone_interactions WHERE zone_id=? ORDER BY interaction_time,interaction_id",(zone_id,)).fetchall()
-            if rows:self._g4_interaction_index[zone_id]=self._collapse_status_rows(rows,'interaction_time','status_after')
-        self._g7_transition_index={}
-        for zone_id in sorted(g7_zone_ids):
-            rows=self.input.execute("SELECT transition_time,transition_ordinal,status FROM group7__zone_state_transitions WHERE zone_id=? ORDER BY transition_time,transition_ordinal",(zone_id,)).fetchall()
-            if rows:self._g7_transition_index[zone_id]=self._collapse_status_rows(rows,'transition_time','status')
+        self._g4_transition_index=self._load_status_index_batched('group4__zone_transitions',g4_zone_ids,'transition_time','transition_id','to_status')
+        self._g4_interaction_index=self._load_status_index_batched('group4__zone_interactions',g4_zone_ids,'interaction_time','interaction_id','status_after')
+        self._g7_transition_index=self._load_status_index_batched('group7__zone_state_transitions',g7_zone_ids,'transition_time','transition_ordinal','status')
 
     @staticmethod
     def _status_at(index:dict[str,tuple[list[int],list[str]]],zone_id:str,availability:int)->str|None:
