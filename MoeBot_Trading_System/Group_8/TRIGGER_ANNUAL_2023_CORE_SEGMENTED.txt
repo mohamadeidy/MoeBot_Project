@@ -1,10 +1,12 @@
 Trigger canonical FREE-only Annual Core 2023 gated recovery from verified checkpoint 2.
-Previous run 30528404287 is superseded after exact one-shot stage 4 reached the 360-minute free-job ceiling and produced no checkpoint-3 artifact.
+Run 30568151220 is superseded because the benchmark matrix incorrectly applied official prior-receipt ordering to isolated checkpoint-2 benchmark jobs.
+The official ordered contract remains unchanged: 00 -> 01 -> ... -> 23 -> finalizer -> checkpoint 3.
+BENCHMARK_ONLY now starts from immutable verified checkpoint 2, runs one partition on a temporary isolated SQLite copy, bypasses only official prior-receipt ordering, publishes no official receipt/checkpoint, and writes diagnostics only to an exact-head benchmark tag.
 The old one-shot stage-4 official path is prohibited.
 Candidate physical plan: g8-stage4-context-rejections-sha256-mod24-v1 with 24 deterministic partitions.
-The workflow must first pass exact parity, real negative regressions, 24 full-data full-job benchmarks, <=240-minute worst-wall safety, YAML validation, FREE-only validation and confirmed 2024 lock.
-Only after every gate passes may the ordered ranges 00-00 through 23-23 resume from checkpoint 2.
-Each range verifies and publishes a SHA-bound parent/output manifest and cannot publish checkpoint 3.
+The workflow must first pass exact one-shot parity, BENCHMARK_ONLY-vs-official partition parity, real negative regressions, 24 full-data full-job benchmarks, <=240-minute worst-wall safety, YAML validation, FREE-only validation and confirmed 2024 lock.
+Only after every gate passes may ordered ranges 00-00 through 23-23 resume from checkpoint 2.
+Each official range verifies and publishes a SHA-bound parent/output manifest and cannot publish checkpoint 3.
 Only complete ordered 24-partition coverage may publish checkpoint 3, after which frozen stages 5-7 may run.
 No frozen semantics, config, schema, thresholds, IDs, event_time, confirmation_time, availability_time or upstream lineage changes are authorized.
 Frozen 2024 OOS access remains locked.
