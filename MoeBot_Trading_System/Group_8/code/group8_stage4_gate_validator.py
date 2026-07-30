@@ -38,9 +38,7 @@ def main() -> int:
     }
     negative_pass = set(negatives) == required_negative_names and all(value == "PASS" for value in negatives.values())
 
-    reports = []
-    for path in sorted(args.benchmark_dir.rglob("stage4-benchmark-*.json")):
-        reports.append(json.loads(path.read_text()))
+    reports = [json.loads(path.read_text()) for path in sorted(args.benchmark_dir.rglob("stage4-benchmark-*.json"))]
     benchmark_indices = sorted(int(report["partition_index"]) for report in reports)
     benchmark_complete = benchmark_indices == list(range(STAGE4_PARTITION_COUNT))
     benchmark_identity = all(
@@ -51,20 +49,32 @@ def main() -> int:
         and report.get("checkpoint_3_published") is False
         and report.get("free_only") is True
         and report.get("oos_2024_accessed") is False
+        and report.get("runtime_safety_pass") is True
         for report in reports
     )
     worst_wall = max((float(report["full_job_wall_seconds"]) for report in reports), default=float("inf"))
     runtime_safety_pass = benchmark_complete and benchmark_identity and worst_wall <= 14400
 
+    official_job_count = workflow_text.count("--mode official")
+    benchmark_job_present = "--mode benchmark" in workflow_text
+    exact_head_checkout = 'ref: "${{ github.event.pull_request.head.sha }}"' in workflow_text
+    old_one_shot_prohibited = "--start 4 --end 4 --report" not in workflow_text
+    checkpoint3_exclusive = workflow_text.count("group8_stage4_finalize_release.py") == 1
+    no_early_stage5 = "stage-5:\n    needs: stage4-finalize" in workflow_text
+    no_successful_stage_replay = all(token not in workflow_text for token in ("--start 0", "--start 1", "--start 2", "--start 3"))
     workflow_validation_pass = all((
-        "group8_stage4_full_job.py --mode official" in workflow_text,
-        "group8_stage4_full_job.py --mode benchmark" in workflow_text,
+        benchmark_job_present,
+        official_job_count == 24,
+        exact_head_checkout,
         "--stage4-finalize" in workflow_text,
         "stage4_partition_chain_complete" in workflow_text,
         "annual_execution_2024_authorized" in workflow_text,
         "ubuntu-latest" in workflow_text,
-        "group8_segmented_annual_core.py" in workflow_text,
-        "--start 4 --end 4 --report" not in workflow_text,
+        "group8_segmented_annual_core.py" not in workflow_text,
+        old_one_shot_prohibited,
+        checkpoint3_exclusive,
+        no_early_stage5,
+        no_successful_stage_replay,
         "runs-on: self-hosted" not in workflow_text,
     ))
     free_only_pass = (
