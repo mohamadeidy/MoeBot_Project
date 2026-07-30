@@ -1,128 +1,22 @@
 #!/usr/bin/env python3
 """Fail-closed pre-official gate aggregation for canonical stage-4 execution."""
 from __future__ import annotations
-
-import argparse
-import json
-import subprocess
+import argparse,json,subprocess
 from pathlib import Path
-
-from group8_context_rejection_fastpath import IndexedContextRejectionEngine, STAGE4_PARTITION_COUNT
+from group8_context_rejection_fastpath import IndexedContextRejectionEngine,STAGE4_PARTITION_COUNT
 from moebot_group8_engine_v0_8_0 import stable_hash
 
-
-def head_sha() -> str:
-    return subprocess.run(["git", "rev-parse", "HEAD"], check=True, text=True, capture_output=True).stdout.strip()
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--artifacts-root", type=Path, required=True)
-    parser.add_argument("--workflow", type=Path, required=True)
-    parser.add_argument("--parity-report", type=Path, required=True)
-    parser.add_argument("--benchmark-dir", type=Path, required=True)
-    parser.add_argument("--report", type=Path, required=True)
-    args = parser.parse_args()
-
-    current_head = head_sha()
-    status = json.loads((args.artifacts_root / "STATUS.json").read_text())
-    parity = json.loads(args.parity_report.read_text())
-    plan = IndexedContextRejectionEngine.stage4_partition_plan()
-    workflow_text = args.workflow.read_text()
-
-    parity_pass = parity.get("status") == "PASS" and parity.get("parity", {}).get("status") == "PASS"
-    negatives = parity.get("negative_regressions", {})
-    required_negative_names = {
-        "missing_partition", "repeated_partition", "conflicting_receipt", "modified_partition_output",
-        "wrong_plan_hash", "wrong_execution_order", "finalize_before_complete", "idempotent_retry",
-    }
-    negative_pass = set(negatives) == required_negative_names and all(value == "PASS" for value in negatives.values())
-
-    reports = [json.loads(path.read_text()) for path in sorted(args.benchmark_dir.rglob("stage4-benchmark-*.json"))]
-    benchmark_indices = sorted(int(report["partition_index"]) for report in reports)
-    benchmark_complete = benchmark_indices == list(range(STAGE4_PARTITION_COUNT))
-    benchmark_identity = all(
-        report.get("status") == "PASS"
-        and report.get("mode") == "benchmark"
-        and report.get("github_head_sha") == current_head
-        and report.get("plan_hash") == plan["plan_hash"]
-        and report.get("checkpoint_3_published") is False
-        and report.get("free_only") is True
-        and report.get("oos_2024_accessed") is False
-        and report.get("runtime_safety_pass") is True
-        for report in reports
-    )
-    worst_wall = max((float(report["full_job_wall_seconds"]) for report in reports), default=float("inf"))
-    runtime_safety_pass = benchmark_complete and benchmark_identity and worst_wall <= 14400
-
-    official_job_count = workflow_text.count("--mode official")
-    benchmark_job_present = "--mode benchmark" in workflow_text
-    exact_head_checkout = 'ref: "${{ github.event.pull_request.head.sha }}"' in workflow_text
-    old_one_shot_prohibited = "--start 4 --end 4 --report" not in workflow_text
-    checkpoint3_exclusive = workflow_text.count("group8_stage4_finalize_release.py") == 1
-    no_early_stage5 = "stage-5:\n    needs: stage4-finalize" in workflow_text
-    no_successful_stage_replay = all(token not in workflow_text for token in ("--start 0", "--start 1", "--start 2", "--start 3"))
-    workflow_validation_pass = all((
-        benchmark_job_present,
-        official_job_count == 24,
-        exact_head_checkout,
-        "--stage4-finalize" in workflow_text,
-        "stage4_partition_chain_complete" in workflow_text,
-        "annual_execution_2024_authorized" in workflow_text,
-        "ubuntu-latest" in workflow_text,
-        "group8_segmented_annual_core.py" not in workflow_text,
-        old_one_shot_prohibited,
-        checkpoint3_exclusive,
-        no_early_stage5,
-        no_successful_stage_replay,
-        "runs-on: self-hosted" not in workflow_text,
-    ))
-    free_only_pass = (
-        status["free_only_policy"]["paid_runner_allowed"] is False
-        and status["free_only_policy"]["paid_service_allowed"] is False
-    )
-    lock_2024_pass = status["annual_execution_2024_authorized"] is False
-
-    ranges = [
-        {
-            "range_identity": f"{plan['plan_id']}:range-{index:02d}-{index:02d}",
-            "first_partition": index,
-            "last_partition": index,
-        }
-        for index in range(STAGE4_PARTITION_COUNT)
-    ]
-    gates = {
-        "PARITY_PASS": parity_pass,
-        "NEGATIVE_REGRESSIONS_PASS": negative_pass,
-        "FULL_DATA_BENCHMARK_PASS": benchmark_complete and benchmark_identity,
-        "RUNTIME_SAFETY_PASS": runtime_safety_pass,
-        "WORKFLOW_YAML_VALIDATION_PASS": workflow_validation_pass,
-        "FREE_ONLY_PASS": free_only_pass,
-        "2024_LOCK_CONFIRMED": lock_2024_pass,
-    }
-    payload = {
-        "status": "PASS" if all(gates.values()) else "FAIL",
-        "github_head_sha": current_head,
-        "gates": gates,
-        "worst_full_job_wall_seconds": worst_wall,
-        "safety_limit_seconds": 14400,
-        "selected_partition_count": STAGE4_PARTITION_COUNT,
-        "frozen_job_ranges": ranges,
-        "plan_id": plan["plan_id"],
-        "plan_hash": plan["plan_hash"],
-        "benchmark_report_count": len(reports),
-        "official_execution_authorized": all(gates.values()),
-        "oos_2024_accessed": False,
-        "free_only": True,
-    }
-    payload["report_hash"] = stable_hash(payload)
-    args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    if payload["status"] != "PASS":
-        raise RuntimeError(f"pre-official gate failure:{gates}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+def head_sha()->str:return subprocess.run(['git','rev-parse','HEAD'],check=True,text=True,capture_output=True).stdout.strip()
+def main()->int:
+ p=argparse.ArgumentParser();p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--workflow',type=Path,required=True);p.add_argument('--parity-report',type=Path,required=True);p.add_argument('--benchmark-dir',type=Path,required=True);p.add_argument('--report',type=Path,required=True);a=p.parse_args();head=head_sha();status=json.loads((a.artifacts_root/'STATUS.json').read_text());parity=json.loads(a.parity_report.read_text());plan=IndexedContextRejectionEngine.stage4_partition_plan();wf=a.workflow.read_text()
+ parity_pass=parity.get('status')=='PASS' and parity.get('parity',{}).get('status')=='PASS' and parity.get('benchmark_role_parity',{}).get('status')=='PASS' and parity.get('benchmark_role_parity',{}).get('receipt_content_equal_before_publication') is True
+ negatives=parity.get('negative_regressions',{});required={'missing_partition','repeated_partition','conflicting_receipt','modified_partition_output','wrong_plan_hash','wrong_execution_order','finalize_before_complete','idempotent_retry'};negative_pass=set(negatives)==required and all(v=='PASS' for v in negatives.values())
+ reports=[json.loads(x.read_text()) for x in sorted(a.benchmark_dir.rglob('stage4-benchmark-*.json'))];indices=sorted(int(r['partition_index']) for r in reports);complete=indices==list(range(STAGE4_PARTITION_COUNT))
+ identity=all(r.get('status')=='PASS' and r.get('mode')=='benchmark' and r.get('role')=='STAGE4_FULL_JOB_BENCHMARK_ONLY' and r.get('github_head_sha')==head and r.get('plan_hash')==plan['plan_hash'] and r.get('checkpoint_3_published') is False and r.get('official_receipt_published') is False and r.get('source_tag')!=r.get('output_tag') and str(r.get('output_tag','')).endswith(head[:12]) and r.get('free_only') is True and r.get('oos_2024_accessed') is False and r.get('runtime_safety_pass') is True for r in reports)
+ worst=max((float(r['full_job_wall_seconds']) for r in reports),default=float('inf'));runtime=complete and identity and worst<=14400
+ official_count=wf.count('--mode official');workflow_ok=all(('--mode benchmark' in wf,official_count==24,'ref: "${{ github.event.pull_request.head.sha }}"' in wf,'--stage4-finalize' in wf,'stage4_partition_chain_complete' in wf,'annual_execution_2024_authorized' in wf,'ubuntu-latest' in wf,'group8_segmented_annual_core.py' not in wf,'--start 4 --end 4 --report' not in wf,wf.count('group8_stage4_finalize_release.py')==1,'stage-5:\n    needs: stage4-finalize' in wf,all(t not in wf for t in ('--start 0','--start 1','--start 2','--start 3')),'runs-on: self-hosted' not in wf))
+ free=status['free_only_policy']['paid_runner_allowed'] is False and status['free_only_policy']['paid_service_allowed'] is False;lock=status['annual_execution_2024_authorized'] is False;ranges=[{'range_identity':f"{plan['plan_id']}:range-{i:02d}-{i:02d}",'first_partition':i,'last_partition':i} for i in range(STAGE4_PARTITION_COUNT)]
+ gates={'PARITY_PASS':parity_pass,'NEGATIVE_REGRESSIONS_PASS':negative_pass,'FULL_DATA_BENCHMARK_PASS':complete and identity,'RUNTIME_SAFETY_PASS':runtime,'WORKFLOW_YAML_VALIDATION_PASS':workflow_ok,'FREE_ONLY_PASS':free,'2024_LOCK_CONFIRMED':lock};payload={'status':'PASS' if all(gates.values()) else 'FAIL','github_head_sha':head,'gates':gates,'worst_full_job_wall_seconds':worst,'safety_limit_seconds':14400,'selected_partition_count':STAGE4_PARTITION_COUNT,'frozen_job_ranges':ranges,'plan_id':plan['plan_id'],'plan_hash':plan['plan_hash'],'benchmark_report_count':len(reports),'benchmark_only_contract_verified':identity,'official_execution_authorized':all(gates.values()),'oos_2024_accessed':False,'free_only':True};payload['report_hash']=stable_hash(payload);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n');print(json.dumps(payload,indent=2,sort_keys=True))
+ if payload['status']!='PASS':raise RuntimeError(f'pre-official gate failure:{gates}')
+ return 0
+if __name__=='__main__':raise SystemExit(main())
