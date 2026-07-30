@@ -4,15 +4,27 @@
 The frozen logical definition remains unchanged. This replaces repeated
 bar×all-boundary enumeration with a static interval index, followed by the exact
 same causal availability/lifecycle checks and geometry predicate.
+
+Stage-4 may additionally be executed through a fixed SHA-256 source-candidate
+partition plan. Partitioning is physical only: every partition rebuilds the full
+read-only causal context and evaluates an exact disjoint subset of source
+candidates. The complete ordered union is therefore identical to one-shot
+execution.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from bisect import bisect_right
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from moebot_group8_engine_v0_8_0 import Group8Engine, max_time
+from moebot_group8_engine_v0_8_0 import Group8Engine, max_time, stable_hash
+
+
+STAGE4_PARTITION_COUNT = 24
+STAGE4_PARTITION_ALGORITHM = "sha256(candidate_id)-mod-24-v1"
+STAGE4_PARTITION_PLAN_ID = "g8-stage4-context-rejections-sha256-mod24-v1"
 
 
 @dataclass(frozen=True)
@@ -136,15 +148,55 @@ class IndexedContextRejectionEngine(Group8Engine):
         self.out.execute("PRAGMA synchronous=OFF")
         self.out.execute("PRAGMA journal_mode=MEMORY")
 
-    def process_context_rejections_fast(self)->None:
+    @staticmethod
+    def _partition_for_candidate(candidate_id:str,partition_count:int=STAGE4_PARTITION_COUNT)->int:
+        if partition_count<=0:raise ValueError('partition_count must be positive')
+        digest=hashlib.sha256(str(candidate_id).encode('utf-8')).digest()
+        return int.from_bytes(digest[:8],'big',signed=False)%partition_count
+
+    @classmethod
+    def stage4_partition_plan(cls)->dict[str,Any]:
+        partitions=[{'index':i,'identity':f'{STAGE4_PARTITION_PLAN_ID}:{i:02d}'} for i in range(STAGE4_PARTITION_COUNT)]
+        payload={'plan_id':STAGE4_PARTITION_PLAN_ID,'algorithm':STAGE4_PARTITION_ALGORITHM,'partition_count':STAGE4_PARTITION_COUNT,'partitions':partitions}
+        return {**payload,'plan_hash':stable_hash(payload)}
+
+    def _record_stage4_partition_receipt(self,partition_index:int,source_ids:list[str],output_ids:list[str])->dict[str,Any]:
+        plan=self.stage4_partition_plan()
+        payload={'plan_id':plan['plan_id'],'plan_hash':plan['plan_hash'],'partition_index':partition_index,'partition_identity':plan['partitions'][partition_index]['identity'],'source_count':len(source_ids),'source_ids_hash':stable_hash(sorted(source_ids)),'output_count':len(output_ids),'output_ids_hash':stable_hash(sorted(output_ids))}
+        receipt={**payload,'receipt_hash':stable_hash(payload)}
+        key=f"physical_stage4_partition_receipt:{plan['plan_hash']}:{partition_index:02d}"
+        value=json.dumps(receipt,sort_keys=True,separators=(',',':'))
+        existing=self.out.execute("SELECT value FROM metadata WHERE key=?",(key,)).fetchone()
+        if existing is not None and str(existing[0])!=value:raise RuntimeError(f'conflicting stage-4 partition receipt:{partition_index}')
+        self.out.execute("INSERT OR IGNORE INTO metadata(key,value) VALUES(?,?)",(key,value))
+        return receipt
+
+    def verify_stage4_partition_coverage(self)->dict[str,Any]:
+        plan=self.stage4_partition_plan();receipts=[]
+        for i in range(STAGE4_PARTITION_COUNT):
+            key=f"physical_stage4_partition_receipt:{plan['plan_hash']}:{i:02d}"
+            row=self.out.execute("SELECT value FROM metadata WHERE key=?",(key,)).fetchone()
+            if row is None:raise RuntimeError(f'missing stage-4 partition receipt:{i}')
+            receipt=json.loads(str(row[0]));payload={k:v for k,v in receipt.items() if k!='receipt_hash'}
+            if receipt.get('receipt_hash')!=stable_hash(payload):raise RuntimeError(f'invalid stage-4 partition self-hash:{i}')
+            if receipt.get('partition_index')!=i or receipt.get('partition_identity')!=plan['partitions'][i]['identity']:raise RuntimeError(f'stage-4 partition identity mismatch:{i}')
+            receipts.append(receipt)
+        aggregate={'plan_id':plan['plan_id'],'plan_hash':plan['plan_hash'],'ordered_receipt_hashes':[r['receipt_hash'] for r in receipts],'source_count':sum(int(r['source_count']) for r in receipts),'output_count':sum(int(r['output_count']) for r in receipts)}
+        return {**aggregate,'aggregate_hash':stable_hash(aggregate)}
+
+    def process_context_rejections_fast(self,partition_index:int|None=None)->dict[str,Any]|None:
         self._apply_physical_sqlite_tuning()
-        rejections=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id IN ('pa_pin_bar_like','pa_rejection_close') ORDER BY availability_time,candidate_id").fetchall();indices={};catalogs={}
+        if partition_index is not None and not (0<=partition_index<STAGE4_PARTITION_COUNT):raise ValueError(f'invalid stage-4 partition:{partition_index}')
+        rejections=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id IN ('pa_pin_bar_like','pa_rejection_close') ORDER BY availability_time,candidate_id").fetchall()
+        if partition_index is not None:rejections=[p for p in rejections if self._partition_for_candidate(str(p['candidate_id']))==partition_index]
+        indices={};catalogs={}
         for key in self.bars_by_tf:
             catalog=self._context_boundary_catalog(*key);catalogs[key]=catalog
             rows=[BoundaryRecord(b,float(b['lower']),float(b['upper'])) for b in catalog];indices[key]=IntervalNode(rows) if rows else None
         g4_zone_ids={str(b['id']) for catalog in catalogs.values() for b in catalog if b['group']=='group4'}
         g7_zone_ids={str(b['id']) for catalog in catalogs.values() for b in catalog if b['group']=='group7'}
         self._build_context_status_indexes(g4_zone_ids,g7_zone_ids)
+        output_ids=[]
         for p in rejections:
             bar=self._bar_by_id(p['source_bar_id'])
             if bar is None:continue
@@ -155,5 +207,7 @@ class IndexedContextRejectionEngine(Group8Engine):
                 if not self._context_boundary_active(bnd,int(p['availability_time'])):continue
                 bl,bu=float(bnd['lower']),float(bnd['upper']);overlap=max(0.0,min(pu,bu)-max(pl,bl));distance=0.0 if overlap>0 else min(abs(pl-bu),abs(bl-pu))
                 if overlap<=0 and distance>tol:continue
-                self._write_pattern('pa_context_linked_rejection',symbol=bar.symbol,timeframe=bar.timeframe,direction=p['direction'],source_bar_id=bar.id,event_time=int(p['event_time']),confirmation_time=int(p['confirmation_time']),availability_time=max_time(p['availability_time'],bnd['availability']),lower=pl,upper=pu,ambiguous=bool(p['ambiguous']),features={'overlap':overlap,'distance':distance,'tolerance':tol,'boundary_identity':bnd['id']},upstream_refs=[self._ref('group8','price_action_pattern_candidate',p['candidate_id'],p['availability_time']),self._ref(bnd['group'],bnd['type'],bnd.get('source_id',bnd['id']),bnd['availability'],event_time=bnd['event'],timeframe=bar.timeframe)])
-        self.out.commit()
+                output_ids.append(self._write_pattern('pa_context_linked_rejection',symbol=bar.symbol,timeframe=bar.timeframe,direction=p['direction'],source_bar_id=bar.id,event_time=int(p['event_time']),confirmation_time=int(p['confirmation_time']),availability_time=max_time(p['availability_time'],bnd['availability']),lower=pl,upper=pu,ambiguous=bool(p['ambiguous']),features={'overlap':overlap,'distance':distance,'tolerance':tol,'boundary_identity':bnd['id']},upstream_refs=[self._ref('group8','price_action_pattern_candidate',p['candidate_id'],p['availability_time']),self._ref(bnd['group'],bnd['type'],bnd.get('source_id',bnd['id']),bnd['availability'],event_time=bnd['event'],timeframe=bar.timeframe)]))
+        receipt=None
+        if partition_index is not None:receipt=self._record_stage4_partition_receipt(partition_index,[str(p['candidate_id']) for p in rejections],output_ids)
+        self.out.commit();return receipt
