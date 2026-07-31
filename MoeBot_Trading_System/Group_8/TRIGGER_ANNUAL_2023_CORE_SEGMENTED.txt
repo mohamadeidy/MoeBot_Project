@@ -1,0 +1,13 @@
+Trigger canonical FREE-only Annual Core 2023 gated recovery from verified checkpoint 2.
+Run 30657249855 is diagnostic-only and cannot authorize official execution because benchmark 0 failed; remaining jobs may be used only as diagnostics.
+The repaired exact-head stage-4 release I/O applies to both BENCHMARK_ONLY and official partition paths.
+Every gh release download/upload is bounded to five attempts with exponential backoff, and partial download directories are deleted before each attempt.
+No release operation passes until manifest self-hash, all part SHA-256 values, compressed/raw SHA-256 values, and SQLite integrity are verified after public redownload.
+The official ordered contract remains unchanged: 00 -> 01 -> ... -> 23 -> finalizer -> checkpoint 3.
+BENCHMARK_ONLY starts from immutable verified checkpoint 2, runs one partition on a temporary isolated SQLite copy, bypasses only official prior-receipt ordering, publishes no official receipt/checkpoint, and writes diagnostics only to an exact-head benchmark tag.
+The old one-shot stage-4 official path is prohibited.
+Candidate physical plan: g8-stage4-context-rejections-sha256-mod24-v1 with 24 deterministic partitions.
+The workflow must first pass exact one-shot parity, BENCHMARK_ONLY-vs-official partition parity, real negative regressions, 24 full-data full-job benchmarks, <=240-minute worst-wall safety, YAML validation, FREE-only validation and confirmed 2024 lock.
+Only after every gate passes may ordered ranges 00-00 through 23-23 resume from checkpoint 2.
+No frozen semantics, config, schema, thresholds, IDs, event_time, confirmation_time, availability_time or upstream lineage changes are authorized.
+Frozen 2024 OOS access remains locked.

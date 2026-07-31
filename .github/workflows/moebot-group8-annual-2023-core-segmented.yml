@@ -1,0 +1,1276 @@
+name: MoeBot Group 8 Annual 2023 Core Canonical Resumable
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/TRIGGER_ANNUAL_2023_CORE_SEGMENTED.txt"
+
+concurrency:
+  group: moebot-group8-annual-core-2023-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  TAG: moebot-group8-annual-core-2023-v4-segmented
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Exact identity, FREE-only, and 2024 lock
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          status=json.loads((root/"STATUS.json").read_text())
+          assert status["annual_execution_2023_authorized"] is True
+          assert status["annual_execution_2024_authorized"] is False
+          assert status["officially_closed"] is False
+          assert status["free_only_policy"]["paid_runner_allowed"] is False
+          assert status["free_only_policy"]["paid_service_allowed"] is False
+          print({"FREE_ONLY_PASS":True,"2024_LOCK_CONFIRMED":True})
+          PY
+      - name: Validate Python syntax
+        run: |
+          python -m py_compile \
+            "$GROUP8_ROOT/code/group8_context_rejection_fastpath.py" \
+            "$GROUP8_ROOT/code/group8_segmented_annual_core.py" \
+            "$GROUP8_ROOT/code/group8_stage4_partition_regression.py" \
+            "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            "$GROUP8_ROOT/code/group8_stage4_gate_validator.py" \
+            "$GROUP8_ROOT/code/group8_stage4_finalize_release.py" \
+            "$GROUP8_ROOT/code/group8_annual_stage_release.py"
+
+  parity-negative:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - name: Restore verified staging and checkpoint 2
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/g8/staging_parts" "$RUNNER_TEMP/g8/cp"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads(Path("MoeBot_Trading_System/Group_8/reports/48_FULL_2023_STAGING_RELEASE.json").read_text())
+          Path(os.environ["RUNNER_TEMP"]+"/g8/staging_parts/urls.txt").write_text("\n".join(x["url"] for x in m["parts"])+"\n")
+          PY
+          while read -r u; do curl -fL --retry 6 --retry-delay 2 "$u" -o "$RUNNER_TEMP/g8/staging_parts/$(basename "$u")"; done < "$RUNNER_TEMP/g8/staging_parts/urls.txt"
+          cat "$RUNNER_TEMP/g8/staging_parts/MoeBot_Group8_FULL_2023_STAGING_v1.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/staging.sqlite.zst"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'checkpoint2.*' --dir "$RUNNER_TEMP/g8/cp"
+          cat "$RUNNER_TEMP/g8/cp/checkpoint2.sqlite.zst.part-"* > "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          b=Path(os.environ["RUNNER_TEMP"])/"g8"
+          sm=json.loads(Path("MoeBot_Trading_System/Group_8/reports/48_FULL_2023_STAGING_RELEASE.json").read_text())
+          cm=json.loads((b/"cp/checkpoint2.json").read_text());q=dict(cm);saved=q.pop("report_hash")
+          stable=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+          assert stable(q)==saved and cm["stage_end"]==3 and cm["oos_2024_accessed"] is False
+          assert (b/"staging.sqlite.zst").stat().st_size==sm["compressed_size_bytes"]
+          assert hashlib.sha256((b/"staging.sqlite.zst").read_bytes()).hexdigest()==sm["compressed_sha256"]
+          assert (b/"checkpoint2.sqlite.zst").stat().st_size==cm["compressed_size_bytes"]
+          assert hashlib.sha256((b/"checkpoint2.sqlite.zst").read_bytes()).hexdigest()==cm["compressed_sha256"]
+          PY
+          zstd -q -d -f "$RUNNER_TEMP/g8/staging.sqlite.zst" -o "$RUNNER_TEMP/g8/staging.sqlite"
+          zstd -q -d -f "$RUNNER_TEMP/g8/checkpoint2.sqlite.zst" -o "$RUNNER_TEMP/g8/checkpoint2.sqlite"
+      - name: Permanent exact parity and negative regressions
+        env: {PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"}
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_partition_regression.py" \
+            --staging-db "$RUNNER_TEMP/g8/staging.sqlite" \
+            --checkpoint2-db "$RUNNER_TEMP/g8/checkpoint2.sqlite" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --work-dir "$RUNNER_TEMP/g8/regression" \
+            --fixture-per-partition 8 \
+            --report "$RUNNER_TEMP/g8/stage4-parity-negative.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-parity-negative
+          path: "${{ runner.temp }}/g8/stage4-parity-negative.json"
+          if-no-files-found: error
+
+  benchmark:
+    needs: parity-negative
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        partition: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - name: Full-data full-job benchmark
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode benchmark \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition "${{ matrix.partition }}" \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-benchmark-${{ matrix.partition }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-benchmark-${{ matrix.partition }}
+          path: "${{ runner.temp }}/g8/stage4-benchmark-${{ matrix.partition }}.json"
+          if-no-files-found: error
+
+  safety-decision:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-parity-negative
+          path: "${{ runner.temp }}/gates/parity"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: stage4-benchmark-*
+          path: "${{ runner.temp }}/gates/benchmarks"
+          merge-multiple: false
+      - name: Fail-closed aggregate gate
+        env: {PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"}
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_gate_validator.py" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --workflow ".github/workflows/moebot-group8-annual-2023-core-segmented.yml" \
+            --parity-report "$RUNNER_TEMP/gates/parity/stage4-parity-negative.json" \
+            --benchmark-dir "$RUNNER_TEMP/gates/benchmarks" \
+            --report "$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates/STAGE4_PREOFFICIAL_GATES.json"
+          if-no-files-found: error
+
+  stage4-p00:
+    needs: safety-decision
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 00-00
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 0 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-00.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-00
+          path: "${{ runner.temp }}/g8/stage4-official-00.json"
+          if-no-files-found: error
+
+  stage4-p01:
+    needs: stage4-p00
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 01-01
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 1 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-01.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-01
+          path: "${{ runner.temp }}/g8/stage4-official-01.json"
+          if-no-files-found: error
+
+  stage4-p02:
+    needs: stage4-p01
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 02-02
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 2 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-02.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-02
+          path: "${{ runner.temp }}/g8/stage4-official-02.json"
+          if-no-files-found: error
+
+  stage4-p03:
+    needs: stage4-p02
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 03-03
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 3 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-03.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-03
+          path: "${{ runner.temp }}/g8/stage4-official-03.json"
+          if-no-files-found: error
+
+  stage4-p04:
+    needs: stage4-p03
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 04-04
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 4 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-04.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-04
+          path: "${{ runner.temp }}/g8/stage4-official-04.json"
+          if-no-files-found: error
+
+  stage4-p05:
+    needs: stage4-p04
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 05-05
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 5 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-05.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-05
+          path: "${{ runner.temp }}/g8/stage4-official-05.json"
+          if-no-files-found: error
+
+  stage4-p06:
+    needs: stage4-p05
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 06-06
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 6 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-06.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-06
+          path: "${{ runner.temp }}/g8/stage4-official-06.json"
+          if-no-files-found: error
+
+  stage4-p07:
+    needs: stage4-p06
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 07-07
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 7 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-07.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-07
+          path: "${{ runner.temp }}/g8/stage4-official-07.json"
+          if-no-files-found: error
+
+  stage4-p08:
+    needs: stage4-p07
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 08-08
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 8 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-08.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-08
+          path: "${{ runner.temp }}/g8/stage4-official-08.json"
+          if-no-files-found: error
+
+  stage4-p09:
+    needs: stage4-p08
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 09-09
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 9 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-09.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-09
+          path: "${{ runner.temp }}/g8/stage4-official-09.json"
+          if-no-files-found: error
+
+  stage4-p10:
+    needs: stage4-p09
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 10-10
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 10 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-10.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-10
+          path: "${{ runner.temp }}/g8/stage4-official-10.json"
+          if-no-files-found: error
+
+  stage4-p11:
+    needs: stage4-p10
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 11-11
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 11 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-11.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-11
+          path: "${{ runner.temp }}/g8/stage4-official-11.json"
+          if-no-files-found: error
+
+  stage4-p12:
+    needs: stage4-p11
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 12-12
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 12 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-12.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-12
+          path: "${{ runner.temp }}/g8/stage4-official-12.json"
+          if-no-files-found: error
+
+  stage4-p13:
+    needs: stage4-p12
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 13-13
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 13 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-13.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-13
+          path: "${{ runner.temp }}/g8/stage4-official-13.json"
+          if-no-files-found: error
+
+  stage4-p14:
+    needs: stage4-p13
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 14-14
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 14 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-14.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-14
+          path: "${{ runner.temp }}/g8/stage4-official-14.json"
+          if-no-files-found: error
+
+  stage4-p15:
+    needs: stage4-p14
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 15-15
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 15 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-15.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-15
+          path: "${{ runner.temp }}/g8/stage4-official-15.json"
+          if-no-files-found: error
+
+  stage4-p16:
+    needs: stage4-p15
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 16-16
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 16 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-16.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-16
+          path: "${{ runner.temp }}/g8/stage4-official-16.json"
+          if-no-files-found: error
+
+  stage4-p17:
+    needs: stage4-p16
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 17-17
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 17 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-17.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-17
+          path: "${{ runner.temp }}/g8/stage4-official-17.json"
+          if-no-files-found: error
+
+  stage4-p18:
+    needs: stage4-p17
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 18-18
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 18 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-18.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-18
+          path: "${{ runner.temp }}/g8/stage4-official-18.json"
+          if-no-files-found: error
+
+  stage4-p19:
+    needs: stage4-p18
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 19-19
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 19 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-19.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-19
+          path: "${{ runner.temp }}/g8/stage4-official-19.json"
+          if-no-files-found: error
+
+  stage4-p20:
+    needs: stage4-p19
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 20-20
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 20 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-20.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-20
+          path: "${{ runner.temp }}/g8/stage4-official-20.json"
+          if-no-files-found: error
+
+  stage4-p21:
+    needs: stage4-p20
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 21-21
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 21 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-21.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-21
+          path: "${{ runner.temp }}/g8/stage4-official-21.json"
+          if-no-files-found: error
+
+  stage4-p22:
+    needs: stage4-p21
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 22-22
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 22 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-22.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-22
+          path: "${{ runner.temp }}/g8/stage4-official-22.json"
+          if-no-files-found: error
+
+  stage4-p23:
+    needs: stage4-p22
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Record full-job start
+        run: date +%s > "$RUNNER_TEMP/job_start_epoch"
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage4-preofficial-gates
+          path: "${{ runner.temp }}/gates"
+      - name: Verify official authorization gate
+        run: python -c "import json;d=json.load(open('$RUNNER_TEMP/gates/STAGE4_PREOFFICIAL_GATES.json'));assert d['official_execution_authorized'] is True"
+      - name: Execute and publish frozen range 23-23
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_full_job.py" \
+            --mode official \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --partition 23 \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --job-start-epoch "$(cat "$RUNNER_TEMP/job_start_epoch")" \
+            --report "$RUNNER_TEMP/g8/stage4-official-23.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage4-official-23
+          path: "${{ runner.temp }}/g8/stage4-official-23.json"
+          if-no-files-found: error
+
+  stage4-finalize:
+    needs: stage4-p23
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - name: Complete 24-partition coverage and publish checkpoint 3
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_stage4_finalize_release.py" \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --artifacts-root "$GROUP8_ROOT" \
+            --work-dir "$RUNNER_TEMP/g8" \
+            --report "$RUNNER_TEMP/g8/checkpoint3-finalization.json"
+
+  stage-5:
+    needs: stage4-finalize
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - name: Execute frozen stage 5 and publish checkpoint 4
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_annual_stage_release.py" \
+            --repo "$GITHUB_REPOSITORY" --tag "$TAG" --artifacts-root "$GROUP8_ROOT" \
+            --stage 5 --work-dir "$RUNNER_TEMP/g8" --report "$RUNNER_TEMP/g8/stage5.json"
+
+  stage-6:
+    needs: stage-5
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - name: Execute frozen stage 6 and publish checkpoint 5
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_annual_stage_release.py" \
+            --repo "$GITHUB_REPOSITORY" --tag "$TAG" --artifacts-root "$GROUP8_ROOT" \
+            --stage 6 --work-dir "$RUNNER_TEMP/g8" --report "$RUNNER_TEMP/g8/stage6.json"
+
+  stage-7-final:
+    needs: stage-6
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install FREE runner dependency
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+      - name: Execute frozen stage 7 and publish official Annual Core 2023
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PYTHONPATH: "${{ env.GROUP8_ROOT }}/code"
+        run: |
+          python "$GROUP8_ROOT/code/group8_annual_stage_release.py" \
+            --repo "$GITHUB_REPOSITORY" --tag "$TAG" --artifacts-root "$GROUP8_ROOT" \
+            --stage 7 --work-dir "$RUNNER_TEMP/g8" --report "$RUNNER_TEMP/g8/stage7.json"
+      - name: Record official release report on exact PR head
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$GROUP8_ROOT/reports/50_ANNUAL_2023_CORE_RELEASE.json"
+          git diff --cached --check
+          git commit -m "Record exact partitioned Group 8 Annual 2023 core release [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
