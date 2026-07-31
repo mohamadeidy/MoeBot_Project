@@ -1,5 +1,6 @@
 Trigger canonical FREE-only Annual Core 2023 gated recovery from verified checkpoint 2.
 Run 30568151220 is superseded because the benchmark matrix incorrectly applied official prior-receipt ordering to isolated checkpoint-2 benchmark jobs.
+Runs 30578573219, 30611168384, and 30640754141 are superseded only for fail-closed validator defects; the latest repair validates the actual explicit 24-job needs chain and ignores non-executable syntax-check references.
 The official ordered contract remains unchanged: 00 -> 01 -> ... -> 23 -> finalizer -> checkpoint 3.
 BENCHMARK_ONLY now starts from immutable verified checkpoint 2, runs one partition on a temporary isolated SQLite copy, bypasses only official prior-receipt ordering, publishes no official receipt/checkpoint, and writes diagnostics only to an exact-head benchmark tag.
 The old one-shot stage-4 official path is prohibited.
