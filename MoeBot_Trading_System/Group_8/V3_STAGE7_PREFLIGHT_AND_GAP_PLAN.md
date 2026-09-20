@@ -81,3 +81,10 @@ Every production shard:
 6. requires \`zstd -t\` plus streamed decompression SHA equality before deleting the raw SQLite shard.
 
 The annual orchestrator remains blocked until executor parity, resume/idempotence, measured school-core sizing, compression-gate evidence, and a frozen Stage-7 plan pass.
+
+
+## Compression and school-core measurement gates
+
+The manually demonstrated zstd round trip is formalized by \`group8_v3_stage7_compression_gate.py\`. The gate recompresses the measured premium/discount benchmark sample, verifies \`zstd -t\`, hashes streamed decompression, and compares projected compressed annual storage plus one maximum raw shard against the configured free-space safety floor.
+
+The remaining five ICT definitions are measured independently by \`group8_v3_stage7_school_core_benchmark.py\`, which executes only a deterministic representative set of timeframe/month windows through the production shard executor, validates each shard, compresses it losslessly, deletes raw samples only after round-trip verification, and projects school-core runtime/storage. Neither measurement authorizes annual Stage 7.
