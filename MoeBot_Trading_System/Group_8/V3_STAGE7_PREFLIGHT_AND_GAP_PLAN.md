@@ -59,3 +59,5 @@ Because ICT3.1 premium/discount rows dominate the 2023 Stage-7 cardinality, the 
 - remains diagnostic only and cannot authorize annual Stage 7.
 
 A synthetic parity test compares the benchmark's complete premium/discount row set with the frozen reference \`process_ict\` implementation for the same fixture.
+
+The representative benchmark is itself a CI release gate; server execution is forbidden until its compile, frozen-regression, parity, and fail-closed checks pass on the exact branch head.
