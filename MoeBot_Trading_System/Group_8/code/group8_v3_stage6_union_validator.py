@@ -250,8 +250,13 @@ def validate_union(
                 STAGE6_DEFINITIONS,
             ).fetchone()[0]
         )
-        if stage6_in_base:
-            raise RuntimeError(f"protected Stage 5 boundary contains Stage 6 rows: {stage6_in_base}")
+        stage6_pass_checkpoints = int(
+            stage5.execute(
+                "SELECT COUNT(*) FROM processing_checkpoint WHERE stage='wyckoff_core' AND status='PASS'"
+            ).fetchone()[0]
+        )
+        if stage6_pass_checkpoints:
+            raise RuntimeError("logical Stage 5 boundary unexpectedly contains a Stage 6 PASS checkpoint")
     finally:
         stage5.close()
 
@@ -268,6 +273,8 @@ def validate_union(
         "unresolved_evidence_subject": 0,
         "unexpected_definition_count": 0,
     }
+    legacy_overlap_identical = 0
+    legacy_overlap_hash_mismatch = 0
 
     with tempfile.TemporaryDirectory(prefix="g8v3_stage6_union_", dir=work_root) as raw:
         temp = Path(raw)
@@ -298,6 +305,32 @@ def validate_union(
                 reference_totals[key] += int(value)
             if any(refs.values()):
                 raise RuntimeError(f"Stage 6 shard compatibility/reference audit failed: {db}: {refs}")
+
+            # A recovered physical Stage-5 source may contain committed legacy
+            # Stage-6 rows. They are excluded from the official V3 union. If a
+            # fresh shard deterministically reproduces one of those IDs, require
+            # exact row-hash identity; a same-ID/different-hash collision is fatal.
+            base = sqlite3.connect(f"file:{stage5_db.resolve()}?mode=ro&immutable=1", uri=True)
+            try:
+                base.execute("ATTACH DATABASE ? AS shard", (str(db),))
+                overlap = base.execute(
+                    """SELECT
+                           SUM(CASE WHEN b.interpretation_hash=s.interpretation_hash THEN 1 ELSE 0 END),
+                           SUM(CASE WHEN b.interpretation_hash<>s.interpretation_hash THEN 1 ELSE 0 END)
+                       FROM main.school_interpretation b
+                       JOIN shard.school_interpretation s
+                         ON s.interpretation_id=b.interpretation_id
+                       WHERE b.definition_id IN (?,?,?)""",
+                    STAGE6_DEFINITIONS,
+                ).fetchone()
+                legacy_overlap_identical += int(overlap[0] or 0)
+                legacy_overlap_hash_mismatch += int(overlap[1] or 0)
+            finally:
+                base.close()
+            if legacy_overlap_hash_mismatch:
+                raise RuntimeError(
+                    f"legacy Stage 6 deterministic-ID/hash collision mismatch: {legacy_overlap_hash_mismatch}"
+                )
 
             con = sqlite3.connect(f"file:{db}?mode=ro&immutable=1", uri=True)
             try:
@@ -385,6 +418,10 @@ def validate_union(
         "duplicate_domain_id_count": 0,
         "unresolved_group8_reference_count": 0,
         "reference_audit_totals": reference_totals,
+        "physical_stage6_contamination_rows_excluded_from_official_union": stage6_in_base,
+        "legacy_stage6_overlap_identical_hash_count": legacy_overlap_identical,
+        "legacy_stage6_overlap_hash_mismatch_count": legacy_overlap_hash_mismatch,
+        "logical_stage5_boundary_filters_physical_stage6_rows": True,
         "logical_schema_matches_stage5_schema": True,
         "frozen_ids_hashes_semantics_preserved": True,
         "downstream_compatibility": {

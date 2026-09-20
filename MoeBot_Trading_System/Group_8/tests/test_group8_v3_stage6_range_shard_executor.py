@@ -222,6 +222,86 @@ class Group8V3Stage6RangeShardTests(unittest.TestCase):
             self.assertTrue(report["inventory"]["logical_stage5_boundary_filters_physical_stage6_rows"])
             self.assertEqual(sha256_file(stage5), before)
 
+    def test_union_validator_accepts_recovered_physical_stage6_contamination_read_only(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            staging, stage5 = self._build_stage5(td)
+
+            legacy = AnnualCoreEngine(
+                staging_db=staging,
+                output_db=stage5,
+                artifacts_root=ART,
+                year=2023,
+                symbol=SYMBOL,
+            )
+            try:
+                legacy.load_bars()
+                legacy.process_wyckoff_core()
+            finally:
+                legacy.close()
+
+            before = sha256_file(stage5)
+            con = sqlite3.connect(stage5)
+            try:
+                physical_rows = int(
+                    con.execute(
+                        "SELECT COUNT(*) FROM school_interpretation WHERE definition_id IN (?,?,?)",
+                        STAGE6_DEFINITIONS,
+                    ).fetchone()[0]
+                )
+            finally:
+                con.close()
+            self.assertGreater(physical_rows, 0)
+
+            commit = _git_head(ART)
+            plan_path = td / "plan.json"
+            report = run_preflight(
+                staging_db=staging,
+                stage5_db=stage5,
+                artifacts_root=ART,
+                output_root=td / "annual",
+                work_root=td / "work",
+                year=2023,
+                symbol=SYMBOL,
+                validated_commit=commit,
+                safety_floor_gb=0.0,
+                max_runtime_hours=1000.0,
+                max_sample_windows=2,
+                sample_roots_per_window=1,
+                storage_safety_factor=1.5,
+                runtime_safety_factor=1.5,
+                report_path=td / "preflight.json",
+                plan_path=plan_path,
+            )
+            self.assertEqual(report["status"], "PASS")
+            release_path = td / "stage6_release.json"
+            release = run_plan(
+                plan_path=plan_path,
+                staging_db=staging,
+                stage5_db=stage5,
+                artifacts_root=ART,
+                output_root=td / "annual",
+                progress_path=td / "annual_progress.json",
+                release_path=release_path,
+                expected_commit=commit,
+            )
+            self.assertEqual(release["status"], "PASS")
+
+            union = validate_union(
+                release_path=release_path,
+                stage5_db=stage5,
+                work_root=td / "union_work",
+                output_path=td / "union.json",
+            )
+            self.assertEqual(union["status"], "PASS")
+            self.assertEqual(
+                union["physical_stage6_contamination_rows_excluded_from_official_union"],
+                physical_rows,
+            )
+            self.assertEqual(union["legacy_stage6_overlap_hash_mismatch_count"], 0)
+            self.assertTrue(union["logical_stage5_boundary_filters_physical_stage6_rows"])
+            self.assertEqual(sha256_file(stage5), before)
+
     def test_preflight_passes_on_fixture_and_preserves_stage5(self):
         with tempfile.TemporaryDirectory() as raw:
             td = Path(raw)

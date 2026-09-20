@@ -100,3 +100,10 @@ The 2023 Stage-6 preflight exposed a historical fan-out implementation defect: t
 - WYC1.1 pass rule requires causal overlap in symbol, timeframe, layer and time scope.
 
 V3 therefore selects exactly the latest causally available indeterminate Dow state for the bounded range's exact layer. This is an implementation conformance correction, not a definition/threshold/ID/hash change. Any retained logical row continues to use the frozen writer and therefore preserves its deterministic ID/hash. Historical Dow rows remain immutable evidence; they are simply not all re-used as simultaneous current context for a later range.
+
+
+## Union validation of recovered physical Stage-6 contamination
+
+The official V3 Stage-6 union explicitly excludes any legacy Stage-6 rows that remain physically present in the recovered Stage-5 SQLite source. Union validation records their count for audit, requires that no Stage-6 PASS checkpoint exists in the logical Stage-5 boundary, and never mutates the source database.
+
+When a new V3 shard deterministically reproduces an interpretation ID that also exists in the legacy physical rows, the row hash must be identical. A same-ID/different-hash collision is a hard validation failure. This preserves deterministic-ID integrity while preventing recovered legacy material from entering the official V3 shard union.
