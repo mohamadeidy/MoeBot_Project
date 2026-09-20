@@ -33,7 +33,7 @@ jobs:
 
       - name: Compile V3 executor and tests
         run: |
-          python -m py_compile             "$GROUP8_ROOT/code/group8_v3_stage6_range_shard_executor.py"             "$GROUP8_ROOT/tests/test_group8_v3_stage6_range_shard_executor.py"
+          python -m py_compile "$GROUP8_ROOT/code/group8_v3_stage6_range_shard_executor.py" "$GROUP8_ROOT/code/group8_v3_stage6_preflight.py" "$GROUP8_ROOT/code/group8_v3_stage6_orchestrator.py" "$GROUP8_ROOT/tests/test_group8_v3_stage6_range_shard_executor.py"
 
       - name: Frozen annual-core regression tests
         run: |
