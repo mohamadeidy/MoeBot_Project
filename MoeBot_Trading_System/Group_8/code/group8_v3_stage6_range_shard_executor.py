@@ -600,6 +600,7 @@ def run_shard(
     hard_guard_bytes: int,
     max_chunks: int | None = None,
     root_allowlist: set[str] | None = None,
+    stage5_sha256: str | None = None,
 ) -> dict[str, Any]:
     engine = Stage6RangeShardEngine(
         staging_db=staging_db,
@@ -629,7 +630,7 @@ def run_shard(
         spec=spec,
         checkpoint=cp,
     )
-    manifest["stage5_database_sha256"] = sha256_file(stage5_db)
+    manifest["stage5_database_sha256"] = stage5_sha256 or sha256_file(stage5_db)
     manifest.pop("manifest_hash", None)
     manifest["manifest_hash"] = stable_hash(manifest)
     _atomic_json(manifest_path, manifest)
@@ -652,6 +653,7 @@ def main() -> int:
     p.add_argument("--bucket-index", type=int, required=True)
     p.add_argument("--chunk-pairs", type=int, default=100)
     p.add_argument("--hard-guard-bytes", type=int, default=2_500_000_000)
+    p.add_argument("--stage5-sha256")
     a = p.parse_args()
     spec = RangeShardSpec(
         a.year,
@@ -671,6 +673,7 @@ def main() -> int:
         spec=spec,
         chunk_pairs=a.chunk_pairs,
         hard_guard_bytes=a.hard_guard_bytes,
+        stage5_sha256=a.stage5_sha256,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0
