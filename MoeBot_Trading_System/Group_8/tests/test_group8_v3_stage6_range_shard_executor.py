@@ -9,6 +9,7 @@ from pathlib import Path
 
 from group8_annual_core_driver import AnnualCoreEngine
 from group8_segmented_annual_core import run_segment
+from group8_v3_stage6_preflight import _git_head, run_preflight
 from group8_v3_stage6_range_shard_executor import (
     RangeShardSpec,
     STAGE6_DEFINITIONS,
@@ -136,6 +137,37 @@ class Group8V3Stage6RangeShardTests(unittest.TestCase):
             expected_i, expected_e = stage6_rows(reference)
             self.assertEqual(actual_i, expected_i)
             self.assertEqual(actual_e, expected_e)
+            self.assertEqual(sha256_file(stage5), before)
+
+    def test_preflight_passes_on_fixture_and_preserves_stage5(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            staging, stage5 = self._build_stage5(td)
+            before = sha256_file(stage5)
+            report_path = td / "preflight.json"
+            plan_path = td / "plan.json"
+            report = run_preflight(
+                staging_db=staging,
+                stage5_db=stage5,
+                artifacts_root=ART,
+                output_root=td / "out",
+                work_root=td / "work",
+                year=2023,
+                symbol=SYMBOL,
+                validated_commit=_git_head(ART),
+                safety_floor_gb=0.0,
+                max_runtime_hours=1000.0,
+                max_sample_windows=2,
+                sample_roots_per_window=1,
+                storage_safety_factor=1.5,
+                runtime_safety_factor=1.5,
+                report_path=report_path,
+                plan_path=plan_path,
+            )
+            self.assertEqual(report["status"], "PASS")
+            self.assertTrue(report["gates"]["full_annual_stage6_permitted_by_preflight"])
+            self.assertTrue(report_path.is_file())
+            self.assertTrue(plan_path.is_file())
             self.assertEqual(sha256_file(stage5), before)
 
     def test_crash_resume_is_logically_identical_and_idempotent(self):
