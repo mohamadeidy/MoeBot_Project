@@ -248,31 +248,16 @@ class Stage6RangeShardEngine(Group8Engine):
             out.append(dow)
         return out
 
-    def _process_pair(
+    def _qualifying_liquidity(
         self,
         rg: dict[str, Any],
-        dow: dict[str, Any],
         liquidity: list[dict[str, Any]],
         liquidity_times: list[int],
-    ) -> tuple[int, int]:
-        iid = self._write_interpretation(
-            "wyckoff_range_context",
-            symbol=rg["symbol"],
-            timeframe=rg["timeframe"],
-            direction="neutral",
-            event_time=max_time(rg["event_time"], dow["event_time"]),
-            confirmation_time=max_time(rg["confirmation_time"], dow["confirmation_time"]),
-            availability_time=max_time(rg["availability_time"], dow["availability_time"]),
-            ambiguous=True,
-            upstream_refs=[
-                self._ref("group8", "price_action_pattern_candidate", rg["candidate_id"], rg["availability_time"]),
-                self._ref("group8", "school_interpretation", dow["interpretation_id"], dow["availability_time"]),
-            ],
-            evidence_strength={"range_context": 1, "indeterminate_structure": 1},
-        )
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Compute range-relative liquidity matches once; result is DOW-invariant."""
         tol_base = float(self.config["feature_parameters"]["proximity_atr_fraction"])
         start = bisect.bisect_left(liquidity_times, int(rg["availability_time"]))
-        emitted = 0
+        matches: list[dict[str, Any]] = []
         scanned = 0
         for ev in liquidity[start:]:
             scanned += 1
@@ -292,43 +277,84 @@ class Stage6RangeShardEngine(Group8Engine):
                 ("wyckoff_spring_candidate", float(rg["lower"]), "bullish"),
                 ("wyckoff_upthrust_candidate", float(rg["upper"]), "bearish"),
             ):
-                if abs(anchor - bound) > tol:
-                    continue
-                self._write_interpretation(
-                    definition,
-                    symbol=rg["symbol"],
-                    timeframe=rg["timeframe"],
-                    direction=direction,
-                    event_time=int(ev["candidate_time"]),
-                    confirmation_time=event_av,
-                    availability_time=max_time(rg["availability_time"], dow["availability_time"], event_av, pool_av),
-                    upstream_refs=[
-                        self._ref(
-                            "group8",
-                            "school_interpretation",
-                            iid,
-                            max_time(rg["availability_time"], dow["availability_time"]),
-                        ),
-                        self._ref(
-                            "group5",
-                            "liquidity_events",
-                            ev["event_id"],
-                            event_av,
-                            event_time=ev["candidate_time"],
-                            timeframe=rg["timeframe"],
-                        ),
-                        self._ref(
-                            "group5",
-                            "liquidity_pools",
-                            ev["pool_id"],
-                            pool_av,
-                            timeframe=rg["timeframe"],
-                        ),
-                    ],
-                    evidence_strength={"boundary_distance": abs(anchor - bound), "tolerance": tol},
-                )
-                emitted += 1
-        return emitted, scanned
+                if abs(anchor - bound) <= tol:
+                    matches.append(
+                        {
+                            "event": ev,
+                            "definition": definition,
+                            "direction": direction,
+                            "event_av": event_av,
+                            "pool_av": pool_av,
+                            "boundary_distance": abs(anchor - bound),
+                            "tolerance": tol,
+                        }
+                    )
+        return matches, scanned
+
+    def _process_pair(
+        self,
+        rg: dict[str, Any],
+        dow: dict[str, Any],
+        matches: list[dict[str, Any]],
+    ) -> int:
+        iid = self._write_interpretation(
+            "wyckoff_range_context",
+            symbol=rg["symbol"],
+            timeframe=rg["timeframe"],
+            direction="neutral",
+            event_time=max_time(rg["event_time"], dow["event_time"]),
+            confirmation_time=max_time(rg["confirmation_time"], dow["confirmation_time"]),
+            availability_time=max_time(rg["availability_time"], dow["availability_time"]),
+            ambiguous=True,
+            upstream_refs=[
+                self._ref("group8", "price_action_pattern_candidate", rg["candidate_id"], rg["availability_time"]),
+                self._ref("group8", "school_interpretation", dow["interpretation_id"], dow["availability_time"]),
+            ],
+            evidence_strength={"range_context": 1, "indeterminate_structure": 1},
+        )
+        emitted = 0
+        for match in matches:
+            ev = match["event"]
+            event_av = int(match["event_av"])
+            pool_av = int(match["pool_av"])
+            self._write_interpretation(
+                match["definition"],
+                symbol=rg["symbol"],
+                timeframe=rg["timeframe"],
+                direction=match["direction"],
+                event_time=int(ev["candidate_time"]),
+                confirmation_time=event_av,
+                availability_time=max_time(rg["availability_time"], dow["availability_time"], event_av, pool_av),
+                upstream_refs=[
+                    self._ref(
+                        "group8",
+                        "school_interpretation",
+                        iid,
+                        max_time(rg["availability_time"], dow["availability_time"]),
+                    ),
+                    self._ref(
+                        "group5",
+                        "liquidity_events",
+                        ev["event_id"],
+                        event_av,
+                        event_time=ev["candidate_time"],
+                        timeframe=rg["timeframe"],
+                    ),
+                    self._ref(
+                        "group5",
+                        "liquidity_pools",
+                        ev["pool_id"],
+                        pool_av,
+                        timeframe=rg["timeframe"],
+                    ),
+                ],
+                evidence_strength={
+                    "boundary_distance": match["boundary_distance"],
+                    "tolerance": match["tolerance"],
+                },
+            )
+            emitted += 1
+        return emitted
 
     def _load_checkpoint(self) -> dict[str, Any] | None:
         if not self.checkpoint_path.exists():
@@ -413,13 +439,16 @@ class Stage6RangeShardEngine(Group8Engine):
         chunks_this_run = 0
 
         for rg, rg_dows in eligible:
+            if ordinal + len(rg_dows) <= already:
+                ordinal += len(rg_dows)
+                continue
+            matches, range_scanned = self._qualifying_liquidity(rg, liquidity, liquidity_times)
+            scanned += range_scanned
             for dow in rg_dows:
                 if ordinal < already:
                     ordinal += 1
                     continue
-                new_emitted, new_scanned = self._process_pair(rg, dow, liquidity, liquidity_times)
-                emitted += new_emitted
-                scanned += new_scanned
+                emitted += self._process_pair(rg, dow, matches)
                 ordinal += 1
                 chunk_work += 1
                 if chunk_work >= chunk_pairs:
