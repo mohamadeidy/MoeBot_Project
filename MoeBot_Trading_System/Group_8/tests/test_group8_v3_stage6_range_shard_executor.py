@@ -16,6 +16,7 @@ from group8_v3_stage6_union_validator import validate_union
 from group8_v3_stage6_range_shard_executor import (
     RangeShardSpec,
     STAGE6_DEFINITIONS,
+    Stage6RangeShardEngine,
     epoch_month,
     run_shard,
 )
