@@ -89,3 +89,14 @@ A crash/rollback recovery may leave previously committed legacy Stage-6 domain r
 - V3 reads only frozen Stage-5 inputs required by Stage 6 (bounded ranges and DOW context).
 - Pre-existing Stage-6 rows are audit-only contamination: they are counted in preflight, never read as V3 input, never merged into V3 output, and never deleted.
 - Official Stage-6 output is solely the validated range_chain shard union produced by V3.
+
+
+## Frozen-definition conformance correction: latest Dow state per layer
+
+The 2023 Stage-6 preflight exposed a historical fan-out implementation defect: the legacy Wyckoff range loop joined each bounded range to every prior `dow_indeterminate_structure` row. That behavior conflicts with the already-frozen definition registry:
+
+- `dow_indeterminate_structure` mandatory input: `causally_latest_group3_structure_state_per_layer`;
+- `wyckoff_range_context` mandatory input: same-timeframe/layer Dow indeterminate structure;
+- WYC1.1 pass rule requires causal overlap in symbol, timeframe, layer and time scope.
+
+V3 therefore selects exactly the latest causally available indeterminate Dow state for the bounded range's exact layer. This is an implementation conformance correction, not a definition/threshold/ID/hash change. Any retained logical row continues to use the frozen writer and therefore preserves its deterministic ID/hash. Historical Dow rows remain immutable evidence; they are simply not all re-used as simultaneous current context for a later range.

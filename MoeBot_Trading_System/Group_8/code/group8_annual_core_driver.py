@@ -55,18 +55,26 @@ class AnnualCoreEngine(IndexedContextRejectionEngine, IndexedStructuralNarrative
         ranges=self.out.execute("SELECT * FROM price_action_pattern_candidate WHERE definition_id='pa_bounded_range_context'").fetchall()
         for rg in ranges:
             feats=json.loads(rg['features_json']);layer=feats.get('layer')
-            dows=self.out.execute("SELECT * FROM school_interpretation WHERE definition_id='dow_indeterminate_structure' AND symbol=? AND timeframe=? AND availability_time<=?",(rg['symbol'],rg['timeframe'],rg['availability_time'])).fetchall()
-            for dow in dows:
-                drefs=json.loads(dow['upstream_refs_json']);dlayer=(drefs[0].get('details') or {}).get('layer') if drefs else None
-                if layer is not None and dlayer is not None and str(layer)!=str(dlayer):continue
-                iid=self._write_interpretation('wyckoff_range_context',symbol=rg['symbol'],timeframe=rg['timeframe'],direction='neutral',event_time=max_time(rg['event_time'],dow['event_time']),confirmation_time=max_time(rg['confirmation_time'],dow['confirmation_time']),availability_time=max_time(rg['availability_time'],dow['availability_time']),ambiguous=True,upstream_refs=[self._ref('group8','price_action_pattern_candidate',rg['candidate_id'],rg['availability_time']),self._ref('group8','school_interpretation',dow['interpretation_id'],dow['availability_time'])],evidence_strength={'range_context':1,'indeterminate_structure':1})
-                tol_base=float(self.config['feature_parameters']['proximity_atr_fraction'])
-                for ev in self.input.execute("SELECT e.*,p.symbol,p.anchor_price,p.lower,p.upper,p.available_at AS pool_available_at,p.origin_atr FROM group5__liquidity_events e JOIN group5__liquidity_pools p ON p.pool_id=e.pool_id WHERE p.symbol=? AND e.timeframe=? AND e.resolved_time IS NOT NULL AND e.resolved_time>=?",(rg['symbol'],rg['timeframe'],rg['availability_time'])):
-                    if not (ev['reclaimed'] and (ev['is_sweep'] or ev['is_stop_run'] or ev['is_false_breakout'])):continue
-                    event_av=int(ev['resolved_time']);pool_av=int(ev['pool_available_at']);atr=float(ev['origin_atr'] or 0);inc=self.point_increment.get(rg['symbol']);tol=max([x for x in (inc,tol_base*atr if atr else None) if x is not None],default=0.0);anchor=float(ev['anchor_price'] if ev['anchor_price'] is not None else (ev['lower']+ev['upper'])/2)
-                    for definition,bound,dir_ in [('wyckoff_spring_candidate',float(rg['lower']),'bullish'),('wyckoff_upthrust_candidate',float(rg['upper']),'bearish')]:
-                        if abs(anchor-bound)>tol:continue
-                        self._write_interpretation(definition,symbol=rg['symbol'],timeframe=rg['timeframe'],direction=dir_,event_time=int(ev['candidate_time']),confirmation_time=event_av,availability_time=max_time(max_time(rg['availability_time'],dow['availability_time']),event_av,pool_av),upstream_refs=[self._ref('group8','school_interpretation',iid,max_time(rg['availability_time'],dow['availability_time'])),self._ref('group5','liquidity_events',ev['event_id'],event_av,event_time=ev['candidate_time'],timeframe=rg['timeframe']),self._ref('group5','liquidity_pools',ev['pool_id'],pool_av,timeframe=rg['timeframe'])],evidence_strength={'boundary_distance':abs(anchor-bound),'tolerance':tol})
+            # Frozen-definition conformance: WYC1.1 consumes the causally latest
+            # Group-3/Dow structure state per layer, not every historical
+            # indeterminate state ever observed before the range.
+            dows=self.out.execute("SELECT * FROM school_interpretation WHERE definition_id='dow_indeterminate_structure' AND symbol=? AND timeframe=? AND availability_time<=? ORDER BY availability_time DESC,interpretation_id DESC",(rg['symbol'],rg['timeframe'],rg['availability_time'])).fetchall()
+            dow=None
+            for candidate in dows:
+                drefs=json.loads(candidate['upstream_refs_json']);dlayer=(drefs[0].get('details') or {}).get('layer') if drefs else None
+                same_layer=(None if layer is None else str(layer))==(None if dlayer is None else str(dlayer))
+                if same_layer:
+                    dow=candidate
+                    break
+            if dow is None:continue
+            iid=self._write_interpretation('wyckoff_range_context',symbol=rg['symbol'],timeframe=rg['timeframe'],direction='neutral',event_time=max_time(rg['event_time'],dow['event_time']),confirmation_time=max_time(rg['confirmation_time'],dow['confirmation_time']),availability_time=max_time(rg['availability_time'],dow['availability_time']),ambiguous=True,upstream_refs=[self._ref('group8','price_action_pattern_candidate',rg['candidate_id'],rg['availability_time']),self._ref('group8','school_interpretation',dow['interpretation_id'],dow['availability_time'])],evidence_strength={'range_context':1,'indeterminate_structure':1})
+            tol_base=float(self.config['feature_parameters']['proximity_atr_fraction'])
+            for ev in self.input.execute("SELECT e.*,p.symbol,p.anchor_price,p.lower,p.upper,p.available_at AS pool_available_at,p.origin_atr FROM group5__liquidity_events e JOIN group5__liquidity_pools p ON p.pool_id=e.pool_id WHERE p.symbol=? AND e.timeframe=? AND e.resolved_time IS NOT NULL AND e.resolved_time>=?",(rg['symbol'],rg['timeframe'],rg['availability_time'])):
+                if not (ev['reclaimed'] and (ev['is_sweep'] or ev['is_stop_run'] or ev['is_false_breakout'])):continue
+                event_av=int(ev['resolved_time']);pool_av=int(ev['pool_available_at']);atr=float(ev['origin_atr'] or 0);inc=self.point_increment.get(rg['symbol']);tol=max([x for x in (inc,tol_base*atr if atr else None) if x is not None],default=0.0);anchor=float(ev['anchor_price'] if ev['anchor_price'] is not None else (ev['lower']+ev['upper'])/2)
+                for definition,bound,dir_ in [('wyckoff_spring_candidate',float(rg['lower']),'bullish'),('wyckoff_upthrust_candidate',float(rg['upper']),'bearish')]:
+                    if abs(anchor-bound)>tol:continue
+                    self._write_interpretation(definition,symbol=rg['symbol'],timeframe=rg['timeframe'],direction=dir_,event_time=int(ev['candidate_time']),confirmation_time=event_av,availability_time=max_time(max_time(rg['availability_time'],dow['availability_time']),event_av,pool_av),upstream_refs=[self._ref('group8','school_interpretation',iid,max_time(rg['availability_time'],dow['availability_time'])),self._ref('group5','liquidity_events',ev['event_id'],event_av,event_time=ev['candidate_time'],timeframe=rg['timeframe']),self._ref('group5','liquidity_pools',ev['pool_id'],pool_av,timeframe=rg['timeframe'])],evidence_strength={'boundary_distance':abs(anchor-bound),'tolerance':tol})
         self.out.commit()
 
     def run_core(self) -> dict[str, Any]:

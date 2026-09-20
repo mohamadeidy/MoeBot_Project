@@ -238,17 +238,25 @@ class Stage6RangeShardEngine(Group8Engine):
 
     @staticmethod
     def _eligible_dows(rg: dict[str, Any], dows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Return the causally latest indeterminate Dow state for the same layer.
+
+        This implements frozen definition WYC1.1 / DOW1I.1. Historical Dow
+        observations remain immutable evidence, but only the latest state
+        causally available at the bounded-range availability participates in
+        the exact range/Dow tuple.
+        """
         avail = int(rg["availability_time"])
-        layer = rg.get("_layer")
-        out = []
+        layer = None if rg.get("_layer") is None else str(rg.get("_layer"))
+        latest: dict[str, Any] | None = None
         for dow in dows:
-            if int(dow["availability_time"]) > avail:
+            dav = int(dow["availability_time"])
+            if dav > avail:
                 break
-            dlayer = dow.get("_layer")
-            if layer is not None and dlayer is not None and str(layer) != str(dlayer):
+            dlayer = None if dow.get("_layer") is None else str(dow.get("_layer"))
+            if dlayer != layer:
                 continue
-            out.append(dow)
-        return out
+            latest = dow
+        return [] if latest is None else [latest]
 
     def _qualifying_liquidity(
         self,

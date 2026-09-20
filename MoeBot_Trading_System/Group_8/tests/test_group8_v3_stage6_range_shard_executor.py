@@ -102,6 +102,17 @@ class Group8V3Stage6RangeShardTests(unittest.TestCase):
         self.assertFalse(report["complete"])
         return staging, stage5
 
+    def test_latest_same_layer_dow_only(self):
+        rg = {"availability_time": 100, "_layer": "internal"}
+        dows = [
+            {"availability_time": 10, "_layer": "internal", "interpretation_id": "old"},
+            {"availability_time": 20, "_layer": "external", "interpretation_id": "other-layer"},
+            {"availability_time": 90, "_layer": "internal", "interpretation_id": "latest"},
+            {"availability_time": 110, "_layer": "internal", "interpretation_id": "future"},
+        ]
+        selected = Stage6RangeShardEngine._eligible_dows(rg, dows)
+        self.assertEqual([x["interpretation_id"] for x in selected], ["latest"])
+
     def test_stage6_shard_union_matches_frozen_reference_and_preserves_stage5(self):
         with tempfile.TemporaryDirectory() as raw:
             td = Path(raw)

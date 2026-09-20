@@ -72,9 +72,9 @@ def inventory_stage6_pairs(stage5_db: Path, symbol: str) -> tuple[list[dict[str,
     con = sqlite3.connect(f"file:{stage5_db.resolve()}?mode=ro&immutable=1", uri=True)
     con.row_factory = sqlite3.Row
     try:
-        dows_all: dict[str, list[int]] = defaultdict(list)
-        dows_none: dict[str, list[int]] = defaultdict(list)
-        dows_layer: dict[tuple[str, str], list[int]] = defaultdict(list)
+        # Frozen DOW1I.1/WYC1.1 conformance: one causally latest state
+        # per exact timeframe/layer is eligible for each bounded range.
+        dows_layer: dict[tuple[str, str | None], list[int]] = defaultdict(list)
         for row in con.execute(
             """SELECT timeframe,availability_time,upstream_refs_json
                FROM school_interpretation
@@ -85,11 +85,7 @@ def inventory_stage6_pairs(stage5_db: Path, symbol: str) -> tuple[list[dict[str,
             tf = str(row["timeframe"])
             av = int(row["availability_time"])
             layer = _layer_from_dow(str(row["upstream_refs_json"]))
-            dows_all[tf].append(av)
-            if layer is None:
-                dows_none[tf].append(av)
-            else:
-                dows_layer[(tf, layer)].append(av)
+            dows_layer[(tf, layer)].append(av)
 
         roots: list[dict[str, Any]] = []
         window_pairs: dict[tuple[str, str], int] = defaultdict(int)
@@ -105,10 +101,7 @@ def inventory_stage6_pairs(stage5_db: Path, symbol: str) -> tuple[list[dict[str,
             tf = str(row["timeframe"])
             av = int(row["availability_time"])
             layer = _layer_from_range(str(row["features_json"]))
-            if layer is None:
-                pairs = _count_le(dows_all[tf], av)
-            else:
-                pairs = _count_le(dows_none[tf], av) + _count_le(dows_layer[(tf, layer)], av)
+            pairs = 1 if _count_le(dows_layer[(tf, layer)], av) > 0 else 0
             month = epoch_month(int(row["event_time"]))
             rec = {
                 "candidate_id": str(row["candidate_id"]),
@@ -518,7 +511,8 @@ def run_preflight(
             "full_annual_stage6_permitted_by_preflight": storage_gate and runtime_gate and shard_gate,
         },
         "materialization_diagnosis": {
-            "range_context_cardinality_is_range_x_eligible_dow": True,
+            "range_context_cardinality_is_one_latest_same_layer_dow_per_range": True,
+            "historical_dow_fanout_bug_fixed_against_frozen_registry": True,
             "dow_specific_range_context_ids_are_frozen_semantic_rows": True,
             "liquidity_matching_is_dow_invariant_and_reused_once_per_range_in_v3": True,
             "logical_rows_are_not_merged_or_dropped_for_storage": True,
