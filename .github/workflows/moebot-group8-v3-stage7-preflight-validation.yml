@@ -1,0 +1,62 @@
+name: MoeBot Group 8 V3 Stage 7 Preflight Validation
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/V3_STAGE7_PREFLIGHT_AND_GAP_PLAN.md"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_stage7_preflight.py"
+      - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_preflight.py"
+      - ".github/workflows/moebot-group8-v3-stage7-preflight-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  v3-stage7-preflight-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Stage 7 preflight and tests
+        run: |
+          python -m py_compile "$GROUP8_ROOT/code/group8_v3_stage7_preflight.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_preflight.py"
+
+      - name: Frozen annual-core regression tests
+        run: |
+          export PYTHONPATH="$GROUP8_ROOT/code:$GROUP8_ROOT/tests"
+          python "$GROUP8_ROOT/tests/test_group8_annual_core_driver.py" -v
+          python "$GROUP8_ROOT/tests/test_group8_segmented_annual_core.py" -v
+
+      - name: Stage 7 read-only preflight tests
+        run: |
+          export PYTHONPATH="$GROUP8_ROOT/code:$GROUP8_ROOT/tests"
+          python "$GROUP8_ROOT/tests/test_group8_v3_stage7_preflight.py" -v
+
+      - name: Stage 7 fail-closed audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text=(Path("MoeBot_Trading_System/Group_8")/"V3_STAGE7_PREFLIGHT_AND_GAP_PLAN.md").read_text()
+          required=[
+              "ANNUAL STAGE 7 REMAINS BLOCKED",
+              "ict_premium_discount_context",
+              "must never infer a later BPR/void touch or visit",
+              "2024 OOS remains forbidden",
+          ]
+          missing=[x for x in required if x not in text]
+          if missing:
+              raise SystemExit(f"missing Stage 7 guardrails: {missing}")
+          print({"status":"PASS","guardrails":len(required)})
+          PY
