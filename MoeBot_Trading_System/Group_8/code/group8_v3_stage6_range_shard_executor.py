@@ -115,6 +115,7 @@ class Stage6RangeShardEngine(Group8Engine):
         checkpoint_path: Path,
         shard_spec: RangeShardSpec,
         hard_guard_bytes: int,
+        root_allowlist: set[str] | None = None,
         **kwargs: Any,
     ) -> None:
         self.stage5_db = stage5_db.resolve()
@@ -122,6 +123,7 @@ class Stage6RangeShardEngine(Group8Engine):
         self.shard_spec = shard_spec
         self.shard_spec.validate()
         self.hard_guard_bytes = int(hard_guard_bytes)
+        self.root_allowlist = None if root_allowlist is None else {str(x) for x in root_allowlist}
         super().__init__(**kwargs)
         self.base = sqlite3.connect(f"file:{self.stage5_db}?mode=ro&immutable=1", uri=True)
         self.base.row_factory = sqlite3.Row
@@ -196,6 +198,8 @@ class Stage6RangeShardEngine(Group8Engine):
             (spec.symbol, spec.timeframe),
         ):
             rid = str(r["candidate_id"])
+            if self.root_allowlist is not None and rid not in self.root_allowlist:
+                continue
             if epoch_month(int(r["event_time"])) != spec.root_month:
                 continue
             if bucket_for_root(rid, spec.bucket_count) != spec.bucket_index:
@@ -595,6 +599,7 @@ def run_shard(
     chunk_pairs: int,
     hard_guard_bytes: int,
     max_chunks: int | None = None,
+    root_allowlist: set[str] | None = None,
 ) -> dict[str, Any]:
     engine = Stage6RangeShardEngine(
         staging_db=staging_db,
@@ -606,6 +611,7 @@ def run_shard(
         checkpoint_path=checkpoint_path,
         shard_spec=spec,
         hard_guard_bytes=hard_guard_bytes,
+        root_allowlist=root_allowlist,
     )
     try:
         cp = engine.run_resumable(chunk_pairs=chunk_pairs, max_chunks=max_chunks)
