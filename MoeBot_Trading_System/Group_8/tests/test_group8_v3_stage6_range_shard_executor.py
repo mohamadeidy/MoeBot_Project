@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import shutil
 import sqlite3
 import tempfile
@@ -11,6 +12,7 @@ from group8_annual_core_driver import AnnualCoreEngine
 from group8_segmented_annual_core import run_segment
 from group8_v3_stage6_preflight import _git_head, run_preflight
 from group8_v3_stage6_orchestrator import run_plan
+from group8_v3_stage6_union_validator import validate_union
 from group8_v3_stage6_range_shard_executor import (
     RangeShardSpec,
     STAGE6_DEFINITIONS,
@@ -49,6 +51,16 @@ def stage6_rows(db: Path) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
         return interpretations, evidence
     finally:
         con.close()
+
+
+def logical_hash(rows: set[tuple[str, str]]) -> str:
+    h = hashlib.sha256()
+    for rid, rh in sorted(rows):
+        h.update(rid.encode())
+        h.update(b"\0")
+        h.update(rh.encode())
+        h.update(b"\n")
+    return h.hexdigest()
 
 
 def range_specs(stage5: Path, year: int, bucket_count: int) -> list[RangeShardSpec]:
@@ -213,6 +225,34 @@ class Group8V3Stage6RangeShardTests(unittest.TestCase):
             self.assertFalse(release["stage7_authorized"])
             self.assertTrue(release["groups_1_7_read_only"])
             self.assertTrue(release["stage5_read_only"])
+            union_path = td / "stage6_union.json"
+            union = validate_union(
+                release_path=td / "stage6_release.json",
+                stage5_db=stage5,
+                work_root=td / "union_work",
+                output_path=union_path,
+            )
+            self.assertEqual(union["status"], "PASS")
+            self.assertTrue(union["stage6_official_pass_eligible"])
+            self.assertFalse(union["stage7_authorized"])
+
+            reference = td / "reference_for_union.sqlite"
+            shutil.copy2(stage5, reference)
+            ref = AnnualCoreEngine(
+                staging_db=staging,
+                output_db=reference,
+                artifacts_root=ART,
+                year=2023,
+                symbol=SYMBOL,
+            )
+            try:
+                ref.load_bars()
+                ref.process_wyckoff_core()
+            finally:
+                ref.close()
+            ref_i, ref_e = stage6_rows(reference)
+            self.assertEqual(union["table_logical_sha256"]["school_interpretation"], logical_hash(ref_i))
+            self.assertEqual(union["table_logical_sha256"]["evidence_chain"], logical_hash(ref_e))
             self.assertEqual(sha256_file(stage5), before)
 
     def test_crash_resume_is_logically_identical_and_idempotent(self):
