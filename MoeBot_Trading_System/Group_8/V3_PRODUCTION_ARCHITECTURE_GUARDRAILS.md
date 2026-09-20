@@ -78,3 +78,14 @@ A V3 implementation is not eligible for server annual execution unless all of th
 - known GitHub commit receipt.
 
 Any failure is fail-closed and MUST NOT auto-launch Stage 7.
+
+
+## Recovered physical Stage-5 source with legacy Stage-6 rows
+
+A crash/rollback recovery may leave previously committed legacy Stage-6 domain rows in the same SQLite file while the authoritative `wyckoff_core` PASS checkpoint is absent. V3 preserves that file byte-for-byte and treats it as a **logical Stage-5 boundary**:
+
+- Stage-5 PASS coverage remains authoritative and must match all expected symbol/timeframe pairs.
+- A Stage-6 PASS checkpoint remains forbidden.
+- V3 reads only frozen Stage-5 inputs required by Stage 6 (bounded ranges and DOW context).
+- Pre-existing Stage-6 rows are audit-only contamination: they are counted in preflight, never read as V3 input, never merged into V3 output, and never deleted.
+- Official Stage-6 output is solely the validated range_chain shard union produced by V3.

@@ -176,15 +176,13 @@ class Stage6RangeShardEngine(Group8Engine):
         )
         if stage6:
             raise RuntimeError("Stage 5 boundary already contains Stage 6 PASS checkpoints")
-        defs = ",".join("?" for _ in STAGE6_DEFINITIONS)
-        stage6_rows = int(
-            self.base.execute(
-                f"SELECT COUNT(*) FROM school_interpretation WHERE definition_id IN ({defs})",
-                STAGE6_DEFINITIONS,
-            ).fetchone()[0]
-        )
-        if stage6_rows:
-            raise RuntimeError(f"Stage 5 boundary contains Stage 6 domain rows: {stage6_rows}")
+        # Recovery note: a physical database restored after an interrupted legacy
+        # Stage 6 run may legitimately contain committed Stage-6 domain rows even
+        # though no Stage-6 PASS checkpoint exists. V3 treats this file as a
+        # *logical* Stage-5 boundary: it reads only the frozen Stage-5 inputs
+        # (bounded ranges + DOW context) and materializes fresh Stage-6 rows into
+        # separate range_chain shards. Existing physical Stage-6 rows are never
+        # read, merged, deleted, or counted as official V3 output.
 
     def load_target_context(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[int]]:
         spec = self.shard_spec

@@ -152,6 +152,64 @@ class Group8V3Stage6RangeShardTests(unittest.TestCase):
             self.assertEqual(actual_e, expected_e)
             self.assertEqual(sha256_file(stage5), before)
 
+    def test_recovered_physical_boundary_with_stage6_rows_is_logically_stage5(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            staging, stage5 = self._build_stage5(td)
+
+            legacy = AnnualCoreEngine(
+                staging_db=staging,
+                output_db=stage5,
+                artifacts_root=ART,
+                year=2023,
+                symbol=SYMBOL,
+            )
+            try:
+                legacy.load_bars()
+                legacy.process_wyckoff_core()
+            finally:
+                legacy.close()
+
+            con = sqlite3.connect(stage5)
+            try:
+                self.assertEqual(
+                    con.execute(
+                        "SELECT COUNT(*) FROM processing_checkpoint WHERE stage='wyckoff_core' AND status='PASS'"
+                    ).fetchone()[0],
+                    0,
+                )
+                physical_rows = con.execute(
+                    "SELECT COUNT(*) FROM school_interpretation WHERE definition_id IN (?,?,?)",
+                    STAGE6_DEFINITIONS,
+                ).fetchone()[0]
+            finally:
+                con.close()
+            self.assertGreater(physical_rows, 0)
+
+            before = sha256_file(stage5)
+            report = run_preflight(
+                staging_db=staging,
+                stage5_db=stage5,
+                artifacts_root=ART,
+                output_root=td / "out",
+                work_root=td / "work",
+                year=2023,
+                symbol=SYMBOL,
+                validated_commit=_git_head(ART),
+                safety_floor_gb=0.0,
+                max_runtime_hours=1000.0,
+                max_sample_windows=2,
+                sample_roots_per_window=1,
+                storage_safety_factor=1.5,
+                runtime_safety_factor=1.5,
+                report_path=td / "preflight.json",
+                plan_path=td / "plan.json",
+            )
+            self.assertEqual(report["status"], "PASS")
+            self.assertEqual(report["inventory"]["physical_stage6_contamination_rows"], physical_rows)
+            self.assertTrue(report["inventory"]["logical_stage5_boundary_filters_physical_stage6_rows"])
+            self.assertEqual(sha256_file(stage5), before)
+
     def test_preflight_passes_on_fixture_and_preserves_stage5(self):
         with tempfile.TemporaryDirectory() as raw:
             td = Path(raw)

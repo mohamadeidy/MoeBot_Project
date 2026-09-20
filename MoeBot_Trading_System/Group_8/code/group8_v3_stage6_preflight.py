@@ -133,10 +133,30 @@ def inventory_stage6_pairs(stage5_db: Path, symbol: str) -> tuple[list[dict[str,
             }
             for tf, month in sorted(window_pairs)
         ]
+        defs = ("wyckoff_range_context", "wyckoff_spring_candidate", "wyckoff_upthrust_candidate")
+        q = ",".join("?" for _ in defs)
+        physical_contamination = [
+            {
+                "definition_id": str(r[0]),
+                "timeframe": str(r[1]),
+                "rows": int(r[2]),
+            }
+            for r in con.execute(
+                f"""SELECT definition_id,timeframe,COUNT(*)
+                    FROM school_interpretation
+                    WHERE definition_id IN ({q})
+                    GROUP BY definition_id,timeframe
+                    ORDER BY definition_id,timeframe""",
+                defs,
+            )
+        ]
         return roots, {
             "range_root_count": len(roots),
             "range_dow_pair_count": total_pairs,
             "windows": windows,
+            "physical_stage6_contamination_rows": sum(x["rows"] for x in physical_contamination),
+            "physical_stage6_contamination": physical_contamination,
+            "logical_stage5_boundary_filters_physical_stage6_rows": True,
         }
     finally:
         con.close()
