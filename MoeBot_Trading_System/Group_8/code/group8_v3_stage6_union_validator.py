@@ -132,7 +132,9 @@ def _fingerprint(path: Path) -> tuple[int, str]:
 
 
 def _schema_columns(con: sqlite3.Connection, schema: str, table: str) -> tuple[str, ...]:
-    return tuple(str(r[1]) for r in con.execute(f'PRAGMA "{schema}".table_info("{table}")'))
+    if schema not in {"main", "shard"}:
+        raise ValueError("unexpected schema name")
+    return tuple(str(r[1]) for r in con.execute(f'PRAGMA {schema}.table_info("{table}")'))
 
 
 def _audit_references(stage5_db: Path, shard_db: Path) -> dict[str, int]:
