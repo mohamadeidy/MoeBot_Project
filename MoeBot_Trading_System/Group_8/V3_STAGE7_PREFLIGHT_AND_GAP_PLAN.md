@@ -61,3 +61,23 @@ Because ICT3.1 premium/discount rows dominate the 2023 Stage-7 cardinality, the 
 A synthetic parity test compares the benchmark's complete premium/discount row set with the frozen reference \`process_ict\` implementation for the same fixture.
 
 The representative benchmark is itself a CI release gate; server execution is forbidden until its compile, frozen-regression, parity, and fail-closed checks pass on the exact branch head.
+
+
+## Stage 7 V3 production shard executor
+
+The V3 executor preserves the frozen Stage-7 logical row set and splits physical execution into two contract-defined families:
+
+- \`range_chain\`: \`ict_premium_discount_context\`, rooted at the immutable \`pa_bounded_range_context.candidate_id\`;
+- \`school_core\`: ICT1.1/ICT2.1/ICT4.1/ICT5.1/ICT6.1, rooted at the first mandatory immutable upstream evidence identity, qualified by source group/type/id before bucket hashing.
+
+The optimized school-core path removes reference N+1 queries through immutable maps, SQL joins, and a sorted/bisected latest-structure lookup. It does not change definition logic.
+
+Every production shard:
+1. reads Stage 5 and Groups 1-7 read-only;
+2. writes deterministic frozen IDs/hashes through the frozen Group8 writer;
+3. commits in bounded chunks with an external checkpoint;
+4. validates SQLite quick/integrity/foreign-key checks and logical fingerprints;
+5. may be compressed only after raw SHA verification;
+6. requires \`zstd -t\` plus streamed decompression SHA equality before deleting the raw SQLite shard.
+
+The annual orchestrator remains blocked until executor parity, resume/idempotence, measured school-core sizing, compression-gate evidence, and a frozen Stage-7 plan pass.
