@@ -10,6 +10,7 @@ from pathlib import Path
 from group8_annual_core_driver import AnnualCoreEngine
 from group8_segmented_annual_core import run_segment
 from group8_v3_stage6_preflight import _git_head, run_preflight
+from group8_v3_stage6_orchestrator import run_plan
 from group8_v3_stage6_range_shard_executor import (
     RangeShardSpec,
     STAGE6_DEFINITIONS,
@@ -168,6 +169,50 @@ class Group8V3Stage6RangeShardTests(unittest.TestCase):
             self.assertTrue(report["gates"]["full_annual_stage6_permitted_by_preflight"])
             self.assertTrue(report_path.is_file())
             self.assertTrue(plan_path.is_file())
+            self.assertEqual(sha256_file(stage5), before)
+
+    def test_orchestrator_consumes_pass_plan_and_blocks_stage7(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            staging, stage5 = self._build_stage5(td)
+            before = sha256_file(stage5)
+            commit = _git_head(ART)
+            report_path = td / "preflight.json"
+            plan_path = td / "plan.json"
+            report = run_preflight(
+                staging_db=staging,
+                stage5_db=stage5,
+                artifacts_root=ART,
+                output_root=td / "annual",
+                work_root=td / "work",
+                year=2023,
+                symbol=SYMBOL,
+                validated_commit=commit,
+                safety_floor_gb=0.0,
+                max_runtime_hours=1000.0,
+                max_sample_windows=2,
+                sample_roots_per_window=1,
+                storage_safety_factor=1.5,
+                runtime_safety_factor=1.5,
+                report_path=report_path,
+                plan_path=plan_path,
+            )
+            self.assertEqual(report["status"], "PASS")
+            release = run_plan(
+                plan_path=plan_path,
+                staging_db=staging,
+                stage5_db=stage5,
+                artifacts_root=ART,
+                output_root=td / "annual",
+                progress_path=td / "annual_progress.json",
+                release_path=td / "stage6_release.json",
+                expected_commit=commit,
+            )
+            self.assertEqual(release["status"], "PASS")
+            self.assertFalse(release["stage7_auto_launch"])
+            self.assertFalse(release["stage7_authorized"])
+            self.assertTrue(release["groups_1_7_read_only"])
+            self.assertTrue(release["stage5_read_only"])
             self.assertEqual(sha256_file(stage5), before)
 
     def test_crash_resume_is_logically_identical_and_idempotent(self):
