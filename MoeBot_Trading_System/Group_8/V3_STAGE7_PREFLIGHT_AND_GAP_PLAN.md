@@ -44,3 +44,18 @@ The Stage 7 preflight is diagnostic only. It can never authorize an annual Stage
 8. downstream Groups 9-15 compatibility proof.
 
 2024 OOS remains forbidden.
+
+
+## Representative premium/discount benchmark
+
+Because ICT3.1 premium/discount rows dominate the 2023 Stage-7 cardinality, the V3 production path requires a representative measured benchmark before any annual execution. The benchmark:
+
+- samples bounded-range roots deterministically across all timeframe/month windows;
+- uses the frozen Group8 interpretation/evidence writers unchanged;
+- preserves exact deterministic IDs, hashes, availability, reasons, evidence-strength payloads and evidence-chain rows;
+- commits in bounded chunks;
+- measures variable SQLite bytes and runtime per interpretation;
+- projects preliminary range-chain bucket counts against the frozen 1.5 GB soft / 2.5 GB hard shard guards;
+- remains diagnostic only and cannot authorize annual Stage 7.
+
+A synthetic parity test compares the benchmark's complete premium/discount row set with the frozen reference \`process_ict\` implementation for the same fixture.
