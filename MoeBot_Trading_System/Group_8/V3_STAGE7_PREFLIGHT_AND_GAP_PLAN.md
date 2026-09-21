@@ -102,3 +102,12 @@ The plan also reconciles exact interpretation totals against the Stage-7 preflig
 \`group8_v3_stage7_annual_plan.py\` is the non-executing release gate that binds all Stage-7 measurement evidence to the exact Git commit and Stage-5/Stage-6 lineage. It recomputes exact school-core interpretation cardinality per timeframe/root month from read-only upstream tables, verifies that the sum equals the frozen preflight cardinality, selects power-of-two bucket counts from measured bytes-per-row under the frozen 1.5 GB soft target, enforces the 2.5 GB hard guard, and checks projected compressed storage plus one raw shard against the configured safety floor.
 
 A PASS plan permits construction/testing of the annual orchestrator; it does not itself authorize or auto-launch Stage 7.
+
+
+## Annual orchestrator and streaming union validation
+
+The frozen PASS plan is consumed by a Stage-7-specific orchestrator that enforces one raw shard at a time. Every completed shard is integrity-validated by the executor, zstd-compressed, \`zstd -t\` checked, streamed back through SHA-256, and only then is the raw SQLite removed. Resume trusts only self-hashed manifests plus exact compressed archive SHA identities.
+
+The Stage 7 union validator does not create a monolithic database. It decompresses one archive at a time, verifies the exact raw SHA, audits local evidence subjects and family scope, and exports fixed-width binary \`(primary_id digest,row_hash digest)\` runs. A bounded fan-in hierarchical merge proves global primary-ID uniqueness and computes the frozen sorted row-level logical SHA-256 without retaining all raw shards simultaneously. This preserves the frozen global fingerprint contract while respecting the C: safety floor.
+
+Neither module auto-launches Stage 7. Production execution still requires explicit user launch after exact-head CI PASS.
