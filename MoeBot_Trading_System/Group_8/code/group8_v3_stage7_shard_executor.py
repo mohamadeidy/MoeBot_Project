@@ -427,6 +427,10 @@ class Stage7RangeChainEngine(_Stage7BaseEngine):
                 if max_chunks is not None and chunks >= max_chunks and not done:
                     return cp
 
+        if ordinal != total:
+            raise RuntimeError(
+                f"Stage 7 school_core plan cardinality mismatch: observed={ordinal} expected={total}"
+            )
         if total == 0:
             self.out.commit()
             return self._write_progress(
@@ -691,11 +695,18 @@ class Stage7SchoolCoreEngine(_Stage7BaseEngine):
         *,
         chunk_interpretations: int,
         max_chunks: int | None = None,
+        expected_total_work: int | None = None,
     ) -> dict[str, Any]:
         if chunk_interpretations <= 0:
             raise ValueError("chunk_interpretations must be positive")
         self.verify_stage5_boundary()
-        total = sum(1 for _ in self._iter_actions())
+        total = (
+            sum(1 for _ in self._iter_actions())
+            if expected_total_work is None
+            else int(expected_total_work)
+        )
+        if total < 0:
+            raise ValueError("expected_total_work must be non-negative")
         cp = self._load_checkpoint(total)
         already = int(cp.get("committed_work", 0)) if cp else 0
         if cp and cp.get("completed") is True:
@@ -714,6 +725,10 @@ class Stage7SchoolCoreEngine(_Stage7BaseEngine):
             if ordinal < already:
                 ordinal += 1
                 continue
+            if ordinal >= total:
+                raise RuntimeError(
+                    f"Stage 7 school_core plan cardinality understated: more than {total} actions"
+                )
             self._write_interpretation(definition, **kwargs)
             ordinal += 1
             emitted += 1
@@ -862,6 +877,7 @@ def run_shard(
     stage6_union_report_hash: str,
     max_chunks: int | None = None,
     root_allowlist: set[str] | None = None,
+    expected_total_work: int | None = None,
 ) -> dict[str, Any]:
     if spec.year == 2024:
         raise RuntimeError("2024 OOS remains forbidden")
@@ -882,10 +898,13 @@ def run_shard(
         **kwargs,
     )
     try:
-        cp = engine.run_resumable(
-            chunk_interpretations=chunk_interpretations,
-            max_chunks=max_chunks,
-        )
+        run_kwargs: dict[str, Any] = {
+            "chunk_interpretations": chunk_interpretations,
+            "max_chunks": max_chunks,
+        }
+        if spec.family == "school_core":
+            run_kwargs["expected_total_work"] = expected_total_work
+        cp = engine.run_resumable(**run_kwargs)
         if cp.get("completed") is not True:
             return {"status": "RUNNING", "checkpoint": cp}
     except Exception:
@@ -993,6 +1012,7 @@ def main() -> int:
     p.add_argument("--hard-guard-bytes", type=int, default=2_500_000_000)
     p.add_argument("--stage6-release-hash", required=True)
     p.add_argument("--stage6-union-report-hash", required=True)
+    p.add_argument("--expected-total-work", type=int)
     a = p.parse_args()
     spec = Stage7ShardSpec(
         a.family, a.year, a.symbol, a.timeframe, a.root_month, a.bucket_count, a.bucket_index
@@ -1009,6 +1029,7 @@ def main() -> int:
         hard_guard_bytes=a.hard_guard_bytes,
         stage6_release_hash=a.stage6_release_hash,
         stage6_union_report_hash=a.stage6_union_report_hash,
+        expected_total_work=a.expected_total_work,
     )
     print(json.dumps(r, indent=2, sort_keys=True))
     return 0
