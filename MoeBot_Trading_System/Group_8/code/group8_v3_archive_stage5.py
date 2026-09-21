@@ -21,7 +21,7 @@ def _stream_sha(zstd:Path,archive:Path)->str:
 
 def archive_stage5(*,stage5_db:Path,annual_manifest:Path,zstd_exe:Path,archive:Path,report:Path,level:int,remove_raw:bool)->dict[str,Any]:
     m=json.loads(annual_manifest.read_text());x=dict(m);saved=x.pop("manifest_hash")
-    if stable_hash(x)!=saved or m.get("status")!="ANNUAL_2023_PASS":raise RuntimeError("Annual 2023 manifest invalid")
+    if stable_hash(x)!=saved or m.get("status") not in {"ANNUAL_2023_PASS","ANNUAL_2024_OOS_PASS"}:raise RuntimeError("Annual manifest invalid")
     expected=m["stage5"]["sha256"];raw=sha256_file(stage5_db)
     if raw!=expected:raise RuntimeError("Stage5 SHA drift before archive")
     raw_bytes=stage5_db.stat().st_size;archive.parent.mkdir(parents=True,exist_ok=True)
@@ -29,7 +29,8 @@ def archive_stage5(*,stage5_db:Path,annual_manifest:Path,zstd_exe:Path,archive:P
     subprocess.run([str(zstd_exe),"-t",str(archive)],check=True)
     rt=_stream_sha(zstd_exe,archive)
     if rt!=raw:raise RuntimeError("Stage5 zstd roundtrip SHA mismatch")
-    rec={"format_version":1,"scope":"GROUP8_V3_STAGE5_2023_ARCHIVE","status":"PASS","annual_2023_manifest_hash":saved,"raw_sha256":raw,"raw_size_bytes":raw_bytes,"archive_sha256":sha256_file(archive),"archive_size_bytes":archive.stat().st_size,"compression_ratio":raw_bytes/max(archive.stat().st_size,1),"zstd_level":level,"roundtrip_sha256":rt,"lossless_roundtrip_verified":True,"raw_deleted":False}
+    year=int(m.get("year",0))
+    rec={"format_version":1,"scope":f"GROUP8_V3_STAGE5_{year}_ARCHIVE","status":"PASS","annual_manifest_hash":saved,"year":year,"raw_sha256":raw,"raw_size_bytes":raw_bytes,"archive_sha256":sha256_file(archive),"archive_size_bytes":archive.stat().st_size,"compression_ratio":raw_bytes/max(archive.stat().st_size,1),"zstd_level":level,"roundtrip_sha256":rt,"lossless_roundtrip_verified":True,"raw_deleted":False}
     if remove_raw:
       stage5_db.unlink();rec["raw_deleted"]=True
     rec["report_hash"]=stable_hash(rec);report.parent.mkdir(parents=True,exist_ok=True);report.write_text(json.dumps(rec,indent=2,sort_keys=True)+"\n");return rec

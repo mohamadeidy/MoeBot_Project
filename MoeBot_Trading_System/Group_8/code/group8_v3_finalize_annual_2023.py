@@ -49,7 +49,8 @@ def finalize(*,artifacts_root:Path,stage5_db:Path,stage6_release_path:Path,stage
     if s6r.get("validated_commit")!=expected_commit and s6u.get("validated_commit")!=s6r.get("validated_commit"):
         # Stage6 legitimately executed on an earlier V3 physical commit; its own release/union must agree.
         failures.append("stage6_internal_commit_drift")
-    if s7p.get("validated_commit")!=expected_commit or s7r.get("validated_commit")!=expected_commit or s7u.get("validated_commit")!=expected_commit: failures.append("stage7_commit_drift")
+    stage7_execution_commit=s7p.get("validated_commit")
+    if not stage7_execution_commit or s7r.get("validated_commit")!=stage7_execution_commit or s7u.get("validated_commit")!=stage7_execution_commit: failures.append("stage7_execution_commit_drift")
     if s7u.get("duplicate_domain_id_count")!=0 or s7u.get("unresolved_local_evidence_subject_count")!=0: failures.append("stage7_union_integrity")
     if s6u.get("duplicate_domain_id_count")!=0 or s6u.get("unresolved_group8_reference_count")!=0: failures.append("stage6_union_integrity")
     if s7u.get("oos_2024_accessed") is not False or s7r.get("oos_2024_accessed") is not False: failures.append("2024_accessed_before_freeze")
@@ -71,6 +72,8 @@ def finalize(*,artifacts_root:Path,stage5_db:Path,stage6_release_path:Path,stage
       "format_version":3,"status":"ANNUAL_2023_PASS","group":8,"year":2023,
       "physical_storage_mode":"V3_FREE_LOSSLESS_SHARDED_ZSTD",
       "validated_commit":expected_commit,
+      "stage6_execution_commit":s6r.get("validated_commit"),
+      "stage7_execution_commit":stage7_execution_commit,
       "engine_version":build["engine_version"],"schema_version":build["schema_version"],"config_id":build["config_id"],
       "engine_build_manifest_hash":build["manifest_hash"],"engine_sha256":build["identities"]["engine"]["sha256"],
       "postprocessor_sha256":build["identities"]["postprocessor"]["sha256"],"materializer_sha256":build["identities"]["materializer"]["sha256"],

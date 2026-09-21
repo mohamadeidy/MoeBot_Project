@@ -8,7 +8,8 @@ from typing import Any
 
 from group8_v3_oos_2024_stage5 import verify_freeze
 from group8_v3_stage6_range_shard_executor import bucket_for_root,epoch_month,stable_hash
-from group8_v3_stage7_plan import _range_roots,_school_roots
+from group8_v3_stage7_plan import _range_roots
+from group8_v3_stage7_shard_executor import _qualified_root
 from group8_v3_stage7_shard_executor import Stage7ShardSpec,Stage7RangeChainEngine,Stage7SchoolCoreEngine,build_manifest,compress_verified_shard
 from moebot_group8_engine_v0_8_0 import sha256_file
 
@@ -28,7 +29,28 @@ def build_plan(*,staging_db:Path,stage5_db:Path,artifacts_root:Path,freeze_path:
  staging=sqlite3.connect(f"file:{staging_db.resolve()}?mode=ro&immutable=1",uri=True);staging.row_factory=sqlite3.Row
  try:rr=_range_roots(staging=staging,stage5=stage5,symbol=symbol)
  finally:stage5.close();staging.close()
- sr=_school_roots(staging_db=staging_db,stage5_db=stage5_db,artifacts_root=artifacts_root,work_root=work_root,symbol=symbol)
+ # Enumerate frozen school-core actions with a genuine 2024 constructor.
+ scratch=work_root/"oos2024_school_inventory.sqlite";scratch_cp=work_root/"oos2024_school_inventory.checkpoint.json"
+ for p in (scratch,scratch_cp):
+  if p.exists():p.unlink()
+ spec0=Stage7ShardSpec("school_core",2024,symbol,"M1","2024-01",1,0)
+ eng0=Stage7SchoolCoreEngine(staging_db=staging_db,output_db=scratch,artifacts_root=artifacts_root,year=2024,symbol=symbol,stage5_db=stage5_db,checkpoint_path=scratch_cp,shard_spec=spec0,hard_guard_bytes=HARD)
+ grouped={}
+ try:
+  eng0.verify_stage5_boundary();eng0._belongs=lambda root_key,timeframe,root_time: True
+  for definition,kwargs in eng0._iter_actions():
+   refs=list(kwargs["upstream_refs"])
+   if not refs:raise RuntimeError(f"{definition} emitted no mandatory evidence")
+   first=refs[0];root_id=f"{first['source_group']}:{first['source_type']}:{first['source_id']}"
+   rt=first.get("event_time") if first.get("event_time") is not None else kwargs["event_time"]
+   tf=str(first.get("timeframe") or kwargs["timeframe"]);month=epoch_month(int(rt));key=(tf,month,root_id)
+   z=grouped.setdefault(key,{"root_id":root_id,"interpretations":0,"evidence_chain_rows":0});z["interpretations"]+=1;z["evidence_chain_rows"]+=len(refs)
+ finally:
+  eng0.close(commit=False)
+  for p in (scratch,scratch_cp):
+   if p.exists():p.unlink()
+ sr=defaultdict(list)
+ for (tf,month,_),rec in grouped.items():sr[(tf,month)].append(rec)
  shards=[];ri=re=si=se=0
  for family,groups in (("range_chain",rr),("school_core",sr)):
   for (tf,month),roots in sorted(groups.items()):
