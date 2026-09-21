@@ -48,7 +48,7 @@ def _bucket_policy(plan:dict[str,Any])->dict[str,Any]:
   policy[key]=n
  return dict(sorted(policy.items()))
 
-def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path,stage7_plan_path:Path,stage5_archive_report_path:Path,expected_commit:str,output:Path)->dict[str,Any]:
+def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path,stage7_plan_path:Path,stage5_archive_report_path:Path,zstd_exe:Path,expected_commit:str,output:Path)->dict[str,Any]:
  if _head(artifacts_root)!=expected_commit:raise RuntimeError("Git HEAD mismatch for OOS freeze")
  annual=json.loads(annual_manifest_path.read_text());_verify(annual,"manifest_hash")
  s6=json.loads(stage6_plan_path.read_text());_verify(s6,"plan_hash")
@@ -60,6 +60,8 @@ def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path
  if s7.get("status")!="PASS" or int(s7.get("year",0))!=2023:raise RuntimeError("Stage7 2023 plan invalid")
  design=json.loads((artifacts_root/"DESIGN_FREEZE_MANIFEST.json").read_text());contract=json.loads((artifacts_root/"SHARDED_STORAGE_CONTRACT.json").read_text())
  identities={rel:_identity(artifacts_root,rel) for rel in TOOLS}
+ if not zstd_exe.is_file():raise RuntimeError("frozen zstd executable missing")
+ external_tooling={"zstd":{"path":str(zstd_exe),"size_bytes":zstd_exe.stat().st_size,"sha256":sha256_file(zstd_exe)}}
  manifest={
   "format_version":1,"status":"FROZEN_FOR_2024_OOS_V3","group":8,"oos_year":2024,"training_validation_year":2023,
   "validated_commit":expected_commit,"annual_2023_manifest_hash":annual["manifest_hash"],"annual_2023_logical_fingerprint":annual["logical_fingerprint"],
@@ -68,7 +70,7 @@ def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path
   "stage6_2023_plan_hash":s6["plan_hash"],"stage7_2023_plan_hash":s7["plan_hash"],
   "stage6_bucket_policy_by_timeframe_month":_bucket_policy({"shards":[{**x,"family":"range_chain"} for x in s6["specs"]]}),
   "stage7_bucket_policy_by_family_timeframe_month":_bucket_policy(s7),
-  "identities":identities,
+  "identities":identities,"external_tooling":external_tooling,
   "immutability_policy":{"semantic_artifact_changes_forbidden":True,"engine_changes_forbidden":True,"definition_changes_forbidden":True,"schema_changes_forbidden":True,"config_changes_forbidden":True,"threshold_changes_forbidden":True,"upstream_lineage_changes_forbidden":True,"storage_contract_changes_forbidden":True,"bucket_counts_from_2024_observations_forbidden":True,"2023_result_conditioned_semantic_changes_forbidden":True},
   "authorization":{"2023":False,"2024_oos":True},"free_only":True,"paid_runner_allowed":False,"paid_service_allowed":False,
   "oos_2024_accessed_during_freeze":False,
@@ -77,6 +79,6 @@ def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path
  manifest["manifest_hash"]=stable_hash(manifest);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(manifest,indent=2,sort_keys=True)+"\n");return manifest
 
 def main()->int:
- p=argparse.ArgumentParser();p.add_argument("--artifacts-root",type=Path,required=True);p.add_argument("--annual-manifest",type=Path,required=True);p.add_argument("--stage6-plan",type=Path,required=True);p.add_argument("--stage7-plan",type=Path,required=True);p.add_argument("--stage5-archive-report",type=Path,required=True);p.add_argument("--expected-commit",required=True);p.add_argument("--output",type=Path,required=True)
- a=p.parse_args();m=freeze(artifacts_root=a.artifacts_root.resolve(),annual_manifest_path=a.annual_manifest.resolve(),stage6_plan_path=a.stage6_plan.resolve(),stage7_plan_path=a.stage7_plan.resolve(),stage5_archive_report_path=a.stage5_archive_report.resolve(),expected_commit=a.expected_commit,output=a.output.resolve());print(json.dumps(m,indent=2,sort_keys=True));return 0
+ p=argparse.ArgumentParser();p.add_argument("--artifacts-root",type=Path,required=True);p.add_argument("--annual-manifest",type=Path,required=True);p.add_argument("--stage6-plan",type=Path,required=True);p.add_argument("--stage7-plan",type=Path,required=True);p.add_argument("--stage5-archive-report",type=Path,required=True);p.add_argument("--zstd-exe",type=Path,required=True);p.add_argument("--expected-commit",required=True);p.add_argument("--output",type=Path,required=True)
+ a=p.parse_args();m=freeze(artifacts_root=a.artifacts_root.resolve(),annual_manifest_path=a.annual_manifest.resolve(),stage6_plan_path=a.stage6_plan.resolve(),stage7_plan_path=a.stage7_plan.resolve(),stage5_archive_report_path=a.stage5_archive_report.resolve(),zstd_exe=a.zstd_exe.resolve(),expected_commit=a.expected_commit,output=a.output.resolve());print(json.dumps(m,indent=2,sort_keys=True));return 0
 if __name__=="__main__":raise SystemExit(main())
