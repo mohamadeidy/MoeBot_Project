@@ -88,3 +88,10 @@ The annual orchestrator remains blocked until executor parity, resume/idempotenc
 The manually demonstrated zstd round trip is formalized by \`group8_v3_stage7_compression_gate.py\`. The gate recompresses the measured premium/discount benchmark sample, verifies \`zstd -t\`, hashes streamed decompression, and compares projected compressed annual storage plus one maximum raw shard against the configured free-space safety floor.
 
 The remaining five ICT definitions are measured independently by \`group8_v3_stage7_school_core_benchmark.py\`, which executes only a deterministic representative set of timeframe/month windows through the production shard executor, validates each shard, compresses it losslessly, deletes raw samples only after round-trip verification, and projects school-core runtime/storage. Neither measurement authorizes annual Stage 7.
+
+
+## Exact annual shard-plan freeze
+
+Annual Stage 7 may not launch from window averages. \`group8_v3_stage7_plan.py\` recomputes exact premium/discount cardinality per bounded-range root and exact school-core cardinality per first mandatory evidence root, then applies the frozen hash-bucket rule. Bucket counts are increased only in powers of two until every guarded raw-shard projection is below the 1.5 GB soft target; the 2.5 GB hard guard remains absolute.
+
+The plan also reconciles exact interpretation totals against the Stage-7 preflight, binds Stage-5/Stage-6/report hashes and the exact Git commit, and verifies projected compressed annual peak storage against the 120 GiB safety floor. A PASS plan still cannot auto-launch Stage 7; explicit user launch remains required.
