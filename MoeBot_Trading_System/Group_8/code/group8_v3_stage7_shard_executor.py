@@ -934,10 +934,15 @@ def _stream_decompressed_sha256(zstd_exe: Path, archive: Path) -> str:
         stderr=subprocess.PIPE,
     )
     assert p.stdout is not None
-    for chunk in iter(lambda: p.stdout.read(1024 * 1024), b""):
-        h.update(chunk)
-    stderr = b"" if p.stderr is None else p.stderr.read()
-    rc = p.wait()
+    try:
+        for chunk in iter(lambda: p.stdout.read(1024 * 1024), b""):
+            h.update(chunk)
+        stderr = b"" if p.stderr is None else p.stderr.read()
+        rc = p.wait()
+    finally:
+        p.stdout.close()
+        if p.stderr is not None:
+            p.stderr.close()
     if rc != 0:
         raise RuntimeError(f"zstd streamed decompression failed rc={rc}: {stderr.decode(errors='replace')}")
     return h.hexdigest()
