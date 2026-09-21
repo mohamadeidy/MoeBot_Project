@@ -12,6 +12,9 @@ name: MoeBot Group 8 V3 Stage 7 Preflight Validation
       - "MoeBot_Trading_System/Group_8/code/group8_v3_stage7_school_core_benchmark.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_stage7_orchestrator.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_stage7_union_validator.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_finalize_annual_2023.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_archive_stage5.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_freeze_oos_2024.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_stage7_annual_plan.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_stage7_plan.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_preflight.py"
@@ -19,6 +22,7 @@ name: MoeBot Group 8 V3 Stage 7 Preflight Validation
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_shard_executor.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_storage_benchmarks.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_orchestrator_union.py"
+      - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_post2023.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_annual_plan.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_plan.py"
       - ".github/workflows/moebot-group8-v3-stage7-preflight-validation.yml"
@@ -47,7 +51,7 @@ jobs:
 
       - name: Compile Stage 7 preflight and tests
         run: |
-          python -m py_compile "$GROUP8_ROOT/code/group8_v3_stage7_preflight.py" "$GROUP8_ROOT/code/group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/code/group8_v3_stage7_compression_gate.py" "$GROUP8_ROOT/code/group8_v3_stage7_school_core_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_orchestrator.py" "$GROUP8_ROOT/code/group8_v3_stage7_union_validator.py" "$GROUP8_ROOT/code/group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/code/group8_v3_stage7_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_preflight.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_storage_benchmarks.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_orchestrator_union.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_plan.py"
+          python -m py_compile "$GROUP8_ROOT/code/group8_v3_stage7_preflight.py" "$GROUP8_ROOT/code/group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/code/group8_v3_stage7_compression_gate.py" "$GROUP8_ROOT/code/group8_v3_stage7_school_core_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_orchestrator.py" "$GROUP8_ROOT/code/group8_v3_stage7_union_validator.py" "$GROUP8_ROOT/code/group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/code/group8_v3_finalize_annual_2023.py" "$GROUP8_ROOT/code/group8_v3_archive_stage5.py" "$GROUP8_ROOT/code/group8_v3_freeze_oos_2024.py" "$GROUP8_ROOT/code/group8_v3_stage7_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_preflight.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_storage_benchmarks.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_orchestrator_union.py" "$GROUP8_ROOT/tests/test_group8_v3_post2023.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_plan.py"
 
       - name: Frozen annual-core regression tests
         run: |
@@ -63,6 +67,7 @@ jobs:
           python "$GROUP8_ROOT/tests/test_group8_v3_stage7_shard_executor.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_stage7_storage_benchmarks.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_stage7_orchestrator_union.py" -v
+          python "$GROUP8_ROOT/tests/test_group8_v3_post2023.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_stage7_annual_plan.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_stage7_plan.py" -v
 
