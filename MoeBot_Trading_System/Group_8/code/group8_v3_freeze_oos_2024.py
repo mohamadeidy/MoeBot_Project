@@ -22,6 +22,7 @@ TOOLS=[
 "code/group8_v3_stage6_union_validator.py","code/group8_v3_stage7_shard_executor.py",
 "code/group8_v3_stage7_union_validator.py","code/group8_v3_finalize_annual_2023.py",
 "code/group8_v3_archive_stage5.py","code/group8_v3_freeze_oos_2024.py",
+"code/group8_v3_oos_2024_stage5.py","code/group8_v3_oos_2024_stage6.py","code/group8_v3_oos_2024_stage7.py",
 ]
 
 def _verify(rec:dict[str,Any],field:str)->None:
