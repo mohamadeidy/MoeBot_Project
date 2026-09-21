@@ -18,12 +18,12 @@ TOOLS=[
 "DESIGN_FREEZE_MANIFEST.json","SHARDED_STORAGE_CONTRACT.json","UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json",
 "UPSTREAM_ADAPTER_MAP.json","UPSTREAM_VALUE_BINDINGS.json","UPSTREAM_REFERENCE_RESOLUTION.json",
 "code/moebot_group8_engine_v0_8_0.py","code/group8_postprocess_v0_8_0.py","code/group8_materialize_inputs.py",
-"code/group8_segmented_annual_core.py","code/group8_v3_stage6_range_shard_executor.py",
-"code/group8_v3_stage6_union_validator.py","code/group8_v3_stage7_shard_executor.py",
+"code/group8_segmented_annual_core.py","code/group8_v3_stage6_range_shard_executor.py","code/group8_v3_stage6_preflight.py",
+"code/group8_v3_stage6_union_validator.py","code/group8_v3_stage7_shard_executor.py","code/group8_v3_stage7_plan.py",
 "code/group8_v3_stage7_union_validator.py","code/group8_v3_finalize_annual_2023.py",
 "code/group8_v3_archive_stage5.py","code/group8_v3_freeze_oos_2024.py",
 "code/group8_v3_oos_2024_stage5.py","code/group8_v3_oos_2024_stage6.py","code/group8_v3_oos_2024_stage7.py",
-"code/group8_v3_finalize_annual_2024_oos.py","code/group8_v3_cross_year_validate.py","code/group8_v3_close_group8.py",
+"code/group8_v3_finalize_annual_2024_oos.py","code/group8_v3_cross_year_validate.py","code/group8_v3_close_group8.py","code/group8_v3_full_continuation.py",
 ]
 
 def _verify(rec:dict[str,Any],field:str)->None:
@@ -66,7 +66,7 @@ def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path
   "design_freeze_hash":design["design_freeze_hash"],"storage_contract_hash":contract["storage_contract_hash"],
   "stage5_2023_archive_report_hash":arc["report_hash"],"stage5_2023_archive_sha256":arc["archive_sha256"],
   "stage6_2023_plan_hash":s6["plan_hash"],"stage7_2023_plan_hash":s7["plan_hash"],
-  "stage6_bucket_policy_by_timeframe_month":_bucket_policy({"shards":[{**x,"family":"range_chain"} for x in s6["shards"]]}),
+  "stage6_bucket_policy_by_timeframe_month":_bucket_policy({"shards":[{**x,"family":"range_chain"} for x in s6["specs"]]}),
   "stage7_bucket_policy_by_family_timeframe_month":_bucket_policy(s7),
   "identities":identities,
   "immutability_policy":{"semantic_artifact_changes_forbidden":True,"engine_changes_forbidden":True,"definition_changes_forbidden":True,"schema_changes_forbidden":True,"config_changes_forbidden":True,"threshold_changes_forbidden":True,"upstream_lineage_changes_forbidden":True,"storage_contract_changes_forbidden":True,"bucket_counts_from_2024_observations_forbidden":True,"2023_result_conditioned_semantic_changes_forbidden":True},
