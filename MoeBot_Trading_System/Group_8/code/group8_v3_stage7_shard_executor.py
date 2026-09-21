@@ -427,10 +427,6 @@ class Stage7RangeChainEngine(_Stage7BaseEngine):
                 if max_chunks is not None and chunks >= max_chunks and not done:
                     return cp
 
-        if ordinal != total:
-            raise RuntimeError(
-                f"Stage 7 school_core plan cardinality mismatch: observed={ordinal} expected={total}"
-            )
         if total == 0:
             self.out.commit()
             return self._write_progress(
@@ -751,6 +747,10 @@ class Stage7SchoolCoreEngine(_Stage7BaseEngine):
                 if max_chunks is not None and chunks >= max_chunks and not done:
                     return cp
 
+        if ordinal != total:
+            raise RuntimeError(
+                f"Stage 7 school_core plan cardinality mismatch: observed={ordinal} expected={total}"
+            )
         if total == 0:
             self.out.commit()
             return self._write_progress(
