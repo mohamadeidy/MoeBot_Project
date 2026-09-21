@@ -105,7 +105,10 @@ def validate_union(*,release_path:Path,plan_path:Path,stage5_db:Path,output_root
  if release.get("status")!="PASS" or int(release.get("stage",0))!=7:raise RuntimeError("Stage7 release is not PASS")
  if release.get("plan_hash")!=plan.get("plan_hash"):raise RuntimeError("Stage7 release/plan lineage mismatch")
  if sha256_file(stage5_db)!=release["stage5_database_sha256"]:raise RuntimeError("Stage5 hash drift")
- if release.get("oos_2024_accessed") is not False:raise RuntimeError("2024 OOS access detected")
+ year=int(release.get("year",0))
+ expected_oos=(year==2024)
+ if year not in (2023,2024):raise RuntimeError("unsupported Stage7 union year")
+ if bool(release.get("oos_2024_accessed")) != expected_oos:raise RuntimeError("Stage7 OOS access flag/year mismatch")
  if int(release["shard_count"])!=len(release["shards"]) or int(release["shard_count"])!=int(plan["shard_count"]):raise RuntimeError("Stage7 shard-count mismatch")
  work_root.mkdir(parents=True,exist_ok=True)
  runs={t:[] for t in TABLES};counts={t:0 for t in TABLES};by_def={};unresolved_local=0
@@ -154,7 +157,7 @@ def validate_union(*,release_path:Path,plan_path:Path,stage5_db:Path,output_root
   global_payload={t:{"row_count":counts[t],"logical_sha256":hashes[t]} for t in sorted(TABLES)}
   result={
    "format_version":1,"scope":"GROUP8_V3_STAGE7_STREAMING_UNION","status":"PASS",
-   "stage":7,"stage_name":"ict_core","year":2023,"symbol":release["symbol"],
+   "stage":7,"stage_name":"ict_core","year":year,"symbol":release["symbol"],
    "validated_commit":release["validated_commit"],"plan_hash":plan["plan_hash"],
    "stage5_database_sha256":release["stage5_database_sha256"],"stage6_release_hash":release["stage6_release_hash"],
    "stage6_union_report_hash":release["stage6_union_report_hash"],"stage7_release_hash":release["release_hash"],
@@ -164,7 +167,7 @@ def validate_union(*,release_path:Path,plan_path:Path,stage5_db:Path,output_root
    "unresolved_local_evidence_subject_count":unresolved_local,
    "lossless_archive_roundtrip_reverified":True,"monolithic_stage7_database_required":False,
    "streaming_union_bounded_disk":True,"groups_1_7_read_only":True,"stage5_read_only":True,
-   "oos_2024_accessed":False,"frozen_ids_hashes_semantics_preserved":True,
+   "oos_2024_accessed":expected_oos,"frozen_ids_hashes_semantics_preserved":True,
    "downstream_compatibility":{
     "logical_table_names_unchanged":True,"logical_columns_unchanged":True,
     "immutable_primary_ids_unchanged":True,"row_hash_contract_unchanged":True,
