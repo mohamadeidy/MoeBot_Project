@@ -95,3 +95,10 @@ The remaining five ICT definitions are measured independently by \`group8_v3_sta
 Annual Stage 7 may not launch from window averages. \`group8_v3_stage7_plan.py\` recomputes exact premium/discount cardinality per bounded-range root and exact school-core cardinality per first mandatory evidence root, then applies the frozen hash-bucket rule. Bucket counts are increased only in powers of two until every guarded raw-shard projection is below the 1.5 GB soft target; the 2.5 GB hard guard remains absolute.
 
 The plan also reconciles exact interpretation totals against the Stage-7 preflight, binds Stage-5/Stage-6/report hashes and the exact Git commit, and verifies projected compressed annual peak storage against the 120 GiB safety floor. A PASS plan still cannot auto-launch Stage 7; explicit user launch remains required.
+
+
+## Annual plan freeze gate
+
+\`group8_v3_stage7_annual_plan.py\` is the non-executing release gate that binds all Stage-7 measurement evidence to the exact Git commit and Stage-5/Stage-6 lineage. It recomputes exact school-core interpretation cardinality per timeframe/root month from read-only upstream tables, verifies that the sum equals the frozen preflight cardinality, selects power-of-two bucket counts from measured bytes-per-row under the frozen 1.5 GB soft target, enforces the 2.5 GB hard guard, and checks projected compressed storage plus one raw shard against the configured safety floor.
+
+A PASS plan permits construction/testing of the annual orchestrator; it does not itself authorize or auto-launch Stage 7.
