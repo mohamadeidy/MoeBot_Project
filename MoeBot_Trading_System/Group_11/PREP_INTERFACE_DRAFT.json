@@ -1,0 +1,22 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "group": 11,
+  "inputs": [
+    "Group 9 setup states",
+    "Group 10 outcomes",
+    "frozen source bars for rendering"
+  ],
+  "outputs": [
+    "visual_recipe",
+    "visual_sample_manifest",
+    "visual_audit_result"
+  ],
+  "accuracy_rules": [
+    "render recipe stores IDs/time window/style/version, not bitmap population",
+    "sampling deterministic and stratified",
+    "visual audit never changes source semantics"
+  ],
+  "physical_contract": "MoeBot_Trading_System/GROUPS_9_15_SHARD_FORMAT_CONTRACT_DRAFT.json",
+  "real_execution_authorized": false
+}

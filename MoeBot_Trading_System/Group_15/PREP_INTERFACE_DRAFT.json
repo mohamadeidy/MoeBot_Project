@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "group": 15,
+  "inputs": [
+    "Group 14 official robustness/edge PASS",
+    "frozen policy artifact",
+    "broker/MT5 execution interface"
+  ],
+  "outputs": [
+    "execution_event",
+    "order_intent",
+    "fill_audit",
+    "risk_reservation",
+    "health_event",
+    "demo_validation",
+    "live_release_manifest"
+  ],
+  "accuracy_rules": [
+    "demo before gradual live",
+    "catastrophic risk controls immutable in-session",
+    "broker fill/slippage audited",
+    "live policy cannot self-modify without governance"
+  ],
+  "physical_contract": "MoeBot_Trading_System/GROUPS_9_15_SHARD_FORMAT_CONTRACT_DRAFT.json",
+  "real_execution_authorized": false
+}
