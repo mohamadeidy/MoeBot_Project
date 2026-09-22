@@ -1,0 +1,70 @@
+{
+  "format_version": 1,
+  "status": "PREPARATION_IN_PROGRESS",
+  "branch": "groups9-15-preparation-v1",
+  "shared": {
+    "architecture": "PASS_DRAFTED",
+    "storage_runtime_contract": "PASS_DRAFTED",
+    "shard_format": "PASS_DRAFTED",
+    "dependency_gate": "IMPLEMENTED_DRAFT",
+    "resource_gate": "IMPLEMENTED_DRAFT",
+    "shared_shard_runtime": "IMPLEMENTED_DRAFT",
+    "compact_manifest_catalog": "IMPLEMENTED_DRAFT"
+  },
+  "groups": {
+    "9": {
+      "scope": "DRAFTED",
+      "schema": "DRAFTED",
+      "input_contract": "DRAFTED",
+      "preflight": "IMPLEMENTED_DRAFT",
+      "synthetic_schema_test": "IMPLEMENTED",
+      "definition_freeze": "BLOCKED_ON_GROUP8_CLOSURE_AND_CHECKPOINT3",
+      "executor": "PENDING"
+    },
+    "10": {
+      "scope": "DRAFTED",
+      "schema": "DRAFTED",
+      "interface": "DRAFTED",
+      "definitions": "PENDING",
+      "preflight": "PENDING",
+      "executor": "PENDING"
+    },
+    "11": {
+      "scope": "DRAFTED",
+      "schema": "DRAFTED",
+      "interface": "DRAFTED",
+      "visual_storage_policy": "DRAFTED",
+      "renderer": "PENDING",
+      "audit_sampler": "PENDING"
+    },
+    "12": {
+      "scope": "DRAFTED",
+      "schema": "DRAFTED",
+      "interface": "DRAFTED",
+      "discovery_protocol": "PENDING",
+      "confirmation_split": "PENDING"
+    },
+    "13": {
+      "scope": "DRAFTED",
+      "schema": "DRAFTED",
+      "interface": "DRAFTED",
+      "policy_training_protocol": "PENDING",
+      "final_holdout_lock": "PENDING"
+    },
+    "14": {
+      "scope": "DRAFTED",
+      "schema": "DRAFTED",
+      "interface": "DRAFTED",
+      "holdout_policy": "DRAFTED",
+      "validation_harness": "PENDING"
+    },
+    "15": {
+      "scope": "DRAFTED",
+      "schema": "DRAFTED",
+      "interface": "DRAFTED",
+      "execution_safety_contract": "DRAFTED",
+      "mt5_bridge": "PENDING"
+    }
+  },
+  "real_execution_authorized": false
+}
