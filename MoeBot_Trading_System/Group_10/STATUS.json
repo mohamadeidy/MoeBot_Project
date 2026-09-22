@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "group": 10,
+  "name": "Outcome & Counterfactual Intelligence",
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "preparation_complete": false,
+  "real_execution_authorized": false,
+  "purpose": "Post-availability outcomes, MFE/MAE, time-to-event, transaction-cost-aware alternatives and counterfactual paths.",
+  "forbidden": [
+    "future_information_in_setup_features",
+    "live_execution",
+    "policy_optimization"
+  ],
+  "predecessor_group": 9,
+  "free_only": true,
+  "storage_mode": "SHARD_NATIVE_STREAMING",
+  "c_drive_role": "ACTIVE_CACHE_ONLY",
+  "preferred_vault_root": "D:\\MoeBotVault",
+  "next_preparation_steps": [
+    "definition_registry",
+    "schema_draft",
+    "input_contract",
+    "sizing_harness",
+    "synthetic_tests",
+    "orchestrator_skeleton"
+  ]
+}

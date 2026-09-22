@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "group": 9,
+  "name": "Setup State Intelligence",
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "preparation_complete": false,
+  "real_execution_authorized": false,
+  "purpose": "Causal setup lifecycle recognition: forming, ready, failed, missing/invalidated; links context, location, liquidity, displacement, structure, POI, retracement, confirmation.",
+  "forbidden": [
+    "trade_policy_learning",
+    "broker_execution",
+    "future_outcome_join_into_setup_state"
+  ],
+  "predecessor_group": 8,
+  "free_only": true,
+  "storage_mode": "SHARD_NATIVE_STREAMING",
+  "c_drive_role": "ACTIVE_CACHE_ONLY",
+  "preferred_vault_root": "D:\\MoeBotVault",
+  "next_preparation_steps": [
+    "definition_registry",
+    "schema_draft",
+    "input_contract",
+    "sizing_harness",
+    "synthetic_tests",
+    "orchestrator_skeleton"
+  ]
+}

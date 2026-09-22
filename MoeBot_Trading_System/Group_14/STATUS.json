@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "group": 14,
+  "name": "Final Validation & Robustness",
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "preparation_complete": false,
+  "real_execution_authorized": false,
+  "purpose": "Untouched holdout, walk-forward, robustness, stress, Monte Carlo, costs/slippage sensitivity, and failure analysis.",
+  "forbidden": [
+    "training_on_final_holdout",
+    "policy_mutation_after_holdout_without_reset",
+    "live_execution"
+  ],
+  "predecessor_group": 13,
+  "free_only": true,
+  "storage_mode": "SHARD_NATIVE_STREAMING",
+  "c_drive_role": "ACTIVE_CACHE_ONLY",
+  "preferred_vault_root": "D:\\MoeBotVault",
+  "next_preparation_steps": [
+    "definition_registry",
+    "schema_draft",
+    "input_contract",
+    "sizing_harness",
+    "synthetic_tests",
+    "orchestrator_skeleton"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "group": 15,
+  "name": "Live Execution & Integration",
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "preparation_complete": false,
+  "real_execution_authorized": false,
+  "purpose": "Frozen validated policy integration with MT5/broker execution, sizing, catastrophic safety, fill/slippage audit, monitoring, recovery; demo then gradual live.",
+  "forbidden": [
+    "live_before_group14_pass",
+    "self_modifying_live_policy_without_governance",
+    "bypass_catastrophic_safety"
+  ],
+  "predecessor_group": 14,
+  "free_only": true,
+  "storage_mode": "SHARD_NATIVE_STREAMING",
+  "c_drive_role": "ACTIVE_CACHE_ONLY",
+  "preferred_vault_root": "D:\\MoeBotVault",
+  "next_preparation_steps": [
+    "definition_registry",
+    "schema_draft",
+    "input_contract",
+    "sizing_harness",
+    "synthetic_tests",
+    "orchestrator_skeleton"
+  ]
+}

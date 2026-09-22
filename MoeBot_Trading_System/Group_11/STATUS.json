@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "group": 11,
+  "name": "Visual Dataset & Audit",
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "preparation_complete": false,
+  "real_execution_authorized": false,
+  "purpose": "Deterministic chart-linked render recipes, representative visual samples, and broad audit coverage.",
+  "forbidden": [
+    "render_every_row",
+    "retain_full_population_screenshots",
+    "change_upstream_semantics"
+  ],
+  "predecessor_group": 10,
+  "free_only": true,
+  "storage_mode": "SHARD_NATIVE_STREAMING",
+  "c_drive_role": "ACTIVE_CACHE_ONLY",
+  "preferred_vault_root": "D:\\MoeBotVault",
+  "next_preparation_steps": [
+    "definition_registry",
+    "schema_draft",
+    "input_contract",
+    "sizing_harness",
+    "synthetic_tests",
+    "orchestrator_skeleton"
+  ]
+}
