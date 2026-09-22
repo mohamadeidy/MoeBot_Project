@@ -43,6 +43,7 @@ jobs:
           python -m py_compile MoeBot_Trading_System/Group_13/code/group13_policy_guard.py
           python -m py_compile MoeBot_Trading_System/Group_14/code/group14_holdout_guard.py
           python -m py_compile MoeBot_Trading_System/Group_15/code/group15_risk_gate.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/finalize_preparation.py
       - name: Preparation contract tests
         run: |
           python MoeBot_Trading_System/groups9_15_shared/tests/test_preparation_contract.py
@@ -55,3 +56,16 @@ jobs:
           python MoeBot_Trading_System/groups9_15_shared/tests/test_synthetic_pipeline.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_group9_adapter.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_group_algorithms.py
+      - name: Preparation-only finalizer
+        run: |
+          python MoeBot_Trading_System/groups9_15_shared/finalize_preparation.py \
+            --root MoeBot_Trading_System \
+            --output "$RUNNER_TEMP/groups9_15_preparation_final.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"groups9_15_preparation_final.json"
+          r=json.loads(p.read_text())
+          assert r["status"]=="PASS_PREPARATION_ONLY", r
+          assert r["real_execution_authorized"] is False, r
+          PY
