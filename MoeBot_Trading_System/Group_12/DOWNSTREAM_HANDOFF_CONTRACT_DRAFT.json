@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "source_group": 12,
+  "target_group": 13,
+  "status": "DRAFT_PREPARATION",
+  "required_artifacts": [
+    "confirmed/rejected relation registry",
+    "feature schema",
+    "partition identities",
+    "provenance",
+    "stability metrics",
+    "manifest hashes"
+  ],
+  "publication_rules": [
+    "source group officially closed",
+    "streaming union PASS",
+    "release manifest self-hash valid",
+    "large retained archives hash-verified",
+    "all source IDs immutable"
+  ],
+  "consumption_policy": {
+    "read_only": true,
+    "selective_shard_access": true,
+    "preserve_source_ids": true,
+    "repartition_physical_only": true
+  }
+}

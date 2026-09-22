@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "group": 13,
+  "name": "Policy Learning",
+  "status": "DRAFT_PREPARATION",
+  "real_execution_authorized": false,
+  "purpose": "Learn candidate decision policies over frozen Groups 9-12 evidence using explicit action vocabulary while keeping the final holdout inaccessible.",
+  "predecessor_gates": [
+    "GROUP12_OFFICIALLY_CLOSED"
+  ],
+  "required_inputs": [
+    "Group9 setup states",
+    "Group10 outcomes",
+    "Group11 audit quality",
+    "Group12 confirmed discovery evidence",
+    "frozen train/validation split"
+  ],
+  "outputs": [
+    "policy_candidate",
+    "policy_decision_trace",
+    "policy_training_manifest"
+  ],
+  "semantic_rules": [
+    "actions limited to WAIT/BUY/SELL/HOLD/EXIT unless explicitly re-frozen",
+    "final holdout inaccessible",
+    "training and validation partitions frozen before fit",
+    "policy candidate immutable once submitted to Group14",
+    "objective includes growth and risk evidence rather than preservation-only"
+  ],
+  "forbidden": [
+    "broker execution",
+    "final holdout access",
+    "silent policy mutation"
+  ],
+  "partition_strategy": {
+    "keys": [
+      "training_partition",
+      "symbol",
+      "timeframe",
+      "subject_id_hash_bucket"
+    ],
+    "strategy": "feature batches are shard-native; model artifacts compact and centrally versioned"
+  },
+  "execution_stages": [
+    "dependency_intake",
+    "action_objective_freeze",
+    "train_validation_freeze",
+    "feature_inventory",
+    "benchmark",
+    "sizing_gate",
+    "candidate_training",
+    "validation",
+    "policy_selection_protocol",
+    "policy_freeze",
+    "handoff"
+  ],
+  "sizing_policy": {
+    "representative_benchmark_required": true,
+    "exact_candidate_inventory_required": true,
+    "target_major_stage_hours": 24,
+    "hard_block_hours": 48,
+    "c_free_floor_gib": 120,
+    "raw_shard_soft_bytes": 1500000000,
+    "raw_shard_hard_bytes": 2500000000
+  },
+  "handoff": {
+    "required_artifacts": [
+      "frozen policy artifact/hash",
+      "training manifest",
+      "decision trace sample/index",
+      "validation metrics",
+      "feature schema identities",
+      "no-holdout-access proof"
+    ],
+    "read_only_consumption": true,
+    "hash_bound": true
+  }
+}

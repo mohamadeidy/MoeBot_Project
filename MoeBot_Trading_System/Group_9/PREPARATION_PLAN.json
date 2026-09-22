@@ -1,0 +1,80 @@
+{
+  "format_version": 1,
+  "group": 9,
+  "name": "Setup State Intelligence",
+  "status": "DRAFT_PREPARATION",
+  "real_execution_authorized": false,
+  "purpose": "Construct causal setup lifecycles from frozen upstream context/structure/liquidity/POI evidence without learning a trade policy.",
+  "predecessor_gates": [
+    "GROUP8_OFFICIALLY_CLOSED",
+    "GROUP8_CHECKPOINT_3_PASS"
+  ],
+  "required_inputs": [
+    "Group8 frozen shard catalog",
+    "context interpretations",
+    "liquidity/structure/POI evidence",
+    "event_time",
+    "availability_time"
+  ],
+  "outputs": [
+    "setup_instance",
+    "setup_component_evidence",
+    "setup_transition"
+  ],
+  "semantic_rules": [
+    "state transitions must be causal at availability_time",
+    "future outcome data forbidden",
+    "deterministic setup IDs",
+    "FORMING/READY/FAILED/MISSING/INVALIDATED vocabulary",
+    "repartitioning cannot change logical IDs"
+  ],
+  "forbidden": [
+    "trade policy learning",
+    "broker execution",
+    "future outcome joins"
+  ],
+  "partition_strategy": {
+    "keys": [
+      "year",
+      "symbol",
+      "timeframe",
+      "root_month",
+      "setup_id_hash_bucket"
+    ],
+    "strategy": "hash setup root identity inside bounded temporal scope"
+  },
+  "execution_stages": [
+    "dependency_intake",
+    "candidate_inventory",
+    "representative_benchmark",
+    "sizing_gate",
+    "shard_plan",
+    "setup_state_materialization",
+    "shard_validation",
+    "streaming_union",
+    "annual_release",
+    "cross_year_audit",
+    "closure"
+  ],
+  "sizing_policy": {
+    "representative_benchmark_required": true,
+    "exact_candidate_inventory_required": true,
+    "target_major_stage_hours": 24,
+    "hard_block_hours": 48,
+    "c_free_floor_gib": 120,
+    "raw_shard_soft_bytes": 1500000000,
+    "raw_shard_hard_bytes": 2500000000
+  },
+  "handoff": {
+    "required_artifacts": [
+      "immutable setup lifecycle rows",
+      "component evidence links",
+      "transition rows",
+      "manifest hashes",
+      "availability boundaries",
+      "global logical fingerprint"
+    ],
+    "read_only_consumption": true,
+    "hash_bound": true
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "group": 11,
+  "name": "Visual Dataset & Audit",
+  "status": "DRAFT_NOT_FROZEN",
+  "purpose": "Provide deterministic chart-linked visual audit coverage using compact render recipes and bounded representative renders rather than a bitmap for every row.",
+  "semantic_rules": [
+    "population artifact is recipe metadata not screenshots",
+    "sampling deterministic stratified and reproducible",
+    "renders reconstructable",
+    "visual findings cannot mutate upstream semantics",
+    "canonical examples explicitly flagged"
+  ],
+  "forbidden": [
+    "render full population",
+    "retain reconstructable bitmap population",
+    "semantic edits to Groups9-10"
+  ],
+  "thresholds_frozen": false,
+  "freeze_requirements": [
+    "predecessor official closure",
+    "upstream handoff integrity PASS",
+    "causality review PASS",
+    "synthetic parity/idempotence PASS",
+    "representative sizing PASS"
+  ],
+  "note": "Definitions are deliberately draft until predecessor evidence is closed; physical preparation may proceed now."
+}

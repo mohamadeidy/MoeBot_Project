@@ -1,0 +1,81 @@
+{
+  "format_version": 1,
+  "group": 15,
+  "name": "Live Execution & Integration",
+  "status": "DRAFT_PREPARATION",
+  "real_execution_authorized": false,
+  "purpose": "Integrate the frozen validated policy with demo then gradual live broker execution, preserving catastrophic safety, reconciliation and immutable audit.",
+  "predecessor_gates": [
+    "GROUP14_OFFICIAL_ROBUSTNESS_EDGE_PASS"
+  ],
+  "required_inputs": [
+    "Group14 official PASS",
+    "frozen policy artifact",
+    "MT5/broker adapter",
+    "symbol/account constraints",
+    "risk ceiling"
+  ],
+  "outputs": [
+    "order_intent",
+    "risk_reservation",
+    "execution_event",
+    "fill_audit",
+    "health_event",
+    "demo_validation",
+    "live_release_manifest"
+  ],
+  "semantic_rules": [
+    "demo before gradual live",
+    "risk reservation precedes order",
+    "all fills/rejects/slippage reconciled",
+    "catastrophic safety cannot be bypassed by policy",
+    "live process may diagnose but cannot self-modify trading semantics"
+  ],
+  "forbidden": [
+    "live capital before demo pass",
+    "silent self-modifying policy",
+    "risk ceiling bypass"
+  ],
+  "partition_strategy": {
+    "keys": [
+      "deployment_mode",
+      "account_id_hash",
+      "symbol",
+      "event_day"
+    ],
+    "strategy": "append-only execution event shards with compact account-state checkpoints"
+  },
+  "execution_stages": [
+    "dependency_intake",
+    "adapter_conformance",
+    "paper_replay",
+    "demo_deployment",
+    "demo_execution_audit",
+    "deployment_gate",
+    "gradual_live",
+    "continuous_reconciliation",
+    "incident_recovery",
+    "release"
+  ],
+  "sizing_policy": {
+    "representative_benchmark_required": true,
+    "exact_candidate_inventory_required": true,
+    "target_major_stage_hours": 24,
+    "hard_block_hours": 48,
+    "c_free_floor_gib": 120,
+    "raw_shard_soft_bytes": 1500000000,
+    "raw_shard_hard_bytes": 2500000000
+  },
+  "handoff": {
+    "required_artifacts": [
+      "live release manifest",
+      "policy identity",
+      "broker adapter identity",
+      "risk configuration",
+      "execution/fill audit",
+      "health/recovery evidence"
+    ],
+    "read_only_consumption": true,
+    "hash_bound": true
+  }
+}
