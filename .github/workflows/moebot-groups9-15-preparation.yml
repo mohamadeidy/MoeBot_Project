@@ -35,6 +35,14 @@ jobs:
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_executor.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_union_validator.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_handoff.py
+          python -m py_compile MoeBot_Trading_System/Group_9/code/group9_group8_adapter_probe.py
+          python -m py_compile MoeBot_Trading_System/Group_9/code/group9_causal_core.py
+          python -m py_compile MoeBot_Trading_System/Group_10/code/group10_outcome_math.py
+          python -m py_compile MoeBot_Trading_System/Group_11/code/group11_visual_recipe.py
+          python -m py_compile MoeBot_Trading_System/Group_12/code/group12_partition_guard.py
+          python -m py_compile MoeBot_Trading_System/Group_13/code/group13_policy_guard.py
+          python -m py_compile MoeBot_Trading_System/Group_14/code/group14_holdout_guard.py
+          python -m py_compile MoeBot_Trading_System/Group_15/code/group15_risk_gate.py
       - name: Preparation contract tests
         run: |
           python MoeBot_Trading_System/groups9_15_shared/tests/test_preparation_contract.py
@@ -45,3 +53,5 @@ jobs:
           python MoeBot_Trading_System/groups9_15_shared/tests/test_group_framework.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_semantic_contracts.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_synthetic_pipeline.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_group9_adapter.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_group_algorithms.py
