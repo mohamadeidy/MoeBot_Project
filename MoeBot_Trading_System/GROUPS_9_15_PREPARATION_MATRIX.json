@@ -1,70 +1,73 @@
 {
-  "format_version": 1,
-  "status": "PREPARATION_IN_PROGRESS",
+  "format_version": 2,
+  "status": "PASS_PREPARATION_ONLY",
   "branch": "groups9-15-preparation-v1",
+  "real_execution_authorized": false,
   "shared": {
-    "architecture": "PASS_DRAFTED",
-    "storage_runtime_contract": "PASS_DRAFTED",
-    "shard_format": "PASS_DRAFTED",
-    "dependency_gate": "IMPLEMENTED_DRAFT",
-    "resource_gate": "IMPLEMENTED_DRAFT",
-    "shared_shard_runtime": "IMPLEMENTED_DRAFT",
-    "compact_manifest_catalog": "IMPLEMENTED_DRAFT"
+    "architecture": "PREPARED",
+    "storage_runtime_contract": "PREPARED",
+    "shard_format": "PREPARED_DRAFT",
+    "dependency_gate": "IMPLEMENTED",
+    "resource_gate": "IMPLEMENTED",
+    "sizing_gate": "IMPLEMENTED",
+    "shared_shard_runtime": "IMPLEMENTED",
+    "compact_manifest_catalog": "IMPLEMENTED",
+    "deterministic_planner": "IMPLEMENTED",
+    "resumable_executor": "IMPLEMENTED",
+    "streaming_union_validator": "IMPLEMENTED",
+    "handoff_builder": "IMPLEMENTED",
+    "ci": "ACTIVE"
   },
   "groups": {
     "9": {
-      "scope": "DRAFTED",
+      "infrastructure": "PREPARED",
       "schema": "DRAFTED",
-      "input_contract": "DRAFTED",
-      "preflight": "IMPLEMENTED_DRAFT",
-      "synthetic_schema_test": "IMPLEMENTED",
-      "definition_freeze": "BLOCKED_ON_GROUP8_CLOSURE_AND_CHECKPOINT3",
-      "executor": "PENDING"
+      "definitions": "DRAFTED",
+      "adapter_probe": "IMPLEMENTED",
+      "causal_core": "IMPLEMENTED",
+      "semantic_executor": "BLOCKED_ON_FINAL_GROUP8_EVIDENCE"
     },
     "10": {
-      "scope": "DRAFTED",
+      "infrastructure": "PREPARED",
       "schema": "DRAFTED",
-      "interface": "DRAFTED",
-      "definitions": "PENDING",
-      "preflight": "PENDING",
-      "executor": "PENDING"
+      "definitions": "DRAFTED",
+      "outcome_math": "IMPLEMENTED",
+      "semantic_executor": "BLOCKED_ON_GROUP9_CLOSURE_AND_FREEZE"
     },
     "11": {
-      "scope": "DRAFTED",
+      "infrastructure": "PREPARED",
       "schema": "DRAFTED",
-      "interface": "DRAFTED",
-      "visual_storage_policy": "DRAFTED",
-      "renderer": "PENDING",
-      "audit_sampler": "PENDING"
+      "definitions": "DRAFTED",
+      "recipe_sampling": "IMPLEMENTED",
+      "renderer": "BLOCKED_ON_RENDERER_FREEZE"
     },
     "12": {
-      "scope": "DRAFTED",
+      "infrastructure": "PREPARED",
       "schema": "DRAFTED",
-      "interface": "DRAFTED",
-      "discovery_protocol": "PENDING",
-      "confirmation_split": "PENDING"
+      "definitions": "DRAFTED",
+      "partition_guard": "IMPLEMENTED",
+      "discovery_executor": "BLOCKED_ON_METHOD_PROTOCOL_FREEZE"
     },
     "13": {
-      "scope": "DRAFTED",
+      "infrastructure": "PREPARED",
       "schema": "DRAFTED",
-      "interface": "DRAFTED",
-      "policy_training_protocol": "PENDING",
-      "final_holdout_lock": "PENDING"
+      "definitions": "DRAFTED",
+      "holdout_split_guard": "IMPLEMENTED",
+      "training_executor": "BLOCKED_ON_OBJECTIVE_MODEL_FREEZE"
     },
     "14": {
-      "scope": "DRAFTED",
+      "infrastructure": "PREPARED",
       "schema": "DRAFTED",
-      "interface": "DRAFTED",
-      "holdout_policy": "DRAFTED",
-      "validation_harness": "PENDING"
+      "definitions": "DRAFTED",
+      "holdout_identity_guard": "IMPLEMENTED",
+      "validation_executor": "BLOCKED_ON_FINAL_HOLDOUT_FREEZE"
     },
     "15": {
-      "scope": "DRAFTED",
+      "infrastructure": "PREPARED",
       "schema": "DRAFTED",
-      "interface": "DRAFTED",
-      "execution_safety_contract": "DRAFTED",
-      "mt5_bridge": "PENDING"
+      "definitions": "DRAFTED",
+      "risk_deployment_gate": "IMPLEMENTED",
+      "broker_executor": "BLOCKED_ON_GROUP14_PASS_AND_BROKER_ENV"
     }
-  },
-  "real_execution_authorized": false
+  }
 }
