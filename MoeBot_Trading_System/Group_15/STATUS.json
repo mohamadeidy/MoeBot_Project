@@ -1,27 +1,29 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "group": 15,
   "name": "Live Execution & Integration",
-  "status": "PREPARED_NOT_AUTHORIZED",
-  "preparation_complete": false,
+  "status": "PREPARATION_BASELINE_COMPLETE_WAITING_GATES",
+  "preparation_baseline_complete": true,
+  "semantic_freeze_complete": false,
   "real_execution_authorized": false,
-  "purpose": "Frozen validated policy integration with MT5/broker execution, sizing, catastrophic safety, fill/slippage audit, monitoring, recovery; demo then gradual live.",
-  "forbidden": [
-    "live_before_group14_pass",
-    "self_modifying_live_policy_without_governance",
-    "bypass_catastrophic_safety"
-  ],
   "predecessor_group": 14,
+  "remaining_gates": [
+    "GROUP14_OFFICIAL_ROBUSTNESS_EDGE_PASS",
+    "GROUP15_BROKER_RISK_CONFIG_FREEZE",
+    "DEMO_PASS_BEFORE_LIVE"
+  ],
   "free_only": true,
   "storage_mode": "SHARD_NATIVE_STREAMING",
   "c_drive_role": "ACTIVE_CACHE_ONLY",
   "preferred_vault_root": "D:\\MoeBotVault",
-  "next_preparation_steps": [
-    "definition_registry",
-    "schema_draft",
-    "input_contract",
-    "sizing_harness",
-    "synthetic_tests",
-    "orchestrator_skeleton"
-  ]
+  "prepared_components": [
+    "scope",
+    "draft_schema",
+    "draft_definitions",
+    "upstream_contract",
+    "downstream_handoff_contract",
+    "shared_sizing_preflight_planner_executor_union_framework",
+    "synthetic_ci"
+  ],
+  "note": "Baseline preparation is complete and CI validated. Real-data execution and final semantic freeze remain fail-closed until listed gates are satisfied."
 }

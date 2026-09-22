@@ -1,27 +1,29 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "group": 14,
   "name": "Final Validation & Robustness",
-  "status": "PREPARED_NOT_AUTHORIZED",
-  "preparation_complete": false,
+  "status": "PREPARATION_BASELINE_COMPLETE_WAITING_GATES",
+  "preparation_baseline_complete": true,
+  "semantic_freeze_complete": false,
   "real_execution_authorized": false,
-  "purpose": "Untouched holdout, walk-forward, robustness, stress, Monte Carlo, costs/slippage sensitivity, and failure analysis.",
-  "forbidden": [
-    "training_on_final_holdout",
-    "policy_mutation_after_holdout_without_reset",
-    "live_execution"
-  ],
   "predecessor_group": 13,
+  "remaining_gates": [
+    "GROUP13_OFFICIALLY_CLOSED",
+    "FINAL_UNTOUCHED_HOLDOUT_PLAN_FROZEN",
+    "GROUP14_VALIDATION_PROTOCOL_FREEZE"
+  ],
   "free_only": true,
   "storage_mode": "SHARD_NATIVE_STREAMING",
   "c_drive_role": "ACTIVE_CACHE_ONLY",
   "preferred_vault_root": "D:\\MoeBotVault",
-  "next_preparation_steps": [
-    "definition_registry",
-    "schema_draft",
-    "input_contract",
-    "sizing_harness",
-    "synthetic_tests",
-    "orchestrator_skeleton"
-  ]
+  "prepared_components": [
+    "scope",
+    "draft_schema",
+    "draft_definitions",
+    "upstream_contract",
+    "downstream_handoff_contract",
+    "shared_sizing_preflight_planner_executor_union_framework",
+    "synthetic_ci"
+  ],
+  "note": "Baseline preparation is complete and CI validated. Real-data execution and final semantic freeze remain fail-closed until listed gates are satisfied."
 }
