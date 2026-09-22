@@ -29,6 +29,12 @@ jobs:
           python -m py_compile MoeBot_Trading_System/Group_9/code/group9_preflight.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/shard_runtime.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/manifest_catalog.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_sizing.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_preflight.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_shard_planner.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_executor.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_union_validator.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_handoff.py
       - name: Preparation contract tests
         run: |
           python MoeBot_Trading_System/groups9_15_shared/tests/test_preparation_contract.py
@@ -36,3 +42,6 @@ jobs:
           python MoeBot_Trading_System/groups9_15_shared/tests/test_shard_runtime.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_all_draft_schemas.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_manifest_catalog.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_group_framework.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_semantic_contracts.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_synthetic_pipeline.py
