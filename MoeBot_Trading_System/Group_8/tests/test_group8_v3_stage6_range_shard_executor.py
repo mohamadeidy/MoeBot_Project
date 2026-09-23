@@ -12,7 +12,7 @@ from group8_annual_core_driver import AnnualCoreEngine
 from group8_segmented_annual_core import run_segment
 from group8_v3_stage6_preflight import _git_head, run_preflight
 from group8_v3_stage6_orchestrator import run_plan
-from group8_v3_stage6_union_validator import validate_union
+from group8_v3_stage6_union_validator import _validate_stage7_release_gate, validate_union
 from group8_v3_stage6_range_shard_executor import (
     RangeShardSpec,
     STAGE6_DEFINITIONS,
@@ -86,6 +86,38 @@ def range_specs(stage5: Path, year: int, bucket_count: int) -> list[RangeShardSp
 
 
 class Group8V3Stage6RangeShardTests(unittest.TestCase):
+    def test_stage6_union_gate_distinguishes_2023_and_frozen_2024_oos(self):
+        self.assertEqual(
+            _validate_stage7_release_gate(
+                {"year": 2023, "stage7_auto_launch": False, "stage7_authorized": False}
+            ),
+            (2023, False),
+        )
+        self.assertEqual(
+            _validate_stage7_release_gate(
+                {
+                    "year": 2024,
+                    "oos": True,
+                    "stage7_auto_launch": False,
+                    "stage7_authorized": True,
+                }
+            ),
+            (2024, True),
+        )
+        with self.assertRaises(RuntimeError):
+            _validate_stage7_release_gate(
+                {
+                    "year": 2024,
+                    "oos": True,
+                    "stage7_auto_launch": False,
+                    "stage7_authorized": False,
+                }
+            )
+        with self.assertRaises(RuntimeError):
+            _validate_stage7_release_gate(
+                {"year": 2023, "stage7_auto_launch": False, "stage7_authorized": True}
+            )
+
     def _build_stage5(self, td: Path) -> tuple[Path, Path]:
         staging = td / "stage.sqlite"
         stage5 = td / "stage5.sqlite"
