@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "group": 13,
+  "name": "Policy Learning",
+  "status": "DRAFT_NOT_FROZEN",
+  "purpose": "Learn candidate decision policies over frozen Groups 9-12 evidence using explicit action vocabulary while keeping the final holdout inaccessible.",
+  "semantic_rules": [
+    "actions limited to WAIT/BUY/SELL/HOLD/EXIT unless explicitly re-frozen",
+    "final holdout inaccessible",
+    "training and validation partitions frozen before fit",
+    "policy candidate immutable once submitted to Group14",
+    "objective includes growth and risk evidence rather than preservation-only"
+  ],
+  "forbidden": [
+    "broker execution",
+    "final holdout access",
+    "silent policy mutation"
+  ],
+  "thresholds_frozen": false,
+  "freeze_requirements": [
+    "predecessor official closure",
+    "upstream handoff integrity PASS",
+    "causality review PASS",
+    "synthetic parity/idempotence PASS",
+    "representative sizing PASS"
+  ],
+  "note": "Definitions are deliberately draft until predecessor evidence is closed; physical preparation may proceed now."
+}

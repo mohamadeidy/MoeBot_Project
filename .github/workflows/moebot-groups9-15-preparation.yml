@@ -1,0 +1,71 @@
+name: MoeBot Groups 9-15 Preparation Validation
+on:
+  push:
+    branches: [ "groups9-15-preparation-v1" ]
+    paths:
+      - "MoeBot_Trading_System/GROUPS_9_15_*"
+      - "MoeBot_Trading_System/groups9_15_shared/**"
+      - "MoeBot_Trading_System/Group_9/**"
+      - "MoeBot_Trading_System/Group_10/**"
+      - "MoeBot_Trading_System/Group_11/**"
+      - "MoeBot_Trading_System/Group_12/**"
+      - "MoeBot_Trading_System/Group_13/**"
+      - "MoeBot_Trading_System/Group_14/**"
+      - "MoeBot_Trading_System/Group_15/**"
+      - ".github/workflows/moebot-groups9-15-preparation.yml"
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile preparation tooling
+        run: |
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/dependency_gate.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/resource_gate.py
+          python -m py_compile MoeBot_Trading_System/Group_9/code/group9_preflight.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/shard_runtime.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/manifest_catalog.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_sizing.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_preflight.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_shard_planner.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_executor.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_union_validator.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_handoff.py
+          python -m py_compile MoeBot_Trading_System/Group_9/code/group9_group8_adapter_probe.py
+          python -m py_compile MoeBot_Trading_System/Group_9/code/group9_causal_core.py
+          python -m py_compile MoeBot_Trading_System/Group_10/code/group10_outcome_math.py
+          python -m py_compile MoeBot_Trading_System/Group_11/code/group11_visual_recipe.py
+          python -m py_compile MoeBot_Trading_System/Group_12/code/group12_partition_guard.py
+          python -m py_compile MoeBot_Trading_System/Group_13/code/group13_policy_guard.py
+          python -m py_compile MoeBot_Trading_System/Group_14/code/group14_holdout_guard.py
+          python -m py_compile MoeBot_Trading_System/Group_15/code/group15_risk_gate.py
+          python -m py_compile MoeBot_Trading_System/groups9_15_shared/finalize_preparation.py
+      - name: Preparation contract tests
+        run: |
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_preparation_contract.py
+          python MoeBot_Trading_System/Group_9/tests/test_group9_schema.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_shard_runtime.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_all_draft_schemas.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_manifest_catalog.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_group_framework.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_semantic_contracts.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_synthetic_pipeline.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_group9_adapter.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_group_algorithms.py
+      - name: Preparation-only finalizer
+        run: |
+          python MoeBot_Trading_System/groups9_15_shared/finalize_preparation.py \
+            --root MoeBot_Trading_System \
+            --output "$RUNNER_TEMP/groups9_15_preparation_final.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"groups9_15_preparation_final.json"
+          r=json.loads(p.read_text())
+          assert r["status"]=="PASS_PREPARATION_ONLY", r
+          assert r["real_execution_authorized"] is False, r
+          PY

@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "group": 13,
+  "status": "DRAFT_PREPARATION",
+  "predecessor_group": 12,
+  "required_gates": [
+    "GROUP12_OFFICIALLY_CLOSED"
+  ],
+  "required_inputs": [
+    "Group9 setup states",
+    "Group10 outcomes",
+    "Group11 audit quality",
+    "Group12 confirmed discovery evidence",
+    "frozen train/validation split"
+  ],
+  "consumption_policy": {
+    "read_only": true,
+    "selective_shard_access": true,
+    "selective_columns": true,
+    "preserve_source_ids": true,
+    "full_history_copy_forbidden": true
+  },
+  "required_preflight": [
+    "predecessor closure hash valid",
+    "definition registry FROZEN",
+    "preparation plan FROZEN",
+    "exact candidate inventory",
+    "representative sizing PASS",
+    "resource gate PASS",
+    "C free-space floor preserved"
+  ],
+  "real_execution_authorized": false
+}

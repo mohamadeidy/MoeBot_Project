@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "group": 10,
+  "name": "Outcome & Counterfactual Intelligence",
+  "status": "DRAFT_NOT_FROZEN",
+  "purpose": "Measure post-availability path outcomes and counterfactuals for frozen Group 9 setup states without contaminating setup construction.",
+  "semantic_rules": [
+    "outcome clock begins no earlier than setup availability",
+    "MFE/MAE horizons are explicit and versioned",
+    "Group9 rows immutable",
+    "counterfactual assumptions versioned",
+    "no policy optimization"
+  ],
+  "forbidden": [
+    "rewrite Group9 setup state",
+    "use post-outcome data as setup feature",
+    "policy learning"
+  ],
+  "thresholds_frozen": false,
+  "freeze_requirements": [
+    "predecessor official closure",
+    "upstream handoff integrity PASS",
+    "causality review PASS",
+    "synthetic parity/idempotence PASS",
+    "representative sizing PASS"
+  ],
+  "note": "Definitions are deliberately draft until predecessor evidence is closed; physical preparation may proceed now."
+}
