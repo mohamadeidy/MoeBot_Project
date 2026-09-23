@@ -226,6 +226,34 @@ def _audit_references(stage5_db: Path, shard_db: Path) -> dict[str, int]:
         con.close()
 
 
+def _validate_stage7_release_gate(release: dict[str, Any]) -> tuple[int, bool]:
+    """Validate the Stage-6 -> Stage-7 authorization contract for 2023 vs frozen 2024 OOS.
+
+    2023 Stage 6 must remain blocked from auto-advancing into Stage 7 because Stage 7
+    requires its separate annual preflight/plan gate. Once Annual 2023 is frozen and
+    2024 OOS is explicitly authorized, the OOS Stage 6 release is allowed to authorize
+    Stage 7 while still forbidding automatic launch outside the continuation supervisor.
+    """
+    year = int(release.get("year", 0))
+    auto_launch = release.get("stage7_auto_launch")
+    authorized = release.get("stage7_authorized")
+    if auto_launch is not False:
+        raise RuntimeError("Stage 6 release improperly enables Stage 7 auto-launch")
+    if year == 2023:
+        if bool(release.get("oos", False)):
+            raise RuntimeError("2023 Stage 6 release unexpectedly marked OOS")
+        if authorized is not False:
+            raise RuntimeError("2023 Stage 6 release improperly authorizes Stage 7")
+        return year, False
+    if year == 2024:
+        if release.get("oos") is not True:
+            raise RuntimeError("2024 Stage 6 release missing frozen OOS identity")
+        if authorized is not True:
+            raise RuntimeError("2024 OOS Stage 6 release must authorize frozen Stage 7")
+        return year, True
+    raise RuntimeError(f"unsupported Stage 6 union year: {year}")
+
+
 def validate_union(
     *,
     release_path: Path,
@@ -237,8 +265,7 @@ def validate_union(
     _verify_self_hash(release, "release_hash")
     if release.get("status") != "PASS" or int(release.get("stage", 0)) != 6:
         raise RuntimeError("Stage 6 release is not PASS")
-    if release.get("stage7_authorized") is not False or release.get("stage7_auto_launch") is not False:
-        raise RuntimeError("Stage 6 release improperly authorizes Stage 7")
+    year, oos_2024 = _validate_stage7_release_gate(release)
     if release.get("stage5_database_sha256") != sha256_file(stage5_db):
         raise RuntimeError("Stage 5 boundary hash mismatch at union validation")
 
@@ -406,7 +433,7 @@ def validate_union(
         "scope": "GROUP8_V3_STAGE6_RANGE_CHAIN_UNION",
         "stage": 6,
         "stage_name": "wyckoff_core",
-        "year": release["year"],
+        "year": year,
         "symbol": release["symbol"],
         "validated_commit": release["validated_commit"],
         "stage5_database_sha256": release["stage5_database_sha256"],
@@ -434,8 +461,9 @@ def validate_union(
             "groups_9_15_must_consume_via_shard-aware adapter_or_finalized_union": True,
         },
         "stage6_official_pass_eligible": True,
+        "oos_2024_accessed": oos_2024,
         "stage7_auto_launch": False,
-        "stage7_authorized": False,
+        "stage7_authorized": oos_2024,
     }
     result["report_hash"] = stable_hash(result)
     _atomic_json(output_path, result)
