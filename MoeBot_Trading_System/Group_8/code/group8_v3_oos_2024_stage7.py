@@ -62,7 +62,7 @@ def build_plan(*,staging_db:Path,stage5_db:Path,artifacts_root:Path,freeze_path:
     shards.append({"family":family,"year":2024,"symbol":symbol,"timeframe":tf,"root_month":month,"bucket_count":n,"bucket_index":b,**v})
     if family=="range_chain":ri+=int(v["interpretations"]);re+=int(v["evidence_chain_rows"])
     else:si+=int(v["interpretations"]);se+=int(v["evidence_chain_rows"])
- plan={"format_version":1,"status":"PASS","stage":7,"year":2024,"oos":True,"symbol":symbol,"validated_commit":freeze["validated_commit"],"freeze_manifest_hash":freeze["manifest_hash"],"stage5_database_sha256":sha256_file(stage5_db),"shard_count":len(shards),"range_chain_shard_count":sum(s["family"]=="range_chain" for s in shards),"school_core_shard_count":sum(s["family"]=="school_core" for s in shards),"shards":shards,"expected_cardinality":{"premium_discount_interpretations":ri,"school_core_interpretations":si,"total_stage7_interpretations":ri+si,"evidence_chain_rows":re+se},"bucket_counts_fixed_from_2023":True,"oos_conditioned_bucket_changes":False,"hard_guard_bytes":HARD,"execution_policy":{"one_raw_shard_at_a_time":True,"zstd_level":6,"delete_raw_only_after_roundtrip_sha_match":True}}
+ plan={"format_version":1,"status":"PASS","stage":7,"year":2024,"oos":True,"symbol":symbol,"validated_commit":freeze["validated_commit"],"oos_tooling_commit":freeze["oos_tooling_commit"],"freeze_manifest_hash":freeze["manifest_hash"],"stage5_database_sha256":sha256_file(stage5_db),"shard_count":len(shards),"range_chain_shard_count":sum(s["family"]=="range_chain" for s in shards),"school_core_shard_count":sum(s["family"]=="school_core" for s in shards),"shards":shards,"expected_cardinality":{"premium_discount_interpretations":ri,"school_core_interpretations":si,"total_stage7_interpretations":ri+si,"evidence_chain_rows":re+se},"bucket_counts_fixed_from_2023":True,"oos_conditioned_bucket_changes":False,"hard_guard_bytes":HARD,"execution_policy":{"one_raw_shard_at_a_time":True,"zstd_level":6,"delete_raw_only_after_roundtrip_sha_match":True}}
  plan["plan_hash"]=stable_hash(plan);_atomic(output,plan);return plan
 
 def _run_one(*,staging_db:Path,stage5_db:Path,artifacts_root:Path,freeze:dict[str,Any],s:dict[str,Any],raw:Path,cp:Path,mf:Path,chunk:int)->dict[str,Any]:
@@ -78,7 +78,7 @@ def _run_one(*,staging_db:Path,stage5_db:Path,artifacts_root:Path,freeze:dict[st
 
 def execute(*,plan_path:Path,staging_db:Path,stage5_db:Path,artifacts_root:Path,freeze_path:Path,stage6_release_path:Path,stage6_union_path:Path,output_root:Path,progress_path:Path,release_path:Path,zstd_exe:Path,chunk:int)->dict[str,Any]:
  freeze=verify_freeze(artifacts_root,freeze_path);plan=json.loads(plan_path.read_text());x=dict(plan);ph=x.pop("plan_hash")
- if stable_hash(x)!=ph or plan["freeze_manifest_hash"]!=freeze["manifest_hash"] or plan["stage5_database_sha256"]!=sha256_file(stage5_db):raise RuntimeError("OOS Stage7 plan lineage drift")
+ if stable_hash(x)!=ph or plan["freeze_manifest_hash"]!=freeze["manifest_hash"] or plan.get("oos_tooling_commit")!=freeze["oos_tooling_commit"] or plan["stage5_database_sha256"]!=sha256_file(stage5_db):raise RuntimeError("OOS Stage7 plan lineage drift")
  s6r=json.loads(stage6_release_path.read_text());s6u=json.loads(stage6_union_path.read_text())
  if s6r.get("status")!="PASS" or s6u.get("status")!="PASS" or int(s6r.get("year",0))!=2024:raise RuntimeError("OOS Stage6 not PASS")
  output_root.mkdir(parents=True,exist_ok=True);done=[];started=time.monotonic()
