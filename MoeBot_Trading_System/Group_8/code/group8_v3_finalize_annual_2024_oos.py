@@ -25,7 +25,7 @@ def finalize(*,freeze_path:Path,stage5_db:Path,stage6_release_path:Path,stage6_u
  if s7p.get("status")!="PASS" or s7r.get("status")!="PASS" or s7u.get("status")!="PASS" or s7u.get("stage7_official_pass_eligible") is not True:fail.append("stage7_not_pass")
  if s6r.get("stage5_database_sha256")!=s5 or s6u.get("stage5_database_sha256")!=s5 or s7p.get("stage5_database_sha256")!=s5 or s7r.get("stage5_database_sha256")!=s5 or s7u.get("stage5_database_sha256")!=s5:fail.append("stage5_lineage")
  if s7p.get("freeze_manifest_hash")!=freeze["manifest_hash"] or s7r.get("freeze_manifest_hash")!=freeze["manifest_hash"]:fail.append("freeze_lineage")
- if s6r.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit") or s7p.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit") or s7r.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit"):fail.append("oos_tooling_commit")
+ if s6r.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit") or s6u.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit") or s7p.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit") or s7r.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit") or s7u.get("oos_tooling_commit")!=freeze.get("oos_tooling_commit"):fail.append("oos_tooling_commit")
  if s7u.get("duplicate_domain_id_count")!=0 or s7u.get("unresolved_local_evidence_subject_count")!=0:fail.append("stage7_union_integrity")
  if s6u.get("duplicate_domain_id_count")!=0 or s6u.get("unresolved_group8_reference_count")!=0:fail.append("stage6_union_integrity")
  if s7u.get("oos_2024_accessed") is not True or s7r.get("oos_2024_accessed") is not True:fail.append("oos_access_not_bound")
