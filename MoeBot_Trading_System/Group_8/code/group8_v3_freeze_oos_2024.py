@@ -16,7 +16,7 @@ from moebot_group8_engine_v0_8_0 import sha256_file
 TOOLS=[
 "00_DESIGN_LOCK.md","01_DEFINITION_REGISTRY.json","02_SCHEMA.sql","FROZEN_CONFIG.json",
 "DESIGN_FREEZE_MANIFEST.json","SHARDED_STORAGE_CONTRACT.json","UPSTREAM_ANNUAL_DEPENDENCY_REGISTRY.json",
-"UPSTREAM_ADAPTER_MAP.json","UPSTREAM_VALUE_BINDINGS.json","UPSTREAM_REFERENCE_RESOLUTION.json",
+"UPSTREAM_ADAPTER_MAP.json","UPSTREAM_VALUE_BINDINGS.json","DESIGN_REFERENCE_RESOLUTION.json",
 "code/moebot_group8_engine_v0_8_0.py","code/group8_postprocess_v0_8_0.py","code/group8_materialize_inputs.py",
 "code/group8_segmented_annual_core.py","code/group8_v3_stage6_range_shard_executor.py","code/group8_v3_stage6_preflight.py",
 "code/group8_v3_stage6_union_validator.py","code/group8_v3_stage7_shard_executor.py","code/group8_v3_stage7_plan.py",
