@@ -436,6 +436,7 @@ def validate_union(
         "year": year,
         "symbol": release["symbol"],
         "validated_commit": release["validated_commit"],
+        "oos_tooling_commit": release.get("oos_tooling_commit"),
         "stage5_database_sha256": release["stage5_database_sha256"],
         "stage6_release_hash": release["release_hash"],
         "shard_count": len(shards),
