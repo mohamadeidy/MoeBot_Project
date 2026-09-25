@@ -29,13 +29,13 @@ def build_plan(*,stage5_db:Path,artifacts_root:Path,freeze_path:Path,symbol:str,
   n=_policy(freeze,str(r["timeframe"]),str(r["root_month"]));b=bucket_for_root(str(r["candidate_id"]),n)
   k=(str(r["timeframe"]),str(r["root_month"]),n,b);agg[k]["range_roots"]+=1;agg[k]["range_dow_pairs"]+=int(r["pair_count"])
  specs=[{"timeframe":tf,"root_month":m,"bucket_count":n,"bucket_index":b,**v} for (tf,m,n,b),v in sorted(agg.items())]
- plan={"format_version":1,"status":"PASS","stage":6,"year":2024,"oos":True,"symbol":symbol,"validated_commit":freeze["validated_commit"],"freeze_manifest_hash":freeze["manifest_hash"],"stage5_database_sha256":sha256_file(stage5_db),"specs":specs,"shard_count":len(specs),"inventory":inventory,"chunk_pairs":100,"hard_guard_bytes":HARD,"bucket_counts_fixed_from_2023":True,"oos_conditioned_bucket_changes":False}
+ plan={"format_version":1,"status":"PASS","stage":6,"year":2024,"oos":True,"symbol":symbol,"validated_commit":freeze["validated_commit"],"oos_tooling_commit":freeze["oos_tooling_commit"],"freeze_manifest_hash":freeze["manifest_hash"],"stage5_database_sha256":sha256_file(stage5_db),"specs":specs,"shard_count":len(specs),"inventory":inventory,"chunk_pairs":100,"hard_guard_bytes":HARD,"bucket_counts_fixed_from_2023":True,"oos_conditioned_bucket_changes":False}
  plan["plan_hash"]=stable_hash(plan);_atomic(output,plan);return plan
 
 def execute(*,plan_path:Path,staging_db:Path,stage5_db:Path,artifacts_root:Path,freeze_path:Path,output_root:Path,progress_path:Path,release_path:Path)->dict[str,Any]:
  freeze=verify_freeze(artifacts_root,freeze_path);plan=json.loads(plan_path.read_text());x=dict(plan);saved=x.pop("plan_hash")
  if stable_hash(x)!=saved or plan.get("status")!="PASS" or int(plan.get("year",0))!=2024:raise RuntimeError("invalid OOS Stage6 plan")
- if plan["freeze_manifest_hash"]!=freeze["manifest_hash"] or plan["stage5_database_sha256"]!=sha256_file(stage5_db):raise RuntimeError("OOS Stage6 lineage drift")
+ if plan["freeze_manifest_hash"]!=freeze["manifest_hash"] or plan.get("oos_tooling_commit")!=freeze["oos_tooling_commit"] or plan["stage5_database_sha256"]!=sha256_file(stage5_db):raise RuntimeError("OOS Stage6 lineage drift")
  output_root.mkdir(parents=True,exist_ok=True);completed=[];started=time.monotonic()
  for i,s in enumerate(plan["specs"]):
   stem=f"g8_stage6_2024_{s['timeframe']}_{s['root_month']}_b{int(s['bucket_index']):04d}of{int(s['bucket_count']):04d}"
