@@ -2,9 +2,15 @@
 from __future__ import annotations
 import json,tempfile,unittest
 from pathlib import Path
-from group8_v3_freeze_oos_2024 import TOOLS,_bucket_policy
+from group8_v3_freeze_oos_2024 import TOOLS,_bucket_policy,_lineage_commits
 
 class FreezeRealShapeTests(unittest.TestCase):
+ def test_post_annual_tooling_fix_does_not_rewrite_annual_validated_commit(self):
+  annual_commit,tooling_commit=_lineage_commits({"validated_commit":"annual-2023"},"oos-tooling")
+  self.assertEqual(annual_commit,"annual-2023")
+  self.assertEqual(tooling_commit,"oos-tooling")
+  self.assertNotEqual(annual_commit,tooling_commit)
+
  def test_all_frozen_identity_paths_exist_and_reference_resolution_matches_design_freeze(self):
   root=Path(__file__).resolve().parents[1]
   missing=[rel for rel in TOOLS if not (root/rel).is_file()]
