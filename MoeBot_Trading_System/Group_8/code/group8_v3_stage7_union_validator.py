@@ -158,7 +158,7 @@ def validate_union(*,release_path:Path,plan_path:Path,stage5_db:Path,output_root
   result={
    "format_version":1,"scope":"GROUP8_V3_STAGE7_STREAMING_UNION","status":"PASS",
    "stage":7,"stage_name":"ict_core","year":year,"symbol":release["symbol"],
-   "validated_commit":release["validated_commit"],"plan_hash":plan["plan_hash"],
+   "validated_commit":release["validated_commit"],"oos_tooling_commit":release.get("oos_tooling_commit"),"plan_hash":plan["plan_hash"],
    "stage5_database_sha256":release["stage5_database_sha256"],"stage6_release_hash":release["stage6_release_hash"],
    "stage6_union_report_hash":release["stage6_union_report_hash"],"stage7_release_hash":release["release_hash"],
    "shard_count":release["shard_count"],"table_row_counts":counts,"table_logical_sha256":hashes,
