@@ -29,7 +29,7 @@ def verify_freeze(root:Path,freeze_path:Path)->dict[str,Any]:
  f=json.loads(freeze_path.read_text());_verify(f,"manifest_hash")
  if f.get("status")!="FROZEN_FOR_2024_OOS_V3" or f.get("authorization",{}).get("2024_oos") is not True:raise RuntimeError("2024 OOS not frozen/authorized")
  if f.get("oos_2024_accessed_during_freeze") is not False:raise RuntimeError("freeze was not 2024-data-blind")
- if _head(root)!=f.get("validated_commit"):raise RuntimeError("Git HEAD drift after OOS freeze")
+ if _head(root)!=f.get("oos_tooling_commit"):raise RuntimeError("Git HEAD drift after OOS freeze")
  for rel,rec in f.get("identities",{}).items():
   p=root/rel
   if not p.is_file() or p.stat().st_size!=int(rec["size_bytes"]) or sha256_file(p)!=rec["sha256"]:raise RuntimeError(f"frozen identity drift:{rel}")
@@ -57,7 +57,7 @@ def run(*,staging_db:Path,output_db:Path,artifacts_root:Path,freeze_path:Path,sy
    executed.append(stage)
   for idx in range(0,end+1):
    if not _complete(e,STAGES[idx][0]):raise RuntimeError(f"incomplete checkpoint:{STAGES[idx][0]}")
-  return {"format_version":1,"status":"PASS","year":2024,"oos":True,"stage_start":start,"stage_end":end,"stage_names":executed,"stage5_complete":end==5,"freeze_manifest_hash":freeze["manifest_hash"],"validated_commit":freeze["validated_commit"],"stage5_database_sha256":sha256_file(output_db),"read_only_upstream":True,"frozen_semantics":True}
+  return {"format_version":1,"status":"PASS","year":2024,"oos":True,"stage_start":start,"stage_end":end,"stage_names":executed,"stage5_complete":end==5,"freeze_manifest_hash":freeze["manifest_hash"],"validated_commit":freeze["validated_commit"],"oos_tooling_commit":freeze["oos_tooling_commit"],"stage5_database_sha256":sha256_file(output_db),"read_only_upstream":True,"frozen_semantics":True}
  finally:e.close()
 
 def main()->int:
