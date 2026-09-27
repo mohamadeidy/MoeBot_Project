@@ -23,10 +23,13 @@ def validate(*,annual23_path:Path,annual24_path:Path,freeze_path:Path,output:Pat
  if a23.get("no_lookahead")!="PASS" or a24.get("no_lookahead")!="PASS":fail.append("lookahead")
  if a23.get("no_trading_outputs") is not True or a24.get("no_trading_outputs") is not True:fail.append("trading_outputs")
  if a24.get("frozen_identity_drift") is not False or a24.get("oos_conditioned_semantic_changes") is not False:fail.append("oos_identity_or_semantic_drift")
+ amendment=fr.get("post_freeze_physical_tooling_amendment")
+ if amendment:
+  if a24.get("post_freeze_physical_tooling_amendment") is not True or a24.get("prior_pre_oos_freeze_manifest_hash")!=amendment.get("prior_freeze_manifest_hash"):fail.append("tooling_amendment_lineage")
  if fail:raise RuntimeError(";".join(fail))
  def counts(a):
   return {"stage6":a["stage6"]["table_row_counts"],"stage7":a["stage7"]["table_row_counts"],"stage7_definitions":a["stage7"].get("definition_coverage",{})}
- r={"format_version":1,"status":"PASS","group":8,"years":[2023,2024],"annual_2023_manifest_hash":a23["manifest_hash"],"annual_2024_manifest_hash":a24["manifest_hash"],"freeze_manifest_hash":fr["manifest_hash"],"validated_commit":fr["validated_commit"],"oos_tooling_commit":fr["oos_tooling_commit"],"identity_stable_across_oos_boundary":True,"frozen_semantics_stable":True,"bucket_policy_frozen_from_2023":True,"no_trading_outputs_both_years":True,"read_only_upstream_both_years":True,"causality_both_years":"PASS","no_lookahead_both_years":"PASS","descriptive_counts":{"2023":counts(a23),"2024":counts(a24)},"policy":"2024 cardinality/frequency differences are descriptive OOS observations only and did not alter definitions, thresholds, engine semantics, or bucket counts."}
+ r={"format_version":1,"status":"PASS","group":8,"years":[2023,2024],"annual_2023_manifest_hash":a23["manifest_hash"],"annual_2024_manifest_hash":a24["manifest_hash"],"freeze_manifest_hash":fr["manifest_hash"],"validated_commit":fr["validated_commit"],"oos_tooling_commit":fr["oos_tooling_commit"],"identity_stable_across_oos_boundary":True,"frozen_semantics_stable":True,"post_freeze_physical_tooling_amendment":bool(amendment),"semantic_policy_unchanged_by_amendment":True,"bucket_policy_frozen_from_2023":True,"no_trading_outputs_both_years":True,"read_only_upstream_both_years":True,"causality_both_years":"PASS","no_lookahead_both_years":"PASS","descriptive_counts":{"2023":counts(a23),"2024":counts(a24)},"policy":"2024 cardinality/frequency differences are descriptive OOS observations only and did not alter definitions, thresholds, engine semantics, or bucket counts."}
  r["report_hash"]=stable_hash(r);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(r,indent=2,sort_keys=True)+"\n");return r
 
 def main()->int:
