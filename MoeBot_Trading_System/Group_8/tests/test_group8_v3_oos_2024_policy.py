@@ -4,8 +4,16 @@ import json,tempfile,unittest
 from pathlib import Path
 from group8_v3_oos_2024_stage6 import _policy as p6
 from group8_v3_oos_2024_stage7 import _policy as p7
+from group8_v3_stage6_range_shard_executor import RangeShardSpec
+from group8_v3_stage7_shard_executor import Stage7ShardSpec
 
 class OOS2024PolicyTests(unittest.TestCase):
+ def test_annual_close_boundary_next_january_is_valid_but_later_months_are_not(self):
+  RangeShardSpec(2024,"XAUUSD_","H4","2025-01",1,0).validate()
+  Stage7ShardSpec("range_chain",2024,"XAUUSD_","H4","2025-01",1,0).validate()
+  with self.assertRaises(ValueError):RangeShardSpec(2024,"XAUUSD_","H4","2025-02",1,0).validate()
+  with self.assertRaises(ValueError):Stage7ShardSpec("range_chain",2024,"XAUUSD_","H4","2025-02",1,0).validate()
+
  def test_stage6_policy_uses_month_of_year_only(self):
   f={"stage6_bucket_policy_by_timeframe_month":{"range_chain:M15:01":32}}
   self.assertEqual(p6(f,"M15","2024-01"),32)
