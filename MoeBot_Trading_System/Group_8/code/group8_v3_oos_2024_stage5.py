@@ -28,7 +28,13 @@ def _head(root:Path)->str:
 def verify_freeze(root:Path,freeze_path:Path)->dict[str,Any]:
  f=json.loads(freeze_path.read_text());_verify(f,"manifest_hash")
  if f.get("status")!="FROZEN_FOR_2024_OOS_V3" or f.get("authorization",{}).get("2024_oos") is not True:raise RuntimeError("2024 OOS not frozen/authorized")
- if f.get("oos_2024_accessed_during_freeze") is not False:raise RuntimeError("freeze was not 2024-data-blind")
+ if f.get("oos_2024_accessed_during_freeze") is not False:raise RuntimeError("freeze/amendment operation itself was not data-blind")
+ amendment=f.get("post_freeze_physical_tooling_amendment")
+ if amendment is not None:
+  if amendment.get("type")!="POST_FREEZE_PHYSICAL_TOOLING_REPAIR" or amendment.get("oos_2024_accessed_before_amendment") is not True:raise RuntimeError("invalid post-freeze tooling amendment")
+  forbidden=("semantic_changes","definition_changes","schema_changes","config_changes","threshold_changes","upstream_lineage_changes","bucket_policy_changes","observed_2024_values_used_for_tuning")
+  if any(amendment.get(k) is not False for k in forbidden):raise RuntimeError("post-freeze amendment changed frozen semantics/policy")
+  if not amendment.get("prior_freeze_manifest_hash"):raise RuntimeError("post-freeze amendment missing prior freeze lineage")
  if _head(root)!=f.get("oos_tooling_commit"):raise RuntimeError("Git HEAD drift after OOS freeze")
  for rel,rec in f.get("identities",{}).items():
   p=root/rel
