@@ -21,7 +21,7 @@ TOOLS=[
 "code/group8_segmented_annual_core.py","code/group8_v3_stage6_range_shard_executor.py","code/group8_v3_stage6_preflight.py",
 "code/group8_v3_stage6_union_validator.py","code/group8_v3_stage7_shard_executor.py","code/group8_v3_stage7_plan.py",
 "code/group8_v3_stage7_union_validator.py","code/group8_v3_finalize_annual_2023.py",
-"code/group8_v3_archive_stage5.py","code/group8_v3_freeze_oos_2024.py",
+"code/group8_v3_archive_stage5.py","code/group8_v3_freeze_oos_2024.py","code/group8_v3_amend_oos_tooling.py",
 "code/group8_v3_oos_2024_stage5.py","code/group8_v3_oos_2024_stage6.py","code/group8_v3_oos_2024_stage7.py",
 "code/group8_v3_finalize_annual_2024_oos.py","code/group8_v3_cross_year_validate.py","code/group8_v3_close_group8.py","code/group8_v3_full_continuation.py",
 ]
