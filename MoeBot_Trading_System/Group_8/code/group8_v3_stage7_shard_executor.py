@@ -114,8 +114,10 @@ class Stage7ShardSpec:
         if self.family not in {"range_chain", "school_core"}:
             raise ValueError("Stage 7 family must be range_chain or school_core")
         y, m = self.root_month.split("-")
-        if int(y) != int(self.year) or not 1 <= int(m) <= 12:
-            raise ValueError("root_month must be YYYY-MM within shard year")
+        y = int(y); m = int(m)
+        annual_boundary_month = (y == int(self.year) + 1 and m == 1)
+        if not (1 <= m <= 12 and (y == int(self.year) or annual_boundary_month)):
+            raise ValueError("root_month must be within shard year or the next-January annual close boundary")
         if self.bucket_count <= 0 or self.bucket_count & (self.bucket_count - 1):
             raise ValueError("bucket_count must be a positive power of two")
         if not 0 <= self.bucket_index < self.bucket_count:
