@@ -50,6 +50,7 @@ jobs:
         run: |
           python MoeBot_Trading_System/groups9_15_shared/tests/test_preparation_contract.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_checkpoint3_publisher.py
+          python MoeBot_Trading_System/groups9_15_shared/tests/test_group9_hash_precedence.py
           python MoeBot_Trading_System/Group_9/tests/test_group9_schema.py
           python MoeBot_Trading_System/Group_9/tests/test_group9_frozen_semantics.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_shard_runtime.py
