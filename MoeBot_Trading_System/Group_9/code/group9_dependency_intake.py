@@ -15,7 +15,7 @@ GIB=1024**3
 def stable(v:Any)->str:
     return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()
 
-def load_hashed(path:Path, fields=("closure_hash","manifest_hash","report_hash","release_hash","registry_hash"))->dict[str,Any]:
+def load_hashed(path:Path, fields=("manifest_hash","report_hash","release_hash","registry_hash","closure_hash"))->dict[str,Any]:
     r=json.loads(path.read_text())
     for f in fields:
         if f in r:
