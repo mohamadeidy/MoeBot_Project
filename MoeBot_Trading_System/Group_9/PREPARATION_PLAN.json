@@ -2,7 +2,7 @@
   "format_version": 1,
   "group": 9,
   "name": "Setup State Intelligence",
-  "status": "DRAFT_PREPARATION",
+  "status": "FROZEN",
   "real_execution_authorized": false,
   "purpose": "Construct causal setup lifecycles from frozen upstream context/structure/liquidity/POI evidence without learning a trade policy.",
   "predecessor_gates": [
@@ -76,5 +76,12 @@
     ],
     "read_only_consumption": true,
     "hash_bound": true
+  },
+  "semantic_freeze": {
+    "status": "FROZEN",
+    "definition_version": "G9-SSI-1.0.0",
+    "definition_registry_hash": "c9dad6529c01b9a0d789312c7e1704356b642124e9da8d4afdd426e090a99c1c",
+    "frozen_without_outcome_tuning": true,
+    "source_group8_definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9"
   }
 }
