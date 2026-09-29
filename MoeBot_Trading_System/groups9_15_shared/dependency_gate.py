@@ -6,7 +6,7 @@ from pathlib import Path
 def stable(v):
     return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(",",":")).encode()).hexdigest()
 
-def load_hashed(path:Path, fields=("closure_hash","manifest_hash","report_hash")):
+def load_hashed(path:Path, fields=("manifest_hash","report_hash","closure_hash")):
     r=json.loads(path.read_text())
     for field in fields:
         if field in r:
