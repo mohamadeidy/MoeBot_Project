@@ -7,7 +7,7 @@ COMPONENTS=("context","location","liquidity","displacement","structure","poi","r
 def stable(v): return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(",",":")).encode()).hexdigest()
 def load_hash(path:Path):
     r=json.loads(path.read_text())
-    for f in ("closure_hash","manifest_hash","report_hash"):
+    for f in ("manifest_hash","report_hash","closure_hash"):
         if f in r:
             x=dict(r);s=str(x.pop(f))
             if stable(x)!=s: raise RuntimeError(f"{path.name}:{f}_mismatch")
