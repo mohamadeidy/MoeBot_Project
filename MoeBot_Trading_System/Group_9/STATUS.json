@@ -2,16 +2,17 @@
   "format_version": 2,
   "group": 9,
   "name": "Setup State Intelligence",
-  "status": "PREPARATION_BASELINE_COMPLETE_WAITING_GATES",
+  "status": "SEMANTIC_FREEZE_COMPLETE_WAITING_REAL_SIZING",
   "preparation_baseline_complete": true,
-  "semantic_freeze_complete": false,
+  "semantic_freeze_complete": true,
   "real_execution_authorized": false,
   "predecessor_group": 8,
   "remaining_gates": [
-    "GROUP8_OFFICIALLY_CLOSED",
-    "GROUP8_CHECKPOINT_3_PASS",
-    "GROUP9_SEMANTIC_FREEZE",
-    "REAL_SIZING_PASS"
+    "REAL_CANDIDATE_INVENTORY_PASS",
+    "REAL_BENCHMARK_PASS",
+    "REAL_SIZING_PASS",
+    "RESOURCE_GATE_PASS",
+    "GROUP9_EXECUTION_PREFLIGHT_PASS"
   ],
   "free_only": true,
   "storage_mode": "SHARD_NATIVE_STREAMING",
@@ -26,5 +27,7 @@
     "shared_sizing_preflight_planner_executor_union_framework",
     "synthetic_ci"
   ],
-  "note": "Baseline preparation is complete and CI validated. Real-data execution and final semantic freeze remain fail-closed until listed gates are satisfied."
+  "note": "Baseline preparation is complete and CI validated. Real-data execution and final semantic freeze remain fail-closed until listed gates are satisfied.",
+  "semantic_definition_version": "G9-SSI-1.0.0",
+  "semantic_definition_registry_hash": "c9dad6529c01b9a0d789312c7e1704356b642124e9da8d4afdd426e090a99c1c"
 }
