@@ -10,7 +10,8 @@ class FrameworkTests(unittest.TestCase):
   for g in range(9,16):
    p=json.loads((ROOT/f"Group_{g}"/"PREPARATION_PLAN.json").read_text())
    self.assertTrue(required.issubset(p),f"group {g}")
-   self.assertEqual(p["status"],"DRAFT_PREPARATION")
+   if g==9:self.assertEqual(p["status"],"FROZEN")
+   else:self.assertEqual(p["status"],"DRAFT_PREPARATION")
    self.assertFalse(p["real_execution_authorized"])
  def test_sizing_blocks_huge_projection(self):
   with tempfile.TemporaryDirectory() as td:
