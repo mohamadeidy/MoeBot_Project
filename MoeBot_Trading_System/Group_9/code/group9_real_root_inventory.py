@@ -68,6 +68,44 @@ def sha256_file(path: Path, chunk: int = 8 * 1024 * 1024) -> str:
     return h.hexdigest()
 
 
+def restore_marker_path(raw: Path) -> Path:
+    return raw.with_suffix(raw.suffix + ".verified.json")
+
+
+def load_verified_restore_marker(raw: Path, rep: dict[str, Any]) -> bool:
+    marker = restore_marker_path(raw)
+    if not raw.is_file() or not marker.is_file():
+        return False
+    try:
+        m = json.loads(marker.read_text())
+    except Exception:
+        return False
+    return (
+        m.get("status") == "VERIFIED_STAGE5_RESTORE"
+        and int(m.get("year", -1)) == int(rep["year"])
+        and int(m.get("raw_size_bytes", -1)) == int(rep["raw_size_bytes"])
+        and str(m.get("raw_sha256")) == str(rep["raw_sha256"])
+        and str(m.get("archive_report_hash")) == str(rep["report_hash"])
+        and raw.stat().st_size == int(rep["raw_size_bytes"])
+    )
+
+
+def write_verified_restore_marker(raw: Path, rep: dict[str, Any], *, provenance: str) -> None:
+    marker = restore_marker_path(raw)
+    rec = {
+        "format_version": 1,
+        "status": "VERIFIED_STAGE5_RESTORE",
+        "year": int(rep["year"]),
+        "raw_size_bytes": int(rep["raw_size_bytes"]),
+        "raw_sha256": str(rep["raw_sha256"]),
+        "archive_sha256": str(rep["archive_sha256"]),
+        "archive_report_hash": str(rep["report_hash"]),
+        "provenance": provenance,
+    }
+    rec["marker_hash"] = stable(rec)
+    atomic_json(marker, rec)
+
+
 def month_utc(epoch: int) -> str:
     return time.strftime("%Y-%m", time.gmtime(int(epoch)))
 
@@ -324,15 +362,23 @@ def main() -> int:
                 raise RuntimeError(f"stage5_archive_missing:{archive_path}")
             year = int(rep["year"])
             raw = a.scratch_root / f"g9_stage5_{year}_restore.sqlite"
-            if raw.is_file() and raw.stat().st_size == int(rep["raw_size_bytes"]) and sha256_file(raw) == str(rep["raw_sha256"]):
+            if load_verified_restore_marker(raw, rep):
                 raw_bytes = raw.stat().st_size
                 dec_seconds = 0.0
             else:
                 raw_bytes, dec_seconds = stream_decompress_verified(
                     a.zstd_exe, archive_path, raw, str(rep["raw_sha256"])
                 )
+                if raw_bytes != int(rep["raw_size_bytes"]):
+                    raw.unlink(missing_ok=True)
+                    restore_marker_path(raw).unlink(missing_ok=True)
+                    raise RuntimeError(f"stage5_raw_size_mismatch:{year}")
+                write_verified_restore_marker(
+                    raw, rep, provenance="stream_decompress_verified_sha256_match"
+                )
             if raw_bytes != int(rep["raw_size_bytes"]):
                 raw.unlink(missing_ok=True)
+                restore_marker_path(raw).unlink(missing_ok=True)
                 raise RuntimeError(f"stage5_raw_size_mismatch:{year}")
             fast_readonly_schema_check(raw, ("narrative_hypothesis",))
             t0 = time.perf_counter()
@@ -342,6 +388,7 @@ def main() -> int:
             con.commit()
             extract_seconds = time.perf_counter() - t0
             raw.unlink(missing_ok=True)
+            restore_marker_path(raw).unlink(missing_ok=True)
             bench_sources.append(
                 {
                     "source": "stage5_narrative_hypothesis",
