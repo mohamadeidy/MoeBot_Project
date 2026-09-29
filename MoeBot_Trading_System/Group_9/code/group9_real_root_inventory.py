@@ -80,6 +80,12 @@ def load_verified_restore_marker(raw: Path, rep: dict[str, Any]) -> bool:
         m = json.loads(marker.read_text())
     except Exception:
         return False
+    if "marker_hash" not in m:
+        return False
+    mx = dict(m)
+    saved_marker_hash = str(mx.pop("marker_hash"))
+    if stable(mx) != saved_marker_hash:
+        return False
     return (
         m.get("status") == "VERIFIED_STAGE5_RESTORE"
         and int(m.get("year", -1)) == int(rep["year"])
