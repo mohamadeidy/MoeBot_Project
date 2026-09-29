@@ -45,6 +45,23 @@ class RealInventoryTests(unittest.TestCase):
             finally:
                 con.close()
 
+    def test_verified_restore_marker_reuse(self):
+        with tempfile.TemporaryDirectory() as td:
+            raw=Path(td)/"restore.sqlite"
+            raw.write_bytes(b"abcd")
+            rep={
+                "year":2023,
+                "raw_size_bytes":4,
+                "raw_sha256":"a"*64,
+                "archive_sha256":"b"*64,
+                "report_hash":"c"*64,
+            }
+            self.assertFalse(m.load_verified_restore_marker(raw,rep))
+            m.write_verified_restore_marker(raw,rep,provenance="unit_test")
+            self.assertTrue(m.load_verified_restore_marker(raw,rep))
+            raw.write_bytes(b"abcde")
+            self.assertFalse(m.load_verified_restore_marker(raw,rep))
+
     def test_logical_fingerprint_stable(self):
         with tempfile.TemporaryDirectory() as td:
             con=m.init_inventory(Path(td)/"inv.sqlite")
