@@ -112,12 +112,18 @@ def stream_decompress_verified(zstd: Path, archive: Path, output: Path, expected
     return total, time.perf_counter() - started
 
 
-def quick_check(path: Path) -> None:
+def fast_readonly_schema_check(path: Path, required_tables: tuple[str, ...]) -> None:
     con = sqlite3.connect(f"file:{path.resolve()}?mode=ro&immutable=1", uri=True)
     try:
-        q = con.execute("PRAGMA quick_check").fetchone()
-        if not q or q[0] != "ok":
-            raise RuntimeError(f"sqlite_quick_check_failed:{path}")
+        con.execute("PRAGMA query_only=ON")
+        tables = {str(r[0]) for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        missing = sorted(set(required_tables) - tables)
+        if missing:
+            raise RuntimeError(f"sqlite_required_tables_missing:{path}:{','.join(missing)}")
+        # Fast header/page accessibility probe only. Full quick_check on 70-150 GiB
+        # immutable upstream copies would duplicate Group 8 integrity work and add
+        # hours of I/O; exact raw SHA + official upstream closure remain authoritative.
+        con.execute("PRAGMA schema_version").fetchone()
     finally:
         con.close()
 
@@ -318,13 +324,17 @@ def main() -> int:
                 raise RuntimeError(f"stage5_archive_missing:{archive_path}")
             year = int(rep["year"])
             raw = a.scratch_root / f"g9_stage5_{year}_restore.sqlite"
-            raw_bytes, dec_seconds = stream_decompress_verified(
-                a.zstd_exe, archive_path, raw, str(rep["raw_sha256"])
-            )
+            if raw.is_file() and raw.stat().st_size == int(rep["raw_size_bytes"]) and sha256_file(raw) == str(rep["raw_sha256"]):
+                raw_bytes = raw.stat().st_size
+                dec_seconds = 0.0
+            else:
+                raw_bytes, dec_seconds = stream_decompress_verified(
+                    a.zstd_exe, archive_path, raw, str(rep["raw_sha256"])
+                )
             if raw_bytes != int(rep["raw_size_bytes"]):
                 raw.unlink(missing_ok=True)
                 raise RuntimeError(f"stage5_raw_size_mismatch:{year}")
-            quick_check(raw)
+            fast_readonly_schema_check(raw, ("narrative_hypothesis",))
             t0 = time.perf_counter()
             seen, inserted = insert_rows(
                 con, query_stage5_roots(raw, year), expected_source_type="narrative_hypothesis"
@@ -387,7 +397,7 @@ def main() -> int:
                 raw_bytes, dec_seconds = stream_decompress_verified(
                     a.zstd_exe, archive_path, raw, str(x["raw_sha256"])
                 )
-                quick_check(raw)
+                fast_readonly_schema_check(raw, ("school_interpretation",))
                 t0 = time.perf_counter()
                 seen, inserted = insert_rows(
                     con, query_stage7_roots(raw, year), expected_source_type="school_interpretation"
