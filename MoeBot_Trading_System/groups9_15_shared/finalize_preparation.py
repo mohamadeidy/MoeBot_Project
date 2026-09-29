@@ -26,13 +26,22 @@ def main()->int:
   if not gf:
    st=json.loads((gd/"STATUS.json").read_text());plan=json.loads((gd/"PREPARATION_PLAN.json").read_text());defs=json.loads((gd/"01_DEFINITION_REGISTRY_DRAFT.json").read_text())
    if st.get("real_execution_authorized") is not False:gf.append("real_execution_must_remain_blocked")
-   if plan.get("status")!="DRAFT_PREPARATION":gf.append("unexpected_plan_status")
-   if defs.get("status")!="DRAFT_NOT_FROZEN":gf.append("unexpected_definition_status")
+   if g==9:
+    frozen=gd/"01_DEFINITION_REGISTRY.json"
+    if plan.get("status")!="FROZEN":gf.append("group9_plan_not_frozen")
+    if st.get("semantic_freeze_complete") is not True:gf.append("group9_semantic_freeze_status")
+    if not frozen.is_file():gf.append("group9_frozen_registry_missing")
+    else:
+     fdefs=json.loads(frozen.read_text())
+     if fdefs.get("status")!="FROZEN" or fdefs.get("frozen_without_outcome_tuning") is not True:gf.append("group9_frozen_registry_invalid")
+   else:
+    if plan.get("status")!="DRAFT_PREPARATION":gf.append("unexpected_plan_status")
+    if defs.get("status")!="DRAFT_NOT_FROZEN":gf.append("unexpected_definition_status")
    try:
     con=sqlite3.connect(":memory:");con.executescript((gd/"02_SCHEMA_DRAFT.sql").read_text());con.close()
    except Exception as e:gf.append("schema_compile:"+str(e))
   groups[str(g)]={"status":"PASS_PREPARATION_ONLY" if not gf else "FAIL","failures":gf,
-                  "real_execution_authorized":False,"remaining_gate":"predecessor closure + semantic freeze + real sizing/resource PASS"}
+                  "real_execution_authorized":False,"remaining_gate":"Group 9: real sizing/resource/preflight; later groups: predecessor closure + semantic freeze + real sizing/resource PASS"}
   fail.extend(f"group{g}:{x}" for x in gf)
  out={"format_version":1,"scope":"GROUPS_9_15_PREPARATION_FINALIZER","status":"PASS_PREPARATION_ONLY" if not fail else "FAIL",
       "failures":fail,"groups":groups,"real_execution_authorized":False,
