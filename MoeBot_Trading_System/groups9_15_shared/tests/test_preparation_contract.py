@@ -4,8 +4,15 @@ import json, unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 class PrepContractTests(unittest.TestCase):
-    def test_every_group_baseline_is_prepared_but_execution_blocked(self):
-        for g in range(9,16):
+    def test_group9_may_advance_to_semantic_freeze_but_execution_stays_blocked(self):
+        s=json.loads((ROOT/"Group_9"/"STATUS.json").read_text())
+        self.assertEqual(s["status"],"SEMANTIC_FREEZE_COMPLETE_WAITING_REAL_SIZING")
+        self.assertTrue(s["preparation_baseline_complete"])
+        self.assertTrue(s["semantic_freeze_complete"])
+        self.assertFalse(s["real_execution_authorized"])
+        self.assertTrue(s["remaining_gates"])
+    def test_groups10_15_remain_preparation_only(self):
+        for g in range(10,16):
             s=json.loads((ROOT/f"Group_{g}"/"STATUS.json").read_text())
             self.assertEqual(s["status"],"PREPARATION_BASELINE_COMPLETE_WAITING_GATES")
             self.assertTrue(s["preparation_baseline_complete"])
