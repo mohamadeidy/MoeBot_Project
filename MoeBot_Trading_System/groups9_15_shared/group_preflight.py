@@ -27,11 +27,14 @@ def main()->int:
     group=int(a.group_dir.name.split("_")[-1])
     failures=[]
     plan=json.loads((a.group_dir/"PREPARATION_PLAN.json").read_text())
-    defs=json.loads((a.group_dir/"01_DEFINITION_REGISTRY_DRAFT.json").read_text())
+    defs_path=a.group_dir/"01_DEFINITION_REGISTRY.json"
+    if not defs_path.is_file(): defs_path=a.group_dir/"01_DEFINITION_REGISTRY_DRAFT.json"
+    defs=json.loads(defs_path.read_text())
     pred=load(a.predecessor);size=load(a.sizing_report);resource=load(a.resource_report)
     if not status_pass(pred): failures.append("predecessor_gate_not_pass")
     if defs.get("status")!="FROZEN": failures.append("definitions_not_frozen")
     if plan.get("status")!="FROZEN": failures.append("preparation_plan_not_frozen")
+    if defs.get("frozen_without_outcome_tuning") is not True and group==9: failures.append("group9_semantics_not_outcome_blind")
     if size.get("status")!="PASS": failures.append("sizing_not_pass")
     if resource.get("status")!="PASS": failures.append("resource_gate_not_pass")
     if group==9:
