@@ -28,6 +28,7 @@ jobs:
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/publish_group8_checkpoint3.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/resource_gate.py
           python -m py_compile MoeBot_Trading_System/Group_9/code/group9_preflight.py
+          python -m py_compile MoeBot_Trading_System/Group_9/code/group9_dependency_intake.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/shard_runtime.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/manifest_catalog.py
           python -m py_compile MoeBot_Trading_System/groups9_15_shared/group_sizing.py
@@ -50,6 +51,7 @@ jobs:
           python MoeBot_Trading_System/groups9_15_shared/tests/test_preparation_contract.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_checkpoint3_publisher.py
           python MoeBot_Trading_System/Group_9/tests/test_group9_schema.py
+          python MoeBot_Trading_System/Group_9/tests/test_group9_frozen_semantics.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_shard_runtime.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_all_draft_schemas.py
           python MoeBot_Trading_System/groups9_15_shared/tests/test_manifest_catalog.py
