@@ -12,6 +12,16 @@ def w(p,d,f):
 class IntakeTests(unittest.TestCase):
  def test_compiles_and_blocks_bad_checkpoint(self):
   subprocess.check_call([sys.executable,"-m","py_compile",str(SCRIPT)])
+ def test_handoff_manifest_hash_precedes_parent_closure_hash(self):
+  import importlib.util
+  spec=importlib.util.spec_from_file_location("g9_intake",SCRIPT)
+  mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
+  with tempfile.TemporaryDirectory() as td:
+   p=Path(td)/"handoff.json"
+   rec={"status":"FROZEN_HANDOFF","closure_hash":"parent","source_group":8,"target_group":9}
+   rec["manifest_hash"]=stable(rec);p.write_text(json.dumps(rec))
+   got=mod.load_hashed(p)
+   self.assertEqual(got["manifest_hash"],rec["manifest_hash"])
  def test_frozen_semantics_exist(self):
   g=json.loads((ROOT/"Group_9"/"01_DEFINITION_REGISTRY.json").read_text())
   x=dict(g);h=x.pop("registry_hash")
