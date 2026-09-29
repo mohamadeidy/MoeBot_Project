@@ -15,9 +15,10 @@ from group15_risk_gate import DeploymentGate,reserve_risk
 
 class AlgorithmsTests(unittest.TestCase):
  def test_g9_transition_availability_is_max_evidence(self):
-  sid=setup_id("X","M15","BUY",["b","a"],"d")
-  x=transition(sid=sid,from_state="FORMING",to_state="READY",evidence=[{"id":"a","event_time":5,"availability_time":7},{"id":"b","event_time":8,"availability_time":9}],reason_code="synthetic")
-  self.assertEqual(x["availability_time"],9);self.assertEqual(sid,setup_id("X","M15","BUY",["a","b"],"d"))
+  sid=setup_id(family="G9_ICT_LIQUIDITY_DELIVERY",symbol="X",timeframe="M15",direction="bullish",root_subject_type="school_interpretation",root_subject_id="root-a",definition_version="G9-SSI-1.0.0")
+  x=transition(sid=sid,ordinal=1,from_state="FORMING",to_state="READY",evidence=[{"id":"a","event_time":5,"availability_time":7},{"id":"b","event_time":8,"availability_time":9}],reason_code="synthetic")
+  self.assertEqual(x["availability_time"],9)
+  self.assertEqual(sid,setup_id(family="G9_ICT_LIQUIDITY_DELIVERY",symbol="X",timeframe="M15",direction="bullish",root_subject_type="school_interpretation",root_subject_id="root-a",definition_version="G9-SSI-1.0.0"))
  def test_g10_rejects_preavailability_and_measures(self):
   bars=[Bar(10,101,99,100),Bar(20,103,100,102)]
   assert_post_availability(setup_availability_time=10,bars=bars)
