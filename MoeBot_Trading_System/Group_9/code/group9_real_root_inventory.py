@@ -29,6 +29,7 @@ ROOT_DEFS = {
 }
 SCHOOL_ROOTS = tuple(k for k, (_, t) in ROOT_DEFS.items() if t == "school_interpretation")
 NARRATIVE_ROOTS = tuple(k for k, (_, t) in ROOT_DEFS.items() if t == "narrative_hypothesis")
+STAGE5_SCHOOL_ROOTS = ("wyckoff_spring_candidate", "wyckoff_upthrust_candidate")
 ALLOWED_DIRECTIONS = {"bullish", "bearish"}
 
 
@@ -271,7 +272,7 @@ def insert_rows(con: sqlite3.Connection, rows: Iterable[tuple], *, expected_sour
     return seen, inserted
 
 
-def query_stage5_roots(path: Path, year: int) -> Iterable[tuple]:
+def query_stage5_narrative_roots(path: Path, year: int) -> Iterable[tuple]:
     con = sqlite3.connect(f"file:{path.resolve()}?mode=ro&immutable=1", uri=True)
     try:
         q = ",".join("?" for _ in NARRATIVE_ROOTS)
@@ -284,6 +285,25 @@ def query_stage5_roots(path: Path, year: int) -> Iterable[tuple]:
             ORDER BY hypothesis_id
             """,
             NARRATIVE_ROOTS,
+        ):
+            yield (year, *r)
+    finally:
+        con.close()
+
+
+def query_stage5_school_roots(path: Path, year: int) -> Iterable[tuple]:
+    con = sqlite3.connect(f"file:{path.resolve()}?mode=ro&immutable=1", uri=True)
+    try:
+        q = ",".join("?" for _ in STAGE5_SCHOOL_ROOTS)
+        for r in con.execute(
+            f"""
+            SELECT interpretation_id,definition_id,symbol,timeframe,direction,
+                   event_time,availability_time,interpretation_hash
+            FROM school_interpretation
+            WHERE definition_id IN ({q})
+            ORDER BY interpretation_id
+            """,
+            STAGE5_SCHOOL_ROOTS,
         ):
             yield (year, *r)
     finally:
@@ -386,10 +406,13 @@ def main() -> int:
                 raw.unlink(missing_ok=True)
                 restore_marker_path(raw).unlink(missing_ok=True)
                 raise RuntimeError(f"stage5_raw_size_mismatch:{year}")
-            fast_readonly_schema_check(raw, ("narrative_hypothesis",))
+            fast_readonly_schema_check(raw, ("narrative_hypothesis", "school_interpretation"))
             t0 = time.perf_counter()
-            seen, inserted = insert_rows(
-                con, query_stage5_roots(raw, year), expected_source_type="narrative_hypothesis"
+            narr_seen, narr_inserted = insert_rows(
+                con, query_stage5_narrative_roots(raw, year), expected_source_type="narrative_hypothesis"
+            )
+            wy_seen, wy_inserted = insert_rows(
+                con, query_stage5_school_roots(raw, year), expected_source_type="school_interpretation"
             )
             con.commit()
             extract_seconds = time.perf_counter() - t0
@@ -397,14 +420,16 @@ def main() -> int:
             restore_marker_path(raw).unlink(missing_ok=True)
             bench_sources.append(
                 {
-                    "source": "stage5_narrative_hypothesis",
+                    "source": "stage5_roots",
                     "year": year,
-                    "candidate_count": inserted,
-                    "rows_seen": seen,
+                    "candidate_count": narr_inserted + wy_inserted,
+                    "rows_seen": narr_seen + wy_seen,
+                    "narrative_candidate_count": narr_inserted,
+                    "wyckoff_school_candidate_count": wy_inserted,
                     "decompressed_raw_bytes": raw_bytes,
                     "decompression_seconds": dec_seconds,
                     "extraction_seconds": extract_seconds,
-                    "candidate_rows_per_second": inserted / max(extract_seconds, 1e-9),
+                    "candidate_rows_per_second": (narr_inserted + wy_inserted) / max(extract_seconds, 1e-9),
                 }
             )
             source_identities["stage5"].append(
