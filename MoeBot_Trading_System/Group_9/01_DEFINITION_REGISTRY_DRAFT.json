@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_NOT_FROZEN",
+  "group": 9,
+  "name": "Setup State Intelligence",
+  "state_vocabulary": [
+    "FORMING",
+    "READY",
+    "FAILED",
+    "MISSING",
+    "INVALIDATED"
+  ],
+  "component_chain": [
+    "context",
+    "location",
+    "liquidity",
+    "displacement",
+    "structure",
+    "poi",
+    "retracement",
+    "confirmation"
+  ],
+  "rules": {
+    "thresholds_frozen": false,
+    "real_data_calibration_forbidden_before_group8_checkpoint3": true,
+    "event_time_and_availability_time_separate": true,
+    "future_outcomes_forbidden_in_state_construction": true,
+    "trade_policy_forbidden": true
+  },
+  "note": "Component names and lifecycle vocabulary reflect the agreed Group 9 scope. Exact causal definitions/thresholds remain DRAFT until the Group 8 handoff is officially closed and reviewed."
+}

@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "group": 9,
+  "predecessor": "Group 8 official closure + Checkpoint 3 PASS",
+  "execution_authorization": false,
+  "required_handoff_capabilities": [
+    "immutable Group 8 closure identity",
+    "Checkpoint 3 PASS identity",
+    "shard catalog or manifest map for relevant Group 8 rows",
+    "deterministic upstream IDs and row hashes",
+    "event_time and availability_time for all causal inputs",
+    "definition/config/schema identities",
+    "read-only access path to required Groups 2-8 lineage without semantic rebuild"
+  ],
+  "access_policy": {
+    "full_group8_history_copy_forbidden": true,
+    "selective_shard_access": true,
+    "selective_column_materialization": true,
+    "parent_rows_read_only": true,
+    "references_preserve_original_ids": true
+  },
+  "required_preflight_checks": [
+    "predecessor closure hash valid",
+    "Checkpoint 3 PASS",
+    "all required component source types resolvable",
+    "no future availability joins",
+    "exact candidate/root cardinality inventory",
+    "representative runtime/storage benchmark",
+    "C safety floor and D vault capacity pass"
+  ]
+}

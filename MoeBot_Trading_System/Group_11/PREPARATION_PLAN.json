@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "group": 11,
+  "name": "Visual Dataset & Audit",
+  "status": "DRAFT_PREPARATION",
+  "real_execution_authorized": false,
+  "purpose": "Provide deterministic chart-linked visual audit coverage using compact render recipes and bounded representative renders rather than a bitmap for every row.",
+  "predecessor_gates": [
+    "GROUP10_OFFICIALLY_CLOSED"
+  ],
+  "required_inputs": [
+    "Group9 setup states",
+    "Group10 outcomes",
+    "source chart bars",
+    "frozen renderer/overlay specification"
+  ],
+  "outputs": [
+    "visual_recipe",
+    "visual_sample_manifest",
+    "visual_audit_result"
+  ],
+  "semantic_rules": [
+    "population artifact is recipe metadata not screenshots",
+    "sampling deterministic stratified and reproducible",
+    "renders reconstructable",
+    "visual findings cannot mutate upstream semantics",
+    "canonical examples explicitly flagged"
+  ],
+  "forbidden": [
+    "render full population",
+    "retain reconstructable bitmap population",
+    "semantic edits to Groups9-10"
+  ],
+  "partition_strategy": {
+    "keys": [
+      "symbol",
+      "timeframe",
+      "stratum",
+      "recipe_id_hash_bucket"
+    ],
+    "strategy": "recipe index shards plus bounded sampled render batches"
+  },
+  "execution_stages": [
+    "dependency_intake",
+    "renderer_freeze",
+    "recipe_inventory",
+    "sampling_plan",
+    "benchmark",
+    "sizing_gate",
+    "recipe_shards",
+    "sample_render",
+    "visual_audit",
+    "union_validation",
+    "release",
+    "closure"
+  ],
+  "sizing_policy": {
+    "representative_benchmark_required": true,
+    "exact_candidate_inventory_required": true,
+    "target_major_stage_hours": 24,
+    "hard_block_hours": 48,
+    "c_free_floor_gib": 120,
+    "raw_shard_soft_bytes": 1500000000,
+    "raw_shard_hard_bytes": 2500000000
+  },
+  "handoff": {
+    "required_artifacts": [
+      "recipe index",
+      "sample identities",
+      "audit results",
+      "renderer version",
+      "canonical example refs",
+      "quality flags"
+    ],
+    "read_only_consumption": true,
+    "hash_bound": true
+  }
+}

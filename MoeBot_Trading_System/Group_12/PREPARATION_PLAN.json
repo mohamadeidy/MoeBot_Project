@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "group": 12,
+  "name": "Autonomous Discovery",
+  "status": "DRAFT_PREPARATION",
+  "real_execution_authorized": false,
+  "purpose": "Discover unforced relationships and combinations from frozen setup/outcome/audit evidence while keeping discovery and confirmation partitions separate.",
+  "predecessor_gates": [
+    "GROUP11_OFFICIALLY_CLOSED"
+  ],
+  "required_inputs": [
+    "Group9 setup features",
+    "Group10 outcomes",
+    "Group11 quality/audit flags",
+    "frozen discovery partition map"
+  ],
+  "outputs": [
+    "discovery_feature_vector",
+    "discovered_relation",
+    "confirmation_result"
+  ],
+  "semantic_rules": [
+    "discovery and confirmation partitions distinct",
+    "confirmation data cannot modify discovered definition",
+    "all feature availability causal",
+    "multiple-testing controls recorded",
+    "relation provenance reproducible"
+  ],
+  "forbidden": [
+    "OOS-conditioned semantic tuning",
+    "broker execution",
+    "policy action optimization"
+  ],
+  "partition_strategy": {
+    "keys": [
+      "partition_id",
+      "symbol",
+      "timeframe",
+      "feature_family",
+      "subject_id_hash_bucket"
+    ],
+    "strategy": "partition-first feature shards; relation summaries remain compact"
+  },
+  "execution_stages": [
+    "dependency_intake",
+    "partition_freeze",
+    "feature_matrix_inventory",
+    "benchmark",
+    "sizing_gate",
+    "feature_vector_shards",
+    "discovery_pass",
+    "confirmation_pass",
+    "stability_audit",
+    "release",
+    "closure"
+  ],
+  "sizing_policy": {
+    "representative_benchmark_required": true,
+    "exact_candidate_inventory_required": true,
+    "target_major_stage_hours": 24,
+    "hard_block_hours": 48,
+    "c_free_floor_gib": 120,
+    "raw_shard_soft_bytes": 1500000000,
+    "raw_shard_hard_bytes": 2500000000
+  },
+  "handoff": {
+    "required_artifacts": [
+      "confirmed/rejected relation registry",
+      "feature schema",
+      "partition identities",
+      "provenance",
+      "stability metrics",
+      "manifest hashes"
+    ],
+    "read_only_consumption": true,
+    "hash_bound": true
+  }
+}

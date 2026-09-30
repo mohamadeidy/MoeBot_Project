@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "source_group": 11,
+  "target_group": 12,
+  "status": "DRAFT_PREPARATION",
+  "required_artifacts": [
+    "recipe index",
+    "sample identities",
+    "audit results",
+    "renderer version",
+    "canonical example refs",
+    "quality flags"
+  ],
+  "publication_rules": [
+    "source group officially closed",
+    "streaming union PASS",
+    "release manifest self-hash valid",
+    "large retained archives hash-verified",
+    "all source IDs immutable"
+  ],
+  "consumption_policy": {
+    "read_only": true,
+    "selective_shard_access": true,
+    "preserve_source_ids": true,
+    "repartition_physical_only": true
+  }
+}

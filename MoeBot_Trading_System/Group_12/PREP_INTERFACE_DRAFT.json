@@ -1,0 +1,23 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "group": 12,
+  "inputs": [
+    "Group 9 setup states",
+    "Group 10 outcomes",
+    "Group 11 audit labels/quality flags"
+  ],
+  "outputs": [
+    "discovery_feature_vector",
+    "discovered_relation",
+    "confirmation_result",
+    "discovery_provenance"
+  ],
+  "accuracy_rules": [
+    "discovery and confirmation partitions distinct",
+    "no OOS-conditioned definition mutation",
+    "every relation reproducible from frozen features"
+  ],
+  "physical_contract": "MoeBot_Trading_System/GROUPS_9_15_SHARD_FORMAT_CONTRACT_DRAFT.json",
+  "real_execution_authorized": false
+}

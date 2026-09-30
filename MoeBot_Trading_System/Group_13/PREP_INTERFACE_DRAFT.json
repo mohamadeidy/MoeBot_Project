@@ -1,0 +1,22 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "group": 13,
+  "inputs": [
+    "Groups 9-12 frozen outputs"
+  ],
+  "outputs": [
+    "policy_candidate",
+    "policy_decision_trace",
+    "policy_training_manifest",
+    "policy_explanation"
+  ],
+  "accuracy_rules": [
+    "candidate actions WAIT/BUY/SELL/HOLD/EXIT",
+    "training/validation split frozen before fitting",
+    "no final holdout access",
+    "policy version immutable once sent to Group 14"
+  ],
+  "physical_contract": "MoeBot_Trading_System/GROUPS_9_15_SHARD_FORMAT_CONTRACT_DRAFT.json",
+  "real_execution_authorized": false
+}

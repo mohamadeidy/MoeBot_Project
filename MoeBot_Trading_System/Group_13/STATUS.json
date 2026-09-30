@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "group": 13,
+  "name": "Policy Learning",
+  "status": "PREPARATION_BASELINE_COMPLETE_WAITING_GATES",
+  "preparation_baseline_complete": true,
+  "semantic_freeze_complete": false,
+  "real_execution_authorized": false,
+  "predecessor_group": 12,
+  "remaining_gates": [
+    "GROUP12_OFFICIALLY_CLOSED",
+    "GROUP13_POLICY_PROTOCOL_FREEZE",
+    "REAL_SIZING_PASS"
+  ],
+  "free_only": true,
+  "storage_mode": "SHARD_NATIVE_STREAMING",
+  "c_drive_role": "ACTIVE_CACHE_ONLY",
+  "preferred_vault_root": "D:\\MoeBotVault",
+  "prepared_components": [
+    "scope",
+    "draft_schema",
+    "draft_definitions",
+    "upstream_contract",
+    "downstream_handoff_contract",
+    "shared_sizing_preflight_planner_executor_union_framework",
+    "synthetic_ci"
+  ],
+  "note": "Baseline preparation is complete and CI validated. Real-data execution and final semantic freeze remain fail-closed until listed gates are satisfied."
+}
