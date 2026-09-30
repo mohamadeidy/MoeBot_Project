@@ -363,6 +363,17 @@ def materialize_one(idx:sqlite3.Connection,out:sqlite3.Connection,sample:sqlite3
     family=str(sample["setup_family"]);fs=stats[family];fs["roots"]+=1
     sid="g9s_"+stable({"family":family,"symbol":root["symbol"],"timeframe":root["timeframe"],"direction":root["direction"],
                        "root_subject_type":root["subject_type"],"root_subject_id":root["subject_id"],"definition_version":version})
+    features=json.dumps({"benchmark":True,"root_source_hash":str(root["row_hash"])},sort_keys=True,separators=(",",":"))
+    initial_base={"setup_id":sid,"setup_family":family,"root_subject_type":str(root["subject_type"]),"root_subject_id":str(root["subject_id"]),
+          "root_definition_id":str(root["definition_id"]),"symbol":str(root["symbol"]),"timeframe":str(root["timeframe"]),"direction":str(root["direction"]),
+          "origin_event_time":int(root["event_time"]),"origin_availability_time":int(root["availability_time"]),"current_state":"FORMING",
+          "state_event_time":int(root["event_time"]),"state_availability_time":int(root["availability_time"]),"definition_version":version,
+          "parent_lineage_hash":str(root["row_hash"]),"features_json":features}
+    initial_hash=stable(initial_base)
+    out.execute("INSERT INTO setup_instance VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (sid,initial_hash,family,str(root["subject_type"]),str(root["subject_id"]),str(root["definition_id"]),str(root["symbol"]),
+                 str(root["timeframe"]),str(root["direction"]),int(root["event_time"]),int(root["availability_time"]),"FORMING",
+                 int(root["event_time"]),int(root["availability_time"]),version,str(root["row_hash"]),features))
     ev_ids=[];mandatory_ids=[(str(root["subject_type"]),str(root["subject_id"]))]
     root_components=[]
     if family=="G9_ICT_LIQUIDITY_DELIVERY":root_components=["liquidity","displacement"]
@@ -464,7 +475,6 @@ def materialize_one(idx:sqlite3.Connection,out:sqlite3.Connection,sample:sqlite3
             final_state="INVALIDATED";state_event=int(inv["event_time"]);state_avail=inv_time
             insert_transition(out,sid=sid,ordinal=ordinal,from_state="READY",to_state="INVALIDATED",event=state_event,avail=state_avail,reason="AUTHORITATIVE_INVALIDATION_AFTER_READY",trigger=None,family_stats=fs)
 
-    features=json.dumps({"benchmark":True,"root_source_hash":str(root["row_hash"])},sort_keys=True,separators=(",",":"))
     base={"setup_id":sid,"setup_family":family,"root_subject_type":str(root["subject_type"]),"root_subject_id":str(root["subject_id"]),
           "root_definition_id":str(root["definition_id"]),"symbol":str(root["symbol"]),"timeframe":str(root["timeframe"]),"direction":str(root["direction"]),
           "origin_event_time":int(root["event_time"]),"origin_availability_time":int(root["availability_time"]),"current_state":final_state,
@@ -472,7 +482,8 @@ def materialize_one(idx:sqlite3.Connection,out:sqlite3.Connection,sample:sqlite3
     sh=stable(base)
     row=(sid,sh,family,str(root["subject_type"]),str(root["subject_id"]),str(root["definition_id"]),str(root["symbol"]),str(root["timeframe"]),str(root["direction"]),
          int(root["event_time"]),int(root["availability_time"]),final_state,int(state_event),int(state_avail),version,str(root["row_hash"]),features)
-    out.execute("INSERT INTO setup_instance VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",row)
+    out.execute("""UPDATE setup_instance SET setup_hash=?,current_state=?,state_event_time=?,state_availability_time=? WHERE setup_id=?""",
+                (sh,final_state,int(state_event),int(state_avail),sid))
     fs["setup_rows"]+=1;fs["logical_bytes"]+=canonical_row_bytes(row);fs["states_"+final_state]=fs.get("states_"+final_state,0)+1
 
 
