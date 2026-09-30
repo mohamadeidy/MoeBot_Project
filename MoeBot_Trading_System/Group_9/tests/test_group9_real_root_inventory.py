@@ -30,6 +30,23 @@ class RealInventoryTests(unittest.TestCase):
             finally:
                 con.close()
 
+    def test_stage5_school_root_mapping(self):
+        with tempfile.TemporaryDirectory() as td:
+            db=Path(td)/"inv.sqlite"
+            con=m.init_inventory(db)
+            try:
+                rows=[
+                    (2023,"g8i_w1","wyckoff_spring_candidate","XAUUSD_","M15","bullish",1700000000,1700000010,"a"*64),
+                    (2023,"g8i_w2","wyckoff_upthrust_candidate","XAUUSD_","M15","bearish",1700000100,1700000110,"b"*64),
+                ]
+                seen,inserted=m.insert_rows(con,rows,expected_source_type="school_interpretation")
+                self.assertEqual((seen,inserted),(2,2))
+                families=dict(con.execute("SELECT definition_id,setup_family FROM root_candidate"))
+                self.assertEqual(families["wyckoff_spring_candidate"],"G9_WYCKOFF_RANGE_RESOLUTION")
+                self.assertEqual(families["wyckoff_upthrust_candidate"],"G9_WYCKOFF_RANGE_RESOLUTION")
+            finally:
+                con.close()
+
     def test_narrative_root_mapping_and_causality_guard(self):
         with tempfile.TemporaryDirectory() as td:
             con=m.init_inventory(Path(td)/"inv.sqlite")
