@@ -166,24 +166,22 @@ def select_sample(inv:sqlite3.Connection,idx:sqlite3.Connection,total_sample:int
     if total<=0: raise RuntimeError("empty inventory")
     strata=[tuple(r) for r in inv.execute("""SELECT dataset_year,setup_family,COUNT(*) FROM root_candidate
                                             GROUP BY dataset_year,setup_family ORDER BY dataset_year,setup_family""")]
+    minimum=min(100,max(1,total_sample//max(1,len(strata))))
+    base=[min(int(n),minimum) for _,_,n in strata]
+    remaining=max(0,total_sample-sum(base))
+    residual_total=sum(max(0,int(n)-b) for (_,_,n),b in zip(strata,base))
     allocations=[]
-    remaining=total_sample
-    for i,(year,family,n) in enumerate(strata):
-        if i==len(strata)-1:
-            take=max(1,remaining)
-        else:
-            take=max(1,int(round(total_sample*int(n)/total)))
-            take=min(take,remaining-(len(strata)-i-1))
-        take=min(int(n),take)
-        remaining-=take
-        allocations.append((int(year),str(family),int(n),take))
-    if remaining>0:
-        # distribute any rounding remainder into largest strata
-        for i in sorted(range(len(allocations)),key=lambda j:allocations[j][2],reverse=True):
-            y,f,n,t=allocations[i]
-            add=min(n-t,remaining)
-            allocations[i]=(y,f,n,t+add);remaining-=add
-            if remaining<=0:break
+    used=0
+    for i,((year,family,n),b) in enumerate(zip(strata,base)):
+        residual=max(0,int(n)-b)
+        extra=0 if residual_total==0 else int(math.floor(remaining*residual/residual_total))
+        take=min(int(n),b+extra)
+        allocations.append((int(year),str(family),int(n),take));used+=take
+    leftover=max(0,total_sample-used)
+    for i in sorted(range(len(allocations)),key=lambda j:allocations[j][2]-allocations[j][3],reverse=True):
+        y,f,n,t=allocations[i]
+        add=min(n-t,leftover);allocations[i]=(y,f,n,t+add);leftover-=add
+        if leftover<=0:break
     actual=0
     for year,family,n,take in allocations:
         rows=inv.execute("""SELECT root_key,dataset_year,setup_family,source_type,source_id,definition_id,symbol,timeframe,direction,event_time,availability_time,source_row_hash
@@ -225,8 +223,7 @@ def build_stage5_index(*,idx:sqlite3.Connection,raw:Path,year:int,sample_ids:set
             row=(r["hypothesis_id"],r["definition_id"],r["symbol"],r["timeframe"],r["direction"],r["event_time"],r["availability_time"],r["hypothesis_hash"],r["upstream_refs_json"])
             insert_subject(idx,year=year,subject_type="narrative_hypothesis",row=row,is_sample_root=False)
             index_support_refs(idx,str(r["hypothesis_id"]),"narrative_hypothesis",str(r["definition_id"]),str(r["upstream_refs_json"]));supports+=1;refs_n+=len(refs(str(r["upstream_refs_json"])))
-        stage5_samples=[tuple(r) for r in idx.execute("SELECT source_type,source_id FROM benchmark_sample WHERE dataset_year=? AND source_id IN (%s)" %
-                                                     ",".join("?" for _ in sample_ids),(year,*sample_ids))] if sample_ids else []
+        stage5_samples=[tuple(r) for r in idx.execute("SELECT source_type,source_id FROM benchmark_sample WHERE dataset_year=?",(year,))]
         # Fetch sampled Stage5 roots directly by immutable primary ID.
         for st,sid in stage5_samples:
             if st=="school_interpretation":
@@ -273,7 +270,7 @@ def build_stage7_index(*,idx:sqlite3.Connection,release:dict[str,Any],output_roo
         raw=scratch/f"g9_bench_stage7_{year}_{int(x['ordinal']):05d}.sqlite"
         n,ds=stream_decompress_verified(zstd,arc,raw,str(x["raw_sha256"]));raw_bytes+=n;dec_s+=ds;shards+=1
         fast_readonly_schema_check(raw,("school_interpretation",))
-        for r in iter_stage7_rows(raw,tuple(wanted)):
+        for r in iter_stage7_rows(raw,tuple(sorted(wanted))):
             sid,definition,symbol,tf,direction,event,avail,row_hash,upstream=r
             if definition==ICT_ROOT:
                 if str(sid) in sample_ids:
@@ -346,8 +343,9 @@ def insert_evidence(out:sqlite3.Connection,*,sid:str,component:str,src:sqlite3.R
               "source_direction":str(src["direction"]),"source_event_time":int(src["event_time"]),"source_availability_time":int(src["availability_time"]),
               "observed_event_time":int(src["event_time"]),"observed_availability_time":int(src["availability_time"]),"link_method":link_method,"details":{}})
     row=(eid,h,*row[2:])
-    out.execute("""INSERT OR IGNORE INTO setup_component_evidence VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",row)
-    family_stats["evidence_rows"]+=1;family_stats["logical_bytes"]+=canonical_row_bytes(row)
+    cur=out.execute("""INSERT OR IGNORE INTO setup_component_evidence VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",row)
+    if cur.rowcount:
+        family_stats["evidence_rows"]+=1;family_stats["logical_bytes"]+=canonical_row_bytes(row)
     return eid
 
 
@@ -450,6 +448,7 @@ def materialize_one(idx:sqlite3.Connection,out:sqlite3.Connection,sample:sqlite3
             insert_transition(out,sid=sid,ordinal=ordinal,from_state="FORMING",to_state="FAILED",event=state_event,avail=state_avail,reason="AUTHORITATIVE_INVALIDATION_BEFORE_READY",trigger=None,family_stats=fs)
         else:
             censor=int(idx.execute("SELECT censor_time FROM annual_boundary WHERE dataset_year=?",(int(sample["dataset_year"]),)).fetchone()[0])
+            censor=max(censor,int(root["availability_time"]))
             final_state="MISSING";state_event=censor;state_avail=censor
             insert_transition(out,sid=sid,ordinal=ordinal,from_state="FORMING",to_state="MISSING",event=censor,avail=censor,reason="RIGHT_CENSORED_MISSING_COMPONENT",trigger=None,family_stats=fs)
     elif inv_time is not None and inv_time<=ready_time:
@@ -490,7 +489,7 @@ def main()->int:
     p.add_argument("--stage7-output-root",type=Path,action="append",required=True)
     p.add_argument("--zstd-exe",type=Path,required=True)
     p.add_argument("--scratch-root",type=Path,required=True)
-    p.add_argument("--sample-count",type=int,default=30000)
+    p.add_argument("--sample-count",type=int,default=12000)
     p.add_argument("--support-index",type=Path,required=True)
     p.add_argument("--sample-output",type=Path,required=True)
     p.add_argument("--report",type=Path,required=True)
@@ -538,9 +537,26 @@ def main()->int:
     sample_count=int(sample["actual"]);population=int(sample["population"])
     if sample_count<=0:raise RuntimeError("empty benchmark sample")
 
-    projected_materialization=mat_seconds*(population/sample_count)
+    family_pop={str(k):int(v) for k,v in inv.execute("SELECT setup_family,COUNT(*) FROM root_candidate GROUP BY setup_family")}
+    family_stats={}
+    projected_materialization=0.0
+    projected_logical_bytes=0.0
+    sample_logical_bytes=0
+    for fam,v in stats.items():
+        roots=max(int(v["roots"]),1);runtime=float(v.get("runtime_ns",0))/1e9
+        pop=family_pop.get(fam,0)
+        projected_family_seconds=runtime/roots*pop
+        projected_family_logical=(float(v["logical_bytes"])/roots)*pop
+        projected_materialization+=projected_family_seconds
+        projected_logical_bytes+=projected_family_logical
+        sample_logical_bytes+=int(v["logical_bytes"])
+        family_stats[fam]={**{k:int(x) for k,x in v.items() if k!="runtime_ns"},"sample_runtime_seconds":runtime,
+                           "seconds_per_root":runtime/roots,"population":pop,
+                           "projected_family_seconds":projected_family_seconds,
+                           "projected_family_logical_bytes":projected_family_logical}
     projected_total=build_seconds+projected_materialization
-    projected_output=int(math.ceil(sample_output_bytes*(population/sample_count)))
+    sqlite_overhead_factor=sample_output_bytes/max(sample_logical_bytes,1)
+    projected_output=int(math.ceil(projected_logical_bytes*sqlite_overhead_factor))
     projected_hours=projected_total/3600.0
     recommended_shards=max(1,math.ceil(projected_output/1_500_000_000))
     projected_per_shard=int(math.ceil(projected_output/recommended_shards))
@@ -548,13 +564,6 @@ def main()->int:
     runtime_target_met=projected_hours<=24.0
     hard_shard_pass=projected_per_shard<=2_500_000_000
 
-    family_pop={str(k):int(v) for k,v in inv.execute("SELECT setup_family,COUNT(*) FROM root_candidate GROUP BY setup_family")}
-    family_stats={}
-    for fam,v in stats.items():
-        roots=max(int(v["roots"]),1);runtime=float(v.get("runtime_ns",0))/1e9
-        family_stats[fam]={**{k:int(x) for k,x in v.items() if k!="runtime_ns"},"sample_runtime_seconds":runtime,
-                           "seconds_per_root":runtime/roots,"population":family_pop.get(fam,0),
-                           "projected_family_seconds":runtime/roots*family_pop.get(fam,0)}
     report={
       "format_version":1,"group":9,"scope":"REAL_SETUP_STATE_REPRESENTATIVE_BENCHMARK",
       "status":"PASS" if hard_runtime_pass and hard_shard_pass else "BLOCKED",
@@ -566,7 +575,8 @@ def main()->int:
       "projected_materialization_seconds":projected_materialization,"projected_total_seconds":projected_total,
       "projected_total_hours":projected_hours,"target_hours":24.0,"hard_hours":48.0,
       "runtime_target_met":runtime_target_met,"hard_runtime_pass":hard_runtime_pass,
-      "projected_output_bytes":projected_output,"recommended_shard_count":recommended_shards,
+      "sample_logical_bytes":sample_logical_bytes,"sqlite_overhead_factor":sqlite_overhead_factor,
+      "projected_logical_bytes":projected_logical_bytes,"projected_output_bytes":projected_output,"recommended_shard_count":recommended_shards,
       "projected_bytes_per_shard":projected_per_shard,"hard_shard_pass":hard_shard_pass,
       "largest_stage5_restore_bytes":largest_restore,"family_stats":family_stats,
       "sample_output_quick_check":"ok","sample_output_foreign_key_failures":0,
