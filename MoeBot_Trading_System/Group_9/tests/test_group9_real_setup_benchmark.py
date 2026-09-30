@@ -9,7 +9,10 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
-SCRIPT=ROOT/"Group_9"/"code"/"group9_real_setup_benchmark.py"
+CODE=ROOT/"Group_9"/"code"
+import sys
+sys.path.insert(0,str(CODE))
+SCRIPT=CODE/"group9_real_setup_benchmark.py"
 spec=importlib.util.spec_from_file_location("g9bench",SCRIPT)
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
