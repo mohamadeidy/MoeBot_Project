@@ -13,11 +13,21 @@ def _stream_sha(zstd: Path, archive: Path) -> str:
     h=hashlib.sha256()
     p=subprocess.Popen([str(zstd),"-d","-c",str(archive)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     assert p.stdout is not None
-    for chunk in iter(lambda:p.stdout.read(1024*1024),b""): h.update(chunk)
-    err=b"" if p.stderr is None else p.stderr.read()
-    rc=p.wait()
-    if rc: raise RuntimeError(f"zstd decompression failed rc={rc}:{err.decode(errors='replace')}")
-    return h.hexdigest()
+    try:
+        for chunk in iter(lambda:p.stdout.read(1024*1024),b""):
+            h.update(chunk)
+        err=b"" if p.stderr is None else p.stderr.read()
+        rc=p.wait()
+        if rc:
+            raise RuntimeError(f"zstd decompression failed rc={rc}:{err.decode(errors='replace')}")
+        return h.hexdigest()
+    finally:
+        p.stdout.close()
+        if p.stderr is not None:
+            p.stderr.close()
+        if p.poll() is None:
+            p.kill()
+            p.wait()
 
 
 def run_gate(*,benchmark_report:Path,sample_db:Path,zstd_exe:Path,archive:Path,output:Path,level:int,safety_floor_gb:float)->dict[str,Any]:
