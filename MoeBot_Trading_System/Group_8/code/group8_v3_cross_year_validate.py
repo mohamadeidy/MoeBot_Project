@@ -16,6 +16,8 @@ def validate(*,annual23_path:Path,annual24_path:Path,freeze_path:Path,output:Pat
  fr=json.loads(freeze_path.read_text());_v(fr,"manifest_hash")
  fail=[]
  if a23.get("status")!="ANNUAL_2023_PASS" or a24.get("status")!="ANNUAL_2024_OOS_PASS":fail.append("annual_pass_missing")
+ if a23.get("complete_logical_annual_dataset") is not True or a24.get("complete_logical_annual_dataset") is not True:fail.append("full_logical_surface_missing")
+ if not a23.get("full_surface",{}).get("receipt_hash") or not a24.get("full_surface",{}).get("receipt_hash"):fail.append("full_surface_receipt_missing")
  if a24.get("freeze_manifest_hash")!=fr["manifest_hash"] or fr.get("annual_2023_manifest_hash")!=a23["manifest_hash"]:fail.append("freeze_boundary_drift")
  if a23.get("validated_commit")!=fr.get("validated_commit") or a24.get("validated_commit")!=fr.get("validated_commit"):fail.append("identity_drift:validated_commit")
  if not fr.get("oos_tooling_commit") or a24.get("oos_tooling_commit")!=fr.get("oos_tooling_commit"):fail.append("identity_drift:oos_tooling_commit")
@@ -29,7 +31,7 @@ def validate(*,annual23_path:Path,annual24_path:Path,freeze_path:Path,output:Pat
  if fail:raise RuntimeError(";".join(fail))
  def counts(a):
   return {"stage6":a["stage6"]["table_row_counts"],"stage7":a["stage7"]["table_row_counts"],"stage7_definitions":a["stage7"].get("definition_coverage",{})}
- r={"format_version":1,"status":"PASS","group":8,"years":[2023,2024],"annual_2023_manifest_hash":a23["manifest_hash"],"annual_2024_manifest_hash":a24["manifest_hash"],"freeze_manifest_hash":fr["manifest_hash"],"validated_commit":fr["validated_commit"],"oos_tooling_commit":fr["oos_tooling_commit"],"identity_stable_across_oos_boundary":True,"frozen_semantics_stable":True,"post_freeze_physical_tooling_amendment":bool(amendment),"semantic_policy_unchanged_by_amendment":True,"bucket_policy_frozen_from_2023":True,"no_trading_outputs_both_years":True,"read_only_upstream_both_years":True,"causality_both_years":"PASS","no_lookahead_both_years":"PASS","descriptive_counts":{"2023":counts(a23),"2024":counts(a24)},"policy":"2024 cardinality/frequency differences are descriptive OOS observations only and did not alter definitions, thresholds, engine semantics, or bucket counts."}
+ r={"format_version":1,"status":"PASS","group":8,"years":[2023,2024],"annual_2023_manifest_hash":a23["manifest_hash"],"annual_2024_manifest_hash":a24["manifest_hash"],"freeze_manifest_hash":fr["manifest_hash"],"validated_commit":fr["validated_commit"],"oos_tooling_commit":fr["oos_tooling_commit"],"identity_stable_across_oos_boundary":True,"frozen_semantics_stable":True,"complete_logical_surface_both_years":True,"full_surface_receipt_hashes":{"2023":a23["full_surface"]["receipt_hash"],"2024":a24["full_surface"]["receipt_hash"]},"post_freeze_physical_tooling_amendment":bool(amendment),"semantic_policy_unchanged_by_amendment":True,"bucket_policy_frozen_from_2023":True,"no_trading_outputs_both_years":True,"read_only_upstream_both_years":True,"causality_both_years":"PASS","no_lookahead_both_years":"PASS","descriptive_counts":{"2023":counts(a23),"2024":counts(a24)},"policy":"2024 cardinality/frequency differences are descriptive OOS observations only and did not alter definitions, thresholds, engine semantics, or bucket counts."}
  r["report_hash"]=stable_hash(r);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(r,indent=2,sort_keys=True)+"\n");return r
 
 def main()->int:
