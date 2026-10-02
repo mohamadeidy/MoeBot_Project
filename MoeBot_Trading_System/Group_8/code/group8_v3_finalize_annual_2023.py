@@ -18,6 +18,7 @@ from typing import Any
 
 from group8_v3_stage6_range_shard_executor import stable_hash
 from moebot_group8_engine_v0_8_0 import sha256_file
+from group8_v3_full_surface_guard import load_full_surface_receipt
 
 def _verify(rec:dict[str,Any],field:str)->None:
     x=dict(rec);saved=str(x.pop(field))
@@ -27,13 +28,14 @@ def _head(root:Path)->str:
     repo=root.resolve().parent.parent
     return subprocess.check_output(["git","-C",str(repo),"rev-parse","HEAD"],text=True).strip()
 
-def finalize(*,artifacts_root:Path,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,stage7_plan_path:Path,stage7_release_path:Path,stage7_union_path:Path,expected_commit:str,output:Path)->dict[str,Any]:
+def finalize(*,artifacts_root:Path,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,stage7_plan_path:Path,stage7_release_path:Path,stage7_union_path:Path,full_surface_path:Path,expected_commit:str,output:Path)->dict[str,Any]:
     if _head(artifacts_root)!=expected_commit: raise RuntimeError("Git HEAD mismatch")
     s6r=json.loads(stage6_release_path.read_text());_verify(s6r,"release_hash")
     s6u=json.loads(stage6_union_path.read_text());_verify(s6u,"report_hash")
     s7p=json.loads(stage7_plan_path.read_text());_verify(s7p,"plan_hash")
     s7r=json.loads(stage7_release_path.read_text());_verify(s7r,"release_hash")
     s7u=json.loads(stage7_union_path.read_text());_verify(s7u,"report_hash")
+    full=load_full_surface_receipt(full_surface_path,year=2023,stage6_union_report_hash=s6u["report_hash"],stage7_union_report_hash=s7u["report_hash"])
     design=json.loads((artifacts_root/"DESIGN_FREEZE_MANIFEST.json").read_text())
     contract=json.loads((artifacts_root/"SHARDED_STORAGE_CONTRACT.json").read_text())
     build=json.loads((artifacts_root/"ENGINE_BUILD_MANIFEST.json").read_text())
@@ -67,6 +69,7 @@ def finalize(*,artifacts_root:Path,stage5_db:Path,stage6_release_path:Path,stage
       "stage7_plan_hash":s7p["plan_hash"],
       "design_freeze_hash":design["design_freeze_hash"],
       "storage_contract_hash":contract["storage_contract_hash"],
+      "full_surface_receipt_hash":full["report_hash"],
     }
     manifest={
       "format_version":3,"status":"ANNUAL_2023_PASS","group":8,"year":2023,
@@ -82,7 +85,9 @@ def finalize(*,artifacts_root:Path,stage5_db:Path,stage6_release_path:Path,stage
       "stage6":{"release_hash":s6r["release_hash"],"union_report_hash":s6u["report_hash"],"global_logical_sha256":s6u["global_logical_sha256"],"shard_count":s6u["shard_count"],"table_row_counts":s6u["table_row_counts"]},
       "stage7":{"plan_hash":s7p["plan_hash"],"release_hash":s7r["release_hash"],"union_report_hash":s7u["report_hash"],"global_logical_sha256":s7u["global_logical_sha256"],"shard_count":s7u["shard_count"],"table_row_counts":s7u["table_row_counts"],"definition_coverage":s7u["definition_coverage"]},
       "logical_components":logical_components,
-      "logical_fingerprint":stable_hash(logical_components),
+      "complete_logical_annual_dataset":True,
+      "full_surface":{"receipt_hash":full["report_hash"],"pa7_release_report_hash":full["pa7_release_report_hash"],"binding_report_hash":full["binding_report_hash"],"reconstruction_report_hashes":full["reconstruction_report_hashes"],"full_union_report_hashes":full["full_union_report_hashes"],"domain_table_coverage":full["domain_table_coverage"]},
+      "logical_fingerprint":full["logical_fingerprint"],
       "duplicate_domain_id_count_stage6":0,"duplicate_domain_id_count_stage7":0,
       "unresolved_group8_reference_count_stage6":0,"unresolved_evidence_subject_count_stage7":0,
       "causality":"PASS","no_lookahead":"PASS","no_backdating":"PASS","duplicate_prevention":"PASS",
@@ -96,6 +101,6 @@ def finalize(*,artifacts_root:Path,stage5_db:Path,stage6_release_path:Path,stage
     return manifest
 
 def main()->int:
-    p=argparse.ArgumentParser();p.add_argument("--artifacts-root",type=Path,required=True);p.add_argument("--stage5-db",type=Path,required=True);p.add_argument("--stage6-release",type=Path,required=True);p.add_argument("--stage6-union",type=Path,required=True);p.add_argument("--stage7-plan",type=Path,required=True);p.add_argument("--stage7-release",type=Path,required=True);p.add_argument("--stage7-union",type=Path,required=True);p.add_argument("--expected-commit",required=True);p.add_argument("--output",type=Path,required=True)
-    a=p.parse_args();m=finalize(artifacts_root=a.artifacts_root.resolve(),stage5_db=a.stage5_db.resolve(),stage6_release_path=a.stage6_release.resolve(),stage6_union_path=a.stage6_union.resolve(),stage7_plan_path=a.stage7_plan.resolve(),stage7_release_path=a.stage7_release.resolve(),stage7_union_path=a.stage7_union.resolve(),expected_commit=a.expected_commit,output=a.output.resolve());print(json.dumps(m,indent=2,sort_keys=True));return 0
+    p=argparse.ArgumentParser();p.add_argument("--artifacts-root",type=Path,required=True);p.add_argument("--stage5-db",type=Path,required=True);p.add_argument("--stage6-release",type=Path,required=True);p.add_argument("--stage6-union",type=Path,required=True);p.add_argument("--stage7-plan",type=Path,required=True);p.add_argument("--stage7-release",type=Path,required=True);p.add_argument("--stage7-union",type=Path,required=True);p.add_argument("--full-surface",type=Path,required=True);p.add_argument("--expected-commit",required=True);p.add_argument("--output",type=Path,required=True)
+    a=p.parse_args();m=finalize(artifacts_root=a.artifacts_root.resolve(),stage5_db=a.stage5_db.resolve(),stage6_release_path=a.stage6_release.resolve(),stage6_union_path=a.stage6_union.resolve(),stage7_plan_path=a.stage7_plan.resolve(),stage7_release_path=a.stage7_release.resolve(),stage7_union_path=a.stage7_union.resolve(),full_surface_path=a.full_surface.resolve(),expected_commit=a.expected_commit,output=a.output.resolve());print(json.dumps(m,indent=2,sort_keys=True));return 0
 if __name__=="__main__":raise SystemExit(main())
