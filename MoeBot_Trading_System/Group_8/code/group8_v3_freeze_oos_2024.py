@@ -20,7 +20,7 @@ TOOLS=[
 "code/moebot_group8_engine_v0_8_0.py","code/group8_postprocess_v0_8_0.py","code/group8_materialize_inputs.py",
 "code/group8_segmented_annual_core.py","code/group8_v3_stage6_range_shard_executor.py","code/group8_v3_stage6_preflight.py",
 "code/group8_v3_stage6_union_validator.py","code/group8_v3_stage7_shard_executor.py","code/group8_v3_stage7_plan.py",
-"code/group8_v3_stage7_union_validator.py","code/group8_v3_finalize_annual_2023.py",
+"code/group8_v3_stage7_union_validator.py","code/group8_v3_full_surface_guard.py","code/group8_v3_finalize_annual_2023.py",
 "code/group8_v3_archive_stage5.py","code/group8_v3_freeze_oos_2024.py","code/group8_v3_amend_oos_tooling.py",
 "code/group8_v3_oos_2024_stage5.py","code/group8_v3_oos_2024_stage6.py","code/group8_v3_oos_2024_stage7.py",
 "code/group8_v3_finalize_annual_2024_oos.py","code/group8_v3_cross_year_validate.py","code/group8_v3_close_group8.py","code/group8_v3_full_continuation.py",
@@ -62,6 +62,7 @@ def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path
  s7=json.loads(stage7_plan_path.read_text());_verify(s7,"plan_hash")
  arc=json.loads(stage5_archive_report_path.read_text());_verify(arc,"report_hash")
  if annual.get("status")!="ANNUAL_2023_PASS" or annual.get("oos_2024_accessed") is not False:raise RuntimeError("Annual 2023 not clean PASS")
+ if annual.get("complete_logical_annual_dataset") is not True or not annual.get("full_surface",{}).get("receipt_hash"):raise RuntimeError("Annual 2023 full logical surface not proven")
  if arc.get("status")!="PASS" or arc.get("lossless_roundtrip_verified") is not True or arc.get("raw_sha256")!=annual["stage5"]["sha256"]:raise RuntimeError("Stage5 archive not lossless PASS")
  if s6.get("status")!="PASS" or int(s6.get("year",0))!=2023:raise RuntimeError("Stage6 2023 plan invalid")
  if s7.get("status")!="PASS" or int(s7.get("year",0))!=2023:raise RuntimeError("Stage7 2023 plan invalid")
@@ -73,7 +74,7 @@ def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path
  manifest={
   "format_version":1,"status":"FROZEN_FOR_2024_OOS_V3","group":8,"oos_year":2024,"training_validation_year":2023,
   "validated_commit":annual_commit,"oos_tooling_commit":tooling_commit,
-  "annual_2023_manifest_hash":annual["manifest_hash"],"annual_2023_logical_fingerprint":annual["logical_fingerprint"],
+  "annual_2023_manifest_hash":annual["manifest_hash"],"annual_2023_logical_fingerprint":annual["logical_fingerprint"],"annual_2023_full_surface_receipt_hash":annual["full_surface"]["receipt_hash"],
   "design_freeze_hash":design["design_freeze_hash"],"storage_contract_hash":contract["storage_contract_hash"],
   "stage5_2023_archive_report_hash":arc["report_hash"],"stage5_2023_archive_sha256":arc["archive_sha256"],
   "stage6_2023_plan_hash":s6["plan_hash"],"stage7_2023_plan_hash":s7["plan_hash"],
