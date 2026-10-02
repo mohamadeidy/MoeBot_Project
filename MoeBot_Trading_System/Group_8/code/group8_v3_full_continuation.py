@@ -97,9 +97,10 @@ def continue_all(*,work:Path,repo:Path,zstd:Path,d_temp_root:Path)->dict[str,Any
  _load_hashed(s7u23,"report_hash","PASS");_log("2023 Stage7 streaming union PASS")
 
  # Annual 2023 V3 finalization.
- annual23=work/"group8_v3_annual_2023_manifest.json"
+ annual23=work/"group8_v3_annual_2023_manifest.json";full23=work/"group8_v3_annual_2023_full_surface_receipt.json"
  if not annual23.is_file():
-  finalize_2023(artifacts_root=art,stage5_db=stage5_23,stage6_release_path=s6rel23,stage6_union_path=s6u23,stage7_plan_path=s7plan23,stage7_release_path=s7rel23,stage7_union_path=s7u23,expected_commit=commit,output=annual23)
+  if not full23.is_file():raise RuntimeError(f"Annual 2023 full logical surface receipt missing:{full23}; PA7-derived/global/full-union completion is required before OOS freeze")
+  finalize_2023(artifacts_root=art,stage5_db=stage5_23,stage6_release_path=s6rel23,stage6_union_path=s6u23,stage7_plan_path=s7plan23,stage7_release_path=s7rel23,stage7_union_path=s7u23,full_surface_path=full23,expected_commit=commit,output=annual23)
  a23=_load_hashed(annual23,"manifest_hash","ANNUAL_2023_PASS");_log("Annual 2023 V3 PASS")
 
  # Archive 2023 Stage5 losslessly before freeing raw boundary.
@@ -185,8 +186,10 @@ def continue_all(*,work:Path,repo:Path,zstd:Path,d_temp_root:Path)->dict[str,Any
  _load_hashed(s7u24,"report_hash","PASS");_log("2024 OOS Stage7 streaming union PASS")
 
  # Annual 2024 OOS.
- annual24=oos/"annual_2024_oos_manifest.json"
- if not annual24.exists():finalize_2024(freeze_path=freeze_path,stage5_db=stage5_24,stage6_release_path=s6rel24,stage6_union_path=s6u24,stage7_plan_path=s7plan24,stage7_release_path=s7rel24,stage7_union_path=s7u24,output=annual24)
+ annual24=oos/"annual_2024_oos_manifest.json";full24=oos/"annual_2024_full_surface_receipt.json"
+ if not annual24.exists():
+  if not full24.is_file():raise RuntimeError(f"Annual 2024 full logical surface receipt missing:{full24}; PA7-derived/global/full-union completion is required before cross-year closure")
+  finalize_2024(freeze_path=freeze_path,stage5_db=stage5_24,stage6_release_path=s6rel24,stage6_union_path=s6u24,stage7_plan_path=s7plan24,stage7_release_path=s7rel24,stage7_union_path=s7u24,full_surface_path=full24,output=annual24)
  _load_hashed(annual24,"manifest_hash","ANNUAL_2024_OOS_PASS");_log("Annual 2024 OOS PASS")
 
  # Archive 2024 Stage5 and release reconstructable staging before restoring any D cache to C.
