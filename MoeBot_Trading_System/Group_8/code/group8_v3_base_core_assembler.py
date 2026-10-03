@@ -9,7 +9,7 @@ with their union reports before publishing the base core used by the existing
 PA7-derived/global finalization pipeline.
 """
 from __future__ import annotations
-import argparse,hashlib,json,shutil,sqlite3,subprocess,tempfile
+import argparse,hashlib,json,math,os,shutil,sqlite3,subprocess
 from pathlib import Path
 from typing import Any,Iterable
 
@@ -28,6 +28,9 @@ DOMAIN_COPY_ORDER=(
 )
 MERGE_TABLES=("school_interpretation","evidence_chain")
 REPLACED_INTERPRETATION_DEFINITIONS=tuple(STAGE6_DEFINITIONS)+tuple(STAGE7_DEFINITIONS)
+DEFAULT_DISK_SAFETY_FLOOR_GB=120.0
+DEFAULT_SIZE_SAFETY_FACTOR=1.15
+STAGE7_SCRATCH_RESERVE_BYTES=2_500_000_000
 
 def _verify(rec:dict[str,Any],field:str,label:str)->None:
  if field not in rec:raise RuntimeError(f"{label}:missing_{field}")
@@ -50,6 +53,43 @@ def _hash_rows(con:sqlite3.Connection,table:str,idc:str,hc:str,where:str="",para
  for rid,rh in con.execute(q,tuple(params)):
   h.update(str(rid).encode());h.update(b"\0");h.update(str(rh).encode());h.update(b"\n");n+=1
  return n,h.hexdigest()
+
+def _release_raw_bytes(release:dict[str,Any],*,stage:int)->int:
+ if stage==6:
+  if release.get("total_output_bytes") is not None:return int(release["total_output_bytes"])
+  vals=[int(x.get("file_size_bytes",-1)) for x in release.get("shards",[])]
+  if not vals or any(x<0 for x in vals):raise RuntimeError("Stage6 release missing raw byte accounting")
+  return sum(vals)
+ if stage==7:
+  if release.get("total_raw_bytes") is None:raise RuntimeError("Stage7 release missing total_raw_bytes")
+  return int(release["total_raw_bytes"])
+ raise ValueError("unsupported stage")
+
+def _storage_projection(*,stage5_bytes:int,stage6_bytes:int,stage7_bytes:int,size_safety_factor:float)->int:
+ if min(stage5_bytes,stage6_bytes,stage7_bytes)<0:raise ValueError("negative storage component")
+ if float(size_safety_factor)<1.0:raise ValueError("size_safety_factor must be >=1")
+ return int(math.ceil((int(stage5_bytes)+int(stage6_bytes)+int(stage7_bytes))*float(size_safety_factor)))
+
+def _storage_preflight(*,stage5_db:Path,stage6_release:dict[str,Any],stage7_release:dict[str,Any],output_db:Path,work_root:Path,disk_safety_floor_gb:float,size_safety_factor:float)->dict[str,Any]:
+ if float(disk_safety_floor_gb)<0:raise ValueError("disk_safety_floor_gb must be >=0")
+ stage5_bytes=int(stage5_db.stat().st_size);stage6_bytes=_release_raw_bytes(stage6_release,stage=6);stage7_bytes=_release_raw_bytes(stage7_release,stage=7)
+ projected=_storage_projection(stage5_bytes=stage5_bytes,stage6_bytes=stage6_bytes,stage7_bytes=stage7_bytes,size_safety_factor=size_safety_factor)
+ output_db.parent.mkdir(parents=True,exist_ok=True);work_root.mkdir(parents=True,exist_ok=True)
+ output_usage=shutil.disk_usage(output_db.parent);replace_credit=output_db.stat().st_size if output_db.exists() else 0
+ output_available=int(output_usage.free)+int(replace_credit);floor=int(float(disk_safety_floor_gb)*(1024**3))
+ same_volume=os.stat(output_db.parent).st_dev==os.stat(work_root).st_dev
+ output_required=projected+floor+(STAGE7_SCRATCH_RESERVE_BYTES if same_volume else 0)
+ scratch_available=output_available if same_volume else int(shutil.disk_usage(work_root).free)
+ scratch_required=0 if same_volume else STAGE7_SCRATCH_RESERVE_BYTES
+ rec={"stage5_bytes":stage5_bytes,"stage6_raw_bytes":stage6_bytes,"stage7_raw_bytes":stage7_bytes,
+      "size_safety_factor":float(size_safety_factor),"projected_output_upper_bound_bytes":projected,
+      "disk_safety_floor_bytes":floor,"stage7_scratch_reserve_bytes":STAGE7_SCRATCH_RESERVE_BYTES,
+      "output_available_bytes":output_available,"output_required_bytes":output_required,
+      "work_volume_separate":not same_volume,"scratch_available_bytes":scratch_available,
+      "scratch_required_bytes":scratch_required,
+      "storage_gate_pass":output_available>=output_required and scratch_available>=scratch_required}
+ if not rec["storage_gate_pass"]:raise RuntimeError("V3 base-core storage preflight failed:"+json.dumps(rec,sort_keys=True))
+ return rec
 
 def _copy_stage5_logical(*,stage5_db:Path,output_db:Path,schema_sql:Path)->dict[str,int]:
  output_db.unlink(missing_ok=True);output_db.parent.mkdir(parents=True,exist_ok=True)
@@ -146,7 +186,7 @@ def _verify_subset(out:sqlite3.Connection,defs:tuple[str,...],expected:dict[str,
  if got!= {k:int(v) for k,v in expected["table_row_counts"].items()}:raise RuntimeError(f"{label} count parity failed:{got}!={expected['table_row_counts']}")
  if gh!=expected["table_logical_sha256"]:raise RuntimeError(f"{label} logical fingerprint parity failed")
 
-def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,stage6_output_root:Path,stage7_release_path:Path,stage7_union_path:Path,stage7_output_root:Path,artifacts_root:Path,zstd_exe:Path,work_root:Path,output_db:Path,report_path:Path)->dict[str,Any]:
+def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,stage6_output_root:Path,stage7_release_path:Path,stage7_union_path:Path,stage7_output_root:Path,artifacts_root:Path,zstd_exe:Path,work_root:Path,output_db:Path,report_path:Path,disk_safety_floor_gb:float=DEFAULT_DISK_SAFETY_FLOOR_GB,size_safety_factor:float=DEFAULT_SIZE_SAFETY_FACTOR)->dict[str,Any]:
  s6r=_load(stage6_release_path,"release_hash","stage6_release");s6u=_load(stage6_union_path,"report_hash","stage6_union")
  s7r=_load(stage7_release_path,"release_hash","stage7_release");s7u=_load(stage7_union_path,"report_hash","stage7_union")
  if s6r.get("status")!="PASS" or s6u.get("status")!="PASS" or s7r.get("status")!="PASS" or s7u.get("status")!="PASS":raise RuntimeError("Stage6/7 evidence is not PASS")
@@ -160,6 +200,7 @@ def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,st
  if s7u.get("stage7_release_hash")!=s7r.get("release_hash") or s7u.get("stage6_union_report_hash")!=s6u.get("report_hash"):raise RuntimeError("Stage7 union lineage mismatch")
  oos=(year==2024)
  if bool(s6u.get("oos_2024_accessed"))!=oos or bool(s7r.get("oos_2024_accessed"))!=oos or bool(s7u.get("oos_2024_accessed"))!=oos:raise RuntimeError("OOS flag/year mismatch")
+ storage=_storage_preflight(stage5_db=stage5_db,stage6_release=s6r,stage7_release=s7r,output_db=output_db,work_root=work_root,disk_safety_floor_gb=disk_safety_floor_gb,size_safety_factor=size_safety_factor)
  cleanup=_copy_stage5_logical(stage5_db=stage5_db,output_db=output_db,schema_sql=artifacts_root/"02_SCHEMA.sql")
  out=sqlite3.connect(output_db);out.row_factory=sqlite3.Row
  try:
@@ -193,7 +234,7 @@ def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,st
  fp=fingerprint(output_db)
  rec={"format_version":1,"status":"PASS","scope":"GROUP8_V3_VERIFIED_NON_PA7_BASE_CORE","year":year,"symbol":symbol,
       "stage5_database_sha256":stage5_sha,"stage6_release_hash":s6r["release_hash"],"stage6_union_report_hash":s6u["report_hash"],
-      "stage7_release_hash":s7r["release_hash"],"stage7_union_report_hash":s7u["report_hash"],**cleanup,
+      "stage7_release_hash":s7r["release_hash"],"stage7_union_report_hash":s7u["report_hash"],"storage_preflight":storage,**cleanup,
       "stage6_official_rows_inserted":merged6,"stage7_official_rows_inserted":merged7,
       "database_sha256":fp["database_sha256"],"database_size_bytes":fp["database_size_bytes"],"logical_sha256":fp["logical_sha256"],
       "fingerprint_report_hash":fp["report_hash"],"quick_check":"ok","integrity_check":"ok","foreign_key_errors":0,
@@ -201,6 +242,6 @@ def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,st
  rec["report_hash"]=stable_hash(rec);report_path.parent.mkdir(parents=True,exist_ok=True);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+"\n");return rec
 
 def main()->int:
- p=argparse.ArgumentParser();p.add_argument("--stage5-db",type=Path,required=True);p.add_argument("--stage6-release",type=Path,required=True);p.add_argument("--stage6-union",type=Path,required=True);p.add_argument("--stage6-output-root",type=Path,required=True);p.add_argument("--stage7-release",type=Path,required=True);p.add_argument("--stage7-union",type=Path,required=True);p.add_argument("--stage7-output-root",type=Path,required=True);p.add_argument("--artifacts-root",type=Path,required=True);p.add_argument("--zstd-exe",type=Path,required=True);p.add_argument("--work-root",type=Path,required=True);p.add_argument("--output-db",type=Path,required=True);p.add_argument("--report",type=Path,required=True)
- a=p.parse_args();r=assemble(stage5_db=a.stage5_db.resolve(),stage6_release_path=a.stage6_release.resolve(),stage6_union_path=a.stage6_union.resolve(),stage6_output_root=a.stage6_output_root.resolve(),stage7_release_path=a.stage7_release.resolve(),stage7_union_path=a.stage7_union.resolve(),stage7_output_root=a.stage7_output_root.resolve(),artifacts_root=a.artifacts_root.resolve(),zstd_exe=a.zstd_exe.resolve(),work_root=a.work_root.resolve(),output_db=a.output_db.resolve(),report_path=a.report.resolve());print(json.dumps(r,indent=2,sort_keys=True));return 0
+ p=argparse.ArgumentParser();p.add_argument("--stage5-db",type=Path,required=True);p.add_argument("--stage6-release",type=Path,required=True);p.add_argument("--stage6-union",type=Path,required=True);p.add_argument("--stage6-output-root",type=Path,required=True);p.add_argument("--stage7-release",type=Path,required=True);p.add_argument("--stage7-union",type=Path,required=True);p.add_argument("--stage7-output-root",type=Path,required=True);p.add_argument("--artifacts-root",type=Path,required=True);p.add_argument("--zstd-exe",type=Path,required=True);p.add_argument("--work-root",type=Path,required=True);p.add_argument("--output-db",type=Path,required=True);p.add_argument("--report",type=Path,required=True);p.add_argument("--disk-safety-floor-gb",type=float,default=DEFAULT_DISK_SAFETY_FLOOR_GB);p.add_argument("--size-safety-factor",type=float,default=DEFAULT_SIZE_SAFETY_FACTOR)
+ a=p.parse_args();r=assemble(stage5_db=a.stage5_db.resolve(),stage6_release_path=a.stage6_release.resolve(),stage6_union_path=a.stage6_union.resolve(),stage6_output_root=a.stage6_output_root.resolve(),stage7_release_path=a.stage7_release.resolve(),stage7_union_path=a.stage7_union.resolve(),stage7_output_root=a.stage7_output_root.resolve(),artifacts_root=a.artifacts_root.resolve(),zstd_exe=a.zstd_exe.resolve(),work_root=a.work_root.resolve(),output_db=a.output_db.resolve(),report_path=a.report.resolve(),disk_safety_floor_gb=a.disk_safety_floor_gb,size_safety_factor=a.size_safety_factor);print(json.dumps(r,indent=2,sort_keys=True));return 0
 if __name__=="__main__":raise SystemExit(main())
