@@ -20,7 +20,11 @@ TOOLS=[
 "code/moebot_group8_engine_v0_8_0.py","code/group8_postprocess_v0_8_0.py","code/group8_materialize_inputs.py",
 "code/group8_segmented_annual_core.py","code/group8_v3_stage6_range_shard_executor.py","code/group8_v3_stage6_preflight.py",
 "code/group8_v3_stage6_union_validator.py","code/group8_v3_stage7_shard_executor.py","code/group8_v3_stage7_plan.py",
-"code/group8_v3_stage7_union_validator.py","code/group8_v3_full_surface_guard.py","code/group8_v3_finalize_annual_2023.py",
+"code/group8_v3_stage7_union_validator.py","code/group8_v3_base_core_assembler.py","code/group8_v3_surface_binding.py","code/group8_v3_full_surface_guard.py","code/group8_v3_finalize_annual_2023.py",
+"code/group8_pa7_shard_executor.py","code/group8_pa7_scoped_shard_executor.py","code/group8_pa7_onepass_month_partition.py","code/group8_pa7_root_window_inventory.py",
+"code/group8_pa7_relevant_catalog.py","code/group8_pa7_distributed_relevant_catalog.py","code/group8_pa7_derived_executor.py","code/group8_global_finalizer.py",
+"code/group8_reconstruct_final_core.py","code/group8_cross_shard_reference_audit.py","code/group8_logical_sidecars.py","code/group8_distributed_union_validator.py",
+"code/group8_distributed_union_worker_aggregate.py","code/group8_shard_union_validator.py",
 "code/group8_v3_archive_stage5.py","code/group8_v3_freeze_oos_2024.py","code/group8_v3_amend_oos_tooling.py",
 "code/group8_v3_oos_2024_stage5.py","code/group8_v3_oos_2024_stage6.py","code/group8_v3_oos_2024_stage7.py",
 "code/group8_v3_finalize_annual_2024_oos.py","code/group8_v3_cross_year_validate.py","code/group8_v3_close_group8.py","code/group8_v3_full_continuation.py",
@@ -55,17 +59,32 @@ def _bucket_policy(plan:dict[str,Any])->dict[str,Any]:
   policy[key]=n
  return dict(sorted(policy.items()))
 
+def _pa7_bucket_policy(sizing:dict[str,Any])->dict[str,int]:
+ plan=sizing.get("frozen_bucket_plan")
+ if not isinstance(plan,dict) or not plan:raise RuntimeError("PA7 frozen bucket plan missing")
+ policy={}
+ for tf,scopes in sorted(plan.items()):
+  if not isinstance(scopes,dict) or not scopes:raise RuntimeError(f"PA7 frozen scope plan missing:{tf}")
+  for scope,n in sorted(scopes.items()):
+   count=int(n)
+   if count<=0 or count&(count-1):raise RuntimeError(f"PA7 bucket count must be positive power of two:{tf}:{scope}:{count}")
+   policy[f"{tf}:{scope}"]=count
+ return policy
+
 def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path,stage7_plan_path:Path,stage5_archive_report_path:Path,zstd_exe:Path,expected_commit:str,output:Path)->dict[str,Any]:
  if _head(artifacts_root)!=expected_commit:raise RuntimeError("Git HEAD mismatch for OOS freeze")
  annual=json.loads(annual_manifest_path.read_text());_verify(annual,"manifest_hash")
  s6=json.loads(stage6_plan_path.read_text());_verify(s6,"plan_hash")
  s7=json.loads(stage7_plan_path.read_text());_verify(s7,"plan_hash")
  arc=json.loads(stage5_archive_report_path.read_text());_verify(arc,"report_hash")
+ pa7s=json.loads((artifacts_root/"reports/51_PA7_2023_REAL_SIZING_AND_BUCKET_PLAN.json").read_text());_verify(pa7s,"report_hash")
  if annual.get("status")!="ANNUAL_2023_PASS" or annual.get("oos_2024_accessed") is not False:raise RuntimeError("Annual 2023 not clean PASS")
  if annual.get("complete_logical_annual_dataset") is not True or not annual.get("full_surface",{}).get("receipt_hash"):raise RuntimeError("Annual 2023 full logical surface not proven")
  if arc.get("status")!="PASS" or arc.get("lossless_roundtrip_verified") is not True or arc.get("raw_sha256")!=annual["stage5"]["sha256"]:raise RuntimeError("Stage5 archive not lossless PASS")
  if s6.get("status")!="PASS" or int(s6.get("year",0))!=2023:raise RuntimeError("Stage6 2023 plan invalid")
  if s7.get("status")!="PASS" or int(s7.get("year",0))!=2023:raise RuntimeError("Stage7 2023 plan invalid")
+ if pa7s.get("status")!="PASS" or int(pa7s.get("year",0))!=2023 or pa7s.get("free_only") is not True or pa7s.get("oos_2024_accessed") is not False:raise RuntimeError("PA7 2023 sizing/bucket plan invalid")
+ pa7_policy=_pa7_bucket_policy(pa7s)
  design=json.loads((artifacts_root/"DESIGN_FREEZE_MANIFEST.json").read_text());contract=json.loads((artifacts_root/"SHARDED_STORAGE_CONTRACT.json").read_text())
  annual_commit,tooling_commit=_lineage_commits(annual,expected_commit)
  identities={rel:_identity(artifacts_root,rel) for rel in TOOLS}
@@ -78,13 +97,15 @@ def freeze(*,artifacts_root:Path,annual_manifest_path:Path,stage6_plan_path:Path
   "design_freeze_hash":design["design_freeze_hash"],"storage_contract_hash":contract["storage_contract_hash"],
   "stage5_2023_archive_report_hash":arc["report_hash"],"stage5_2023_archive_sha256":arc["archive_sha256"],
   "stage6_2023_plan_hash":s6["plan_hash"],"stage7_2023_plan_hash":s7["plan_hash"],
+  "pa7_2023_release_report_hash":annual["full_surface"]["pa7_release_report_hash"],"pa7_2023_sizing_report_hash":pa7s["report_hash"],
+  "pa7_bucket_policy_by_timeframe_scope":pa7_policy,
   "stage6_bucket_policy_by_timeframe_month":_bucket_policy({"shards":[{**x,"family":"range_chain"} for x in s6["specs"]]}),
   "stage7_bucket_policy_by_family_timeframe_month":_bucket_policy(s7),
   "identities":identities,"external_tooling":external_tooling,
-  "immutability_policy":{"semantic_artifact_changes_forbidden":True,"engine_changes_forbidden":True,"definition_changes_forbidden":True,"schema_changes_forbidden":True,"config_changes_forbidden":True,"threshold_changes_forbidden":True,"upstream_lineage_changes_forbidden":True,"storage_contract_changes_forbidden":True,"bucket_counts_from_2024_observations_forbidden":True,"2023_result_conditioned_semantic_changes_forbidden":True},
+  "immutability_policy":{"semantic_artifact_changes_forbidden":True,"engine_changes_forbidden":True,"definition_changes_forbidden":True,"schema_changes_forbidden":True,"config_changes_forbidden":True,"threshold_changes_forbidden":True,"upstream_lineage_changes_forbidden":True,"storage_contract_changes_forbidden":True,"bucket_counts_from_2024_observations_forbidden":True,"pa7_bucket_counts_from_2024_observations_forbidden":True,"2023_result_conditioned_semantic_changes_forbidden":True},
   "authorization":{"2023":False,"2024_oos":True},"free_only":True,"paid_runner_allowed":False,"paid_service_allowed":False,
   "oos_2024_accessed_during_freeze":False,
-  "policy":"validated_commit preserves the Annual 2023 evidence/semantic lineage; oos_tooling_commit binds the exact post-2023 tooling used for untouched 2024 OOS. Untouched 2024 OOS may start only with these exact identities and the 2023-derived bucket-count policy; 2024 observations cannot alter semantics or partition counts.",
+  "policy":"validated_commit preserves the Annual 2023 evidence/semantic lineage; oos_tooling_commit binds the exact post-2023 tooling used for untouched 2024 OOS. Untouched 2024 OOS may start only with these exact identities and the 2023-derived Stage6/Stage7/PA7 bucket-count policies; 2024 observations may enumerate causal root windows for coverage only and cannot alter semantics or partition counts.",
  }
  manifest["manifest_hash"]=stable_hash(manifest);output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(manifest,indent=2,sort_keys=True)+"\n");return manifest
 
