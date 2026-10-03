@@ -4,11 +4,13 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 
 from group8_annual_core_driver import AnnualCoreEngine
 from group8_segmented_annual_core import run_segment
-from group8_v3_base_core_assembler import _copy_stage5_logical
+from group8_v3_base_core_assembler import _copy_stage5_logical, _release_raw_bytes, _storage_preflight, _storage_projection
 from group8_v3_stage6_range_shard_executor import STAGE6_DEFINITIONS
 from group8_v3_stage7_shard_executor import STAGE7_DEFINITIONS
 from test_group8_engine_v0_8_0 import ART, make_stage
@@ -138,6 +140,78 @@ class V3BaseCoreAssemblerTests(unittest.TestCase):
                     output_db=td / "cleaned.sqlite",
                     schema_sql=ART / "02_SCHEMA.sql",
                 )
+
+    def test_storage_projection_and_release_accounting(self):
+        s6 = {"shards": [{"file_size_bytes": 10}, {"file_size_bytes": 20}]}
+        s7 = {"total_raw_bytes": 40}
+        self.assertEqual(_release_raw_bytes(s6, stage=6), 30)
+        self.assertEqual(_release_raw_bytes(s7, stage=7), 40)
+        self.assertEqual(
+            _storage_projection(
+                stage5_bytes=100,
+                stage6_bytes=30,
+                stage7_bytes=40,
+                size_safety_factor=1.1,
+            ),
+            188,
+        )
+        with self.assertRaises(ValueError):
+            _storage_projection(
+                stage5_bytes=100,
+                stage6_bytes=30,
+                stage7_bytes=40,
+                size_safety_factor=0.99,
+            )
+
+    def test_storage_preflight_fails_before_assembly_when_safe_space_is_insufficient(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            stage5 = td / "stage5.sqlite"
+            stage5.write_bytes(b"x" * 1024)
+            output = td / "out" / "base.sqlite"
+            work = td / "work"
+            s6 = {"total_output_bytes": 2048}
+            s7 = {"total_raw_bytes": 4096}
+            with patch(
+                "group8_v3_base_core_assembler.shutil.disk_usage",
+                return_value=SimpleNamespace(free=1_000_000_000),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "storage preflight failed"):
+                    _storage_preflight(
+                        stage5_db=stage5,
+                        stage6_release=s6,
+                        stage7_release=s7,
+                        output_db=output,
+                        work_root=work,
+                        disk_safety_floor_gb=0.0,
+                        size_safety_factor=1.0,
+                    )
+            self.assertFalse(output.exists())
+
+    def test_storage_preflight_passes_with_required_reserve(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            stage5 = td / "stage5.sqlite"
+            stage5.write_bytes(b"x" * 1024)
+            output = td / "out" / "base.sqlite"
+            work = td / "work"
+            s6 = {"total_output_bytes": 2048}
+            s7 = {"total_raw_bytes": 4096}
+            with patch(
+                "group8_v3_base_core_assembler.shutil.disk_usage",
+                return_value=SimpleNamespace(free=4_000_000_000),
+            ):
+                rec = _storage_preflight(
+                    stage5_db=stage5,
+                    stage6_release=s6,
+                    stage7_release=s7,
+                    output_db=output,
+                    work_root=work,
+                    disk_safety_floor_gb=0.0,
+                    size_safety_factor=1.0,
+                )
+            self.assertTrue(rec["storage_gate_pass"])
+            self.assertGreater(rec["output_required_bytes"], rec["projected_output_upper_bound_bytes"])
 
 
 if __name__ == "__main__":
