@@ -23,6 +23,9 @@ name: MoeBot Group 8 V3 Stage 7 Preflight Validation
       - "MoeBot_Trading_System/Group_8/code/group8_v3_oos_2024_stage5.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_oos_2024_stage6.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_oos_2024_stage7.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_oos_2024_pa7.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_pa7_root_window_inventory.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_pa7_onepass_month_partition.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_finalize_annual_2024_oos.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_cross_year_validate.py"
       - "MoeBot_Trading_System/Group_8/code/group8_v3_close_group8.py"
@@ -41,6 +44,7 @@ name: MoeBot Group 8 V3 Stage 7 Preflight Validation
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_full_surface_guard.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_post2023.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_oos_2024_policy.py"
+      - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_oos_2024_pa7.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_cross_year.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_freeze_real_shape.py"
       - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage7_annual_plan.py"
@@ -71,7 +75,7 @@ jobs:
 
       - name: Compile Stage 7 preflight and tests
         run: |
-          python -m py_compile "$GROUP8_ROOT/code/group8_v3_stage7_preflight.py" "$GROUP8_ROOT/code/group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/code/group8_v3_stage7_compression_gate.py" "$GROUP8_ROOT/code/group8_v3_stage7_school_core_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_orchestrator.py" "$GROUP8_ROOT/code/group8_v3_stage7_union_validator.py" "$GROUP8_ROOT/code/group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/code/group8_v3_base_core_assembler.py" "$GROUP8_ROOT/code/group8_reconstruct_final_core.py" "$GROUP8_ROOT/code/group8_distributed_union_validator.py" "$GROUP8_ROOT/code/group8_v3_surface_binding.py" "$GROUP8_ROOT/code/group8_v3_full_surface_guard.py" "$GROUP8_ROOT/code/group8_v3_finalize_annual_2023.py" "$GROUP8_ROOT/code/group8_v3_archive_stage5.py" "$GROUP8_ROOT/code/group8_v3_freeze_oos_2024.py" "$GROUP8_ROOT/code/group8_v3_oos_2024_stage5.py" "$GROUP8_ROOT/code/group8_v3_oos_2024_stage6.py" "$GROUP8_ROOT/code/group8_v3_oos_2024_stage7.py" "$GROUP8_ROOT/code/group8_v3_finalize_annual_2024_oos.py" "$GROUP8_ROOT/code/group8_v3_cross_year_validate.py" "$GROUP8_ROOT/code/group8_v3_close_group8.py" "$GROUP8_ROOT/code/group8_v3_full_continuation.py" "$GROUP8_ROOT/code/group8_v3_stage7_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_preflight.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_storage_benchmarks.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_orchestrator_union.py" "$GROUP8_ROOT/tests/test_group8_v3_base_core_assembler.py" "$GROUP8_ROOT/tests/test_group8_reconstruct_final_core.py" "$GROUP8_ROOT/tests/test_group8_distributed_union_validator.py" "$GROUP8_ROOT/tests/test_group8_v3_surface_binding.py" "$GROUP8_ROOT/tests/test_group8_v3_full_surface_guard.py" "$GROUP8_ROOT/tests/test_group8_v3_post2023.py" "$GROUP8_ROOT/tests/test_group8_v3_oos_2024_policy.py" "$GROUP8_ROOT/tests/test_group8_v3_cross_year.py" "$GROUP8_ROOT/tests/test_group8_v3_freeze_real_shape.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_plan.py"
+          python -m py_compile "$GROUP8_ROOT/code/group8_v3_stage7_preflight.py" "$GROUP8_ROOT/code/group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/code/group8_v3_stage7_compression_gate.py" "$GROUP8_ROOT/code/group8_v3_stage7_school_core_benchmark.py" "$GROUP8_ROOT/code/group8_v3_stage7_orchestrator.py" "$GROUP8_ROOT/code/group8_v3_stage7_union_validator.py" "$GROUP8_ROOT/code/group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/code/group8_v3_base_core_assembler.py" "$GROUP8_ROOT/code/group8_reconstruct_final_core.py" "$GROUP8_ROOT/code/group8_distributed_union_validator.py" "$GROUP8_ROOT/code/group8_v3_surface_binding.py" "$GROUP8_ROOT/code/group8_v3_full_surface_guard.py" "$GROUP8_ROOT/code/group8_v3_finalize_annual_2023.py" "$GROUP8_ROOT/code/group8_v3_archive_stage5.py" "$GROUP8_ROOT/code/group8_v3_freeze_oos_2024.py" "$GROUP8_ROOT/code/group8_v3_oos_2024_stage5.py" "$GROUP8_ROOT/code/group8_v3_oos_2024_stage6.py" "$GROUP8_ROOT/code/group8_v3_oos_2024_stage7.py" "$GROUP8_ROOT/code/group8_v3_oos_2024_pa7.py" "$GROUP8_ROOT/code/group8_pa7_root_window_inventory.py" "$GROUP8_ROOT/code/group8_pa7_onepass_month_partition.py" "$GROUP8_ROOT/code/group8_v3_finalize_annual_2024_oos.py" "$GROUP8_ROOT/code/group8_v3_cross_year_validate.py" "$GROUP8_ROOT/code/group8_v3_close_group8.py" "$GROUP8_ROOT/code/group8_v3_full_continuation.py" "$GROUP8_ROOT/code/group8_v3_stage7_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_preflight.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_benchmark.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_shard_executor.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_storage_benchmarks.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_orchestrator_union.py" "$GROUP8_ROOT/tests/test_group8_v3_base_core_assembler.py" "$GROUP8_ROOT/tests/test_group8_reconstruct_final_core.py" "$GROUP8_ROOT/tests/test_group8_distributed_union_validator.py" "$GROUP8_ROOT/tests/test_group8_v3_surface_binding.py" "$GROUP8_ROOT/tests/test_group8_v3_full_surface_guard.py" "$GROUP8_ROOT/tests/test_group8_v3_post2023.py" "$GROUP8_ROOT/tests/test_group8_v3_oos_2024_policy.py" "$GROUP8_ROOT/tests/test_group8_v3_oos_2024_pa7.py" "$GROUP8_ROOT/tests/test_group8_v3_cross_year.py" "$GROUP8_ROOT/tests/test_group8_v3_freeze_real_shape.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_annual_plan.py" "$GROUP8_ROOT/tests/test_group8_v3_stage7_plan.py"
 
       - name: Frozen annual-core regression tests
         run: |
@@ -94,6 +98,7 @@ jobs:
           python "$GROUP8_ROOT/tests/test_group8_v3_full_surface_guard.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_post2023.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_oos_2024_policy.py" -v
+          python "$GROUP8_ROOT/tests/test_group8_v3_oos_2024_pa7.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_cross_year.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_freeze_real_shape.py" -v
           python "$GROUP8_ROOT/tests/test_group8_v3_stage7_annual_plan.py" -v
