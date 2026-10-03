@@ -23,11 +23,17 @@ def _load(path:Path,field:str,label:str)->dict[str,Any]:
 def load_full_surface_receipt(path:Path,*,year:int,stage6_union_report_hash:str,stage7_union_report_hash:str)->dict[str,Any]:
  r=_load(path,"report_hash","full_surface_receipt");fail=[]
  if r.get("status")!="PASS_FULL_LOGICAL_SURFACE":fail.append("status")
+ if r.get("group")!=8:fail.append("group")
  if int(r.get("year",0))!=int(year):fail.append("year")
  for k in ("complete_logical_annual_dataset","pa7_complete_once_only_coverage","full_annual_union"):
   if r.get(k) is not True:fail.append(k)
  for k in ("unresolved_group8_reference_count","duplicate_domain_id_count","registry_conflict_count"):
   if int(r.get(k,-1))!=0:fail.append(k)
+ if r.get("free_only") is not True or r.get("paid_runner_used") is True or r.get("paid_service_used") is True:fail.append("free_only")
+ if bool(r.get("oos_2024_accessed"))!=(int(year)==2024):fail.append("oos_flag")
+ if len(list(r.get("reconstruction_report_hashes") or []))!=3:fail.append("reconstruction_receipts")
+ if len(list(r.get("full_union_report_hashes") or []))!=3:fail.append("full_union_receipts")
+ if len(str(r.get("binding_report_hash") or ""))!=64:fail.append("binding_report_hash")
  if r.get("stage6_union_report_hash")!=stage6_union_report_hash:fail.append("stage6_union_binding")
  if r.get("stage7_union_report_hash")!=stage7_union_report_hash:fail.append("stage7_union_binding")
  cov=r.get("domain_table_coverage")
@@ -53,8 +59,14 @@ def build_receipt(*,year:int,stage6_union_path:Path,stage7_union_path:Path,pa7_r
  if pa7.get("free_only") is not True or pa7.get("paid_runner_used") is True or pa7.get("paid_service_used") is True:fail.append("pa7_free_only")
  if bool(pa7.get("oos_2024_accessed"))!=oos:fail.append("pa7_oos_flag")
  if bind.get("status")!="PASS" or int(bind.get("year",0))!=int(year):fail.append("binding_report")
+ if bind.get("complete_logical_annual_dataset") is not True:fail.append("binding_complete_surface")
  if bind.get("stage6_union_report_hash")!=s6.get("report_hash"):fail.append("binding_stage6")
  if bind.get("stage7_union_report_hash")!=s7.get("report_hash"):fail.append("binding_stage7")
+ if bind.get("pa7_release_report_hash")!=pa7.get("report_hash"):fail.append("binding_pa7")
+ for k in ("unresolved_group8_reference_count","duplicate_domain_id_count","registry_conflict_count"):
+  if int(bind.get(k,-1))!=0:fail.append("binding_"+k)
+ if bind.get("free_only") is not True or bind.get("paid_runner_used") is True or bind.get("paid_service_used") is True:fail.append("binding_free_only")
+ if bool(bind.get("oos_2024_accessed"))!=oos:fail.append("binding_oos")
  cov=bind.get("domain_table_coverage")
  if not isinstance(cov,dict):cov={};fail.append("binding_domain_table_coverage")
  for t in REQUIRED_DOMAIN_TABLES:
@@ -80,6 +92,8 @@ def build_receipt(*,year:int,stage6_union_path:Path,stage7_union_path:Path,pa7_r
   if bool(r.get("oos_2024_accessed"))!=oos:fail.append(f"full_union_oos_{i}")
   uh.append(r.get("global_logical_sha256"))
  if uh and (None in uh or len(set(uh))!=1):fail.append("full_union_logical_drift")
+ if bind.get("reconstruction_report_hashes")!=[r["report_hash"] for r in recs]:fail.append("binding_reconstruction_reports")
+ if bind.get("full_union_report_hashes")!=[r["report_hash"] for r in unions]:fail.append("binding_full_union_reports")
  if bind.get("finalized_core_logical_sha256") and rh and bind.get("finalized_core_logical_sha256")!=rh[0]:fail.append("binding_reconstruction_logical")
  if bind.get("full_union_global_logical_sha256") and uh and bind.get("full_union_global_logical_sha256")!=uh[0]:fail.append("binding_full_union_logical")
  if fail:raise RuntimeError("full_surface_evidence_invalid:"+";".join(sorted(set(fail))))
