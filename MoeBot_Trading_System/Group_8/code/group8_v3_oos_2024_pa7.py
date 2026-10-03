@@ -156,7 +156,11 @@ def finalize_release(
         w=expected[wid]
         if r.get("spec")!=w:raise RuntimeError(f"PA7 OOS worker spec drift:{wid}")
         for s in r["result"]["shards"]:
-            m=json.loads(Path(s["manifest"]).read_text());_verify(m,"manifest_hash",Path(s["manifest"]).name)
+            mp=Path(s["manifest"]);db=Path(s["database"])
+            m=json.loads(mp.read_text());_verify(m,"manifest_hash",mp.name)
+            if int(m.get("year",0))!=YEAR or m.get("oos_2024_accessed") is not True:raise RuntimeError(f"invalid PA7 OOS shard metadata:{mp}")
+            if int(m.get("file_size_bytes",-1))>HARD_GUARD_BYTES:raise RuntimeError(f"PA7 OOS shard exceeds frozen hard guard:{mp}")
+            if not db.is_file() or db.stat().st_size!=int(m.get("file_size_bytes",-1)) or sha256_file(db)!=m.get("sha256"):raise RuntimeError(f"PA7 OOS shard final identity mismatch:{db}")
             key=(str(m["timeframe"]),str(m["boundary_scope"]),str(m["causal_root_window"]),int(m["bucket_index"]),int(m["bucket_count"]))
             if key in seen:raise RuntimeError(f"duplicate PA7 OOS shard key:{key}")
             if key not in expected_keys:raise RuntimeError(f"unexpected PA7 OOS shard key:{key}")
