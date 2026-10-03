@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json,tempfile,unittest
 from pathlib import Path
-from group8_v3_freeze_oos_2024 import TOOLS,_bucket_policy,_lineage_commits
+from group8_v3_freeze_oos_2024 import TOOLS,_bucket_policy,_lineage_commits,_pa7_bucket_policy
 
 class FreezeRealShapeTests(unittest.TestCase):
  def test_post_annual_tooling_fix_does_not_rewrite_annual_validated_commit(self):
@@ -23,5 +23,13 @@ class FreezeRealShapeTests(unittest.TestCase):
   s6={"specs":[{"timeframe":"M15","root_month":"2023-01","bucket_count":8,"bucket_index":0},{"timeframe":"M15","root_month":"2023-01","bucket_count":8,"bucket_index":1}]}
   p=_bucket_policy({"shards":[{**x,"family":"range_chain"} for x in s6["specs"]]})
   self.assertEqual(p["range_chain:M15:01"],8)
+
+ def test_pa7_policy_is_frozen_by_timeframe_and_scope(self):
+  p=_pa7_bucket_policy({"frozen_bucket_plan":{"M1":{"upstream":128,"group8_range":8},"H1":{"upstream":2,"group8_range":1}}})
+  self.assertEqual(p["M1:upstream"],128);self.assertEqual(p["M1:group8_range"],8);self.assertEqual(p["H1:upstream"],2)
+
+ def test_pa7_policy_rejects_non_power_of_two_and_missing_plan(self):
+  with self.assertRaises(RuntimeError):_pa7_bucket_policy({"frozen_bucket_plan":{"M1":{"upstream":3}}})
+  with self.assertRaises(RuntimeError):_pa7_bucket_policy({})
 
 if __name__=="__main__":unittest.main()
