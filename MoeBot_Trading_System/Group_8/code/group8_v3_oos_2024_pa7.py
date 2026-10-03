@@ -115,8 +115,8 @@ def run_worker(
     for shard in result["shards"]:
         mp=Path(shard["manifest"]);db=Path(shard["database"])
         manifest=json.loads(mp.read_text());_verify(manifest,"manifest_hash",f"PA7 shard {mp.name}")
-        if int(manifest.get("year",0))!=YEAR or manifest.get("oos_2024_accessed") is not True:
-            raise RuntimeError(f"PA7 OOS shard year/OOS drift:{mp}")
+        if manifest.get("status")!="PASS" or manifest.get("annual_breakout_followup_finalized") is not True or int(manifest.get("year",0))!=YEAR or manifest.get("oos_2024_accessed") is not True:
+            raise RuntimeError(f"PA7 OOS shard status/year/OOS drift:{mp}")
         if int(manifest["file_size_bytes"])>HARD_GUARD_BYTES:
             raise RuntimeError(f"PA7 OOS shard exceeds frozen hard guard:{mp}:{manifest['file_size_bytes']}")
         if not db.is_file() or db.stat().st_size!=int(manifest["file_size_bytes"]) or sha256_file(db)!=manifest["sha256"]:
@@ -158,7 +158,7 @@ def finalize_release(
         for s in r["result"]["shards"]:
             mp=Path(s["manifest"]);db=Path(s["database"])
             m=json.loads(mp.read_text());_verify(m,"manifest_hash",mp.name)
-            if int(m.get("year",0))!=YEAR or m.get("oos_2024_accessed") is not True:raise RuntimeError(f"invalid PA7 OOS shard metadata:{mp}")
+            if m.get("status")!="PASS" or m.get("annual_breakout_followup_finalized") is not True or int(m.get("year",0))!=YEAR or m.get("oos_2024_accessed") is not True:raise RuntimeError(f"invalid PA7 OOS shard metadata:{mp}")
             if int(m.get("file_size_bytes",-1))>HARD_GUARD_BYTES:raise RuntimeError(f"PA7 OOS shard exceeds frozen hard guard:{mp}")
             if not db.is_file() or db.stat().st_size!=int(m.get("file_size_bytes",-1)) or sha256_file(db)!=m.get("sha256"):raise RuntimeError(f"PA7 OOS shard final identity mismatch:{db}")
             key=(str(m["timeframe"]),str(m["boundary_scope"]),str(m["causal_root_window"]),int(m["bucket_index"]),int(m["bucket_count"]))
