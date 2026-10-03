@@ -26,7 +26,7 @@ TOOLS=[
 "code/group8_reconstruct_final_core.py","code/group8_cross_shard_reference_audit.py","code/group8_logical_sidecars.py","code/group8_distributed_union_validator.py",
 "code/group8_distributed_union_worker_aggregate.py","code/group8_shard_union_validator.py",
 "code/group8_v3_archive_stage5.py","code/group8_v3_freeze_oos_2024.py","code/group8_v3_amend_oos_tooling.py",
-"code/group8_v3_oos_2024_stage5.py","code/group8_v3_oos_2024_stage6.py","code/group8_v3_oos_2024_stage7.py",
+"code/group8_v3_oos_2024_stage5.py","code/group8_v3_oos_2024_stage6.py","code/group8_v3_oos_2024_stage7.py","code/group8_v3_oos_2024_pa7.py",
 "code/group8_v3_finalize_annual_2024_oos.py","code/group8_v3_cross_year_validate.py","code/group8_v3_close_group8.py","code/group8_v3_full_continuation.py",
 ]
 
