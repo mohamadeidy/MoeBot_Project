@@ -27,6 +27,7 @@ DOMAIN_COPY_ORDER=(
  "invalidation_record","group8_audit_evidence","processing_checkpoint",
 )
 MERGE_TABLES=("school_interpretation","evidence_chain")
+REPLACED_INTERPRETATION_DEFINITIONS=tuple(STAGE6_DEFINITIONS)+tuple(STAGE7_DEFINITIONS)
 
 def _verify(rec:dict[str,Any],field:str,label:str)->None:
  if field not in rec:raise RuntimeError(f"{label}:missing_{field}")
@@ -59,59 +60,61 @@ def _copy_stage5_logical(*,stage5_db:Path,output_db:Path,schema_sql:Path)->dict[
   src_tables=_tables(out,"src");dst_tables=_tables(out,"main")
   missing=[t for t in DOMAIN_COPY_ORDER if t in dst_tables and t not in src_tables]
   if missing:raise RuntimeError("Stage5 missing schema tables:"+",".join(missing))
-  qs=",".join("?" for _ in STAGE6_DEFINITIONS)
-  excluded=int(out.execute(f"SELECT COUNT(*) FROM src.school_interpretation WHERE definition_id IN ({qs})",STAGE6_DEFINITIONS).fetchone()[0])
+  replaced=REPLACED_INTERPRETATION_DEFINITIONS;qs=",".join("?" for _ in replaced)
+  q6=",".join("?" for _ in STAGE6_DEFINITIONS);q7=",".join("?" for _ in STAGE7_DEFINITIONS)
+  excluded6=int(out.execute(f"SELECT COUNT(*) FROM src.school_interpretation WHERE definition_id IN ({q6})",STAGE6_DEFINITIONS).fetchone()[0])
+  excluded7=int(out.execute(f"SELECT COUNT(*) FROM src.school_interpretation WHERE definition_id IN ({q7})",STAGE7_DEFINITIONS).fetchone()[0])
   excluded_evidence=int(out.execute(f"""SELECT COUNT(*) FROM src.evidence_chain e
     WHERE e.subject_id IN (SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs}))
        OR (lower(e.source_group)='group8' AND e.source_id IN
-          (SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs})))""",tuple(STAGE6_DEFINITIONS)*2).fetchone()[0])
+          (SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs})))""",tuple(replaced)*2).fetchone()[0])
   for table in DOMAIN_COPY_ORDER:
    if table not in dst_tables:continue
    sc=_cols(out,"src",table);dc=_cols(out,"main",table)
    if sc!=dc:raise RuntimeError(f"Stage5 schema drift:{table}")
    cols=",".join(f'"{c}"' for c in dc)
    if table=="school_interpretation":
-    out.execute(f'INSERT INTO main."{table}"({cols}) SELECT {cols} FROM src."{table}" WHERE definition_id NOT IN ({qs})',STAGE6_DEFINITIONS)
+    out.execute(f'INSERT INTO main."{table}"({cols}) SELECT {cols} FROM src."{table}" WHERE definition_id NOT IN ({qs})',replaced)
    elif table=="evidence_chain":
     out.execute(f"""INSERT INTO main."{table}"({cols}) SELECT {cols} FROM src."{table}" e
       WHERE e.subject_id NOT IN (SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs}))
         AND NOT (lower(e.source_group)='group8' AND e.source_id IN
-          (SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs})))""",tuple(STAGE6_DEFINITIONS)*2)
+          (SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs})))""",tuple(replaced)*2)
    else:
     out.execute(f'INSERT INTO main."{table}"({cols}) SELECT {cols} FROM src."{table}"')
   # Stage5 is a logical boundary. Any other record depending on removed legacy
-  # Stage6 IDs would make that boundary ambiguous and must fail closed.
-  out.execute("CREATE TEMP TABLE excluded_stage6_ids(id TEXT PRIMARY KEY)")
-  out.execute(f"INSERT INTO excluded_stage6_ids SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs})",STAGE6_DEFINITIONS)
+  # Stage6/Stage7 IDs would make that boundary ambiguous and must fail closed.
+  out.execute("CREATE TEMP TABLE excluded_v3_ids(id TEXT PRIMARY KEY)")
+  out.execute(f"INSERT INTO excluded_v3_ids SELECT interpretation_id FROM src.school_interpretation WHERE definition_id IN ({qs})",replaced)
   checks={
    "candidate_upstream":"""SELECT COUNT(*) FROM price_action_pattern_candidate p,json_each(p.upstream_refs_json) j
      WHERE lower(COALESCE(json_extract(j.value,'$.source_group'),''))='group8'
-       AND CAST(json_extract(j.value,'$.source_id') AS TEXT) IN (SELECT id FROM excluded_stage6_ids)""",
+       AND CAST(json_extract(j.value,'$.source_id') AS TEXT) IN (SELECT id FROM excluded_v3_ids)""",
    "interpretation_upstream":"""SELECT COUNT(*) FROM school_interpretation p,json_each(p.upstream_refs_json) j
      WHERE lower(COALESCE(json_extract(j.value,'$.source_group'),''))='group8'
-       AND CAST(json_extract(j.value,'$.source_id') AS TEXT) IN (SELECT id FROM excluded_stage6_ids)""",
+       AND CAST(json_extract(j.value,'$.source_id') AS TEXT) IN (SELECT id FROM excluded_v3_ids)""",
    "hypothesis_upstream":"""SELECT COUNT(*) FROM narrative_hypothesis p,json_each(p.upstream_refs_json) j
      WHERE lower(COALESCE(json_extract(j.value,'$.source_group'),''))='group8'
-       AND CAST(json_extract(j.value,'$.source_id') AS TEXT) IN (SELECT id FROM excluded_stage6_ids)""",
+       AND CAST(json_extract(j.value,'$.source_id') AS TEXT) IN (SELECT id FROM excluded_v3_ids)""",
    "shared_subject":"""SELECT COUNT(*) FROM shared_evidence s,json_each(s.subject_ids_json) j
-     WHERE CAST(j.value AS TEXT) IN (SELECT id FROM excluded_stage6_ids)""",
+     WHERE CAST(j.value AS TEXT) IN (SELECT id FROM excluded_v3_ids)""",
    "conflict_subject":"""SELECT COUNT(*) FROM conflicting_evidence
-     WHERE left_subject_id IN (SELECT id FROM excluded_stage6_ids) OR right_subject_id IN (SELECT id FROM excluded_stage6_ids)""",
+     WHERE left_subject_id IN (SELECT id FROM excluded_v3_ids) OR right_subject_id IN (SELECT id FROM excluded_v3_ids)""",
    "lifecycle_source":"""SELECT COUNT(*) FROM hypothesis_lifecycle_event
-     WHERE source_id IN (SELECT id FROM excluded_stage6_ids)""",
+     WHERE source_id IN (SELECT id FROM excluded_v3_ids)""",
    "mtf_endpoint":"""SELECT COUNT(*) FROM multi_timeframe_context_relation
-     WHERE subject_id IN (SELECT id FROM excluded_stage6_ids) OR object_id IN (SELECT id FROM excluded_stage6_ids)""",
+     WHERE subject_id IN (SELECT id FROM excluded_v3_ids) OR object_id IN (SELECT id FROM excluded_v3_ids)""",
    "invalidation_endpoint":"""SELECT COUNT(*) FROM invalidation_record
-     WHERE subject_id IN (SELECT id FROM excluded_stage6_ids) OR source_id IN (SELECT id FROM excluded_stage6_ids)""",
+     WHERE subject_id IN (SELECT id FROM excluded_v3_ids) OR source_id IN (SELECT id FROM excluded_v3_ids)""",
   }
   contaminated={k:int(out.execute(q).fetchone()[0]) for k,q in checks.items()}
-  if any(contaminated.values()):raise RuntimeError(f"Stage5 has descendants of legacy Stage6 contamination:{contaminated}")
-  stage6_cp=int(out.execute("SELECT COUNT(*) FROM processing_checkpoint WHERE stage='wyckoff_core' AND status='PASS'").fetchone()[0])
-  if stage6_cp:raise RuntimeError("logical Stage5 copy contains Stage6 PASS checkpoints")
+  if any(contaminated.values()):raise RuntimeError(f"Stage5 has descendants of legacy Stage6/Stage7 contamination:{contaminated}")
+  post_stage5_cp=int(out.execute("SELECT COUNT(*) FROM processing_checkpoint WHERE stage IN ('wyckoff_core','ict_core') AND status='PASS'").fetchone()[0])
+  if post_stage5_cp:raise RuntimeError("logical Stage5 copy contains post-Stage5 PASS checkpoints")
   out.commit();out.execute("DETACH DATABASE src");out.execute("PRAGMA foreign_keys=ON")
   fk=out.execute("PRAGMA foreign_key_check").fetchall()
   if fk:raise RuntimeError(f"Stage5 logical copy foreign-key errors:{len(fk)}")
-  return {"stage6_contamination_interpretations_removed":excluded,"stage6_contamination_evidence_removed":excluded_evidence}
+  return {"stage6_contamination_interpretations_removed":excluded6,"stage7_contamination_interpretations_removed":excluded7,"replaced_contamination_evidence_removed":excluded_evidence}
  finally:out.close()
 
 def _merge_db(out:sqlite3.Connection,db:Path)->dict[str,int]:
