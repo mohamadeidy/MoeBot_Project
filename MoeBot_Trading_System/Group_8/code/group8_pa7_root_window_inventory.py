@@ -18,10 +18,15 @@ SCOPES=('upstream','group8_range')
 
 def stable(v:Any)->str:return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
 
-def inventory(*,staging_db:Path,artifacts_root:Path,year:int,symbol:str,timeframes:list[str])->dict[str,Any]:
+def inventory(*,staging_db:Path,artifacts_root:Path,year:int,symbol:str,timeframes:list[str],oos_freeze:Path|None=None)->dict[str,Any]:
+    freeze_hash=None
     if year==2024:
-        s=json.loads((artifacts_root/'STATUS.json').read_text())
-        if s.get('annual_execution_2024_authorized') is not True:raise RuntimeError('2024 OOS is forbidden')
+        if oos_freeze is not None:
+            from group8_v3_oos_2024_stage5 import verify_freeze
+            freeze_hash=verify_freeze(artifacts_root,oos_freeze)["manifest_hash"]
+        else:
+            s=json.loads((artifacts_root/'STATUS.json').read_text())
+            if s.get('annual_execution_2024_authorized') is not True:raise RuntimeError('2024 OOS is forbidden')
     result={};all_windows=set()
     for tf in timeframes:
         result[tf]={}
@@ -38,8 +43,8 @@ def inventory(*,staging_db:Path,artifacts_root:Path,year:int,symbol:str,timefram
                 all_windows.update(windows)
                 result[tf][scope]={'boundary_root_count':len(rows),'root_windows':windows,'root_window_counts':dict(sorted(counts.items())),'min_root_window':windows[0] if windows else None,'max_root_window':windows[-1] if windows else None}
             finally:e.close();work.unlink(missing_ok=True)
-    rec={'format_version':1,'status':'PASS','year':year,'symbol':symbol,'timeframes':timeframes,'scopes':list(SCOPES),'inventory':result,'all_observed_root_windows':sorted(all_windows),'worker_rule':'official PA7 annual execution must process every root_window listed for each timeframe/scope exactly once per bucket','free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable(rec);return rec
+    rec={'format_version':1,'status':'PASS','year':year,'symbol':symbol,'timeframes':timeframes,'scopes':list(SCOPES),'inventory':result,'all_observed_root_windows':sorted(all_windows),'worker_rule':'official PA7 annual execution must process every root_window listed for each timeframe/scope exactly once per bucket','free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024,'oos_freeze_manifest_hash':freeze_hash};rec['report_hash']=stable(rec);return rec
 
 def main()->int:
-    p=argparse.ArgumentParser();p.add_argument('--staging-db',type=Path,required=True);p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--year',type=int,required=True);p.add_argument('--symbol',required=True);p.add_argument('--timeframes',nargs='+',required=True);p.add_argument('--report',type=Path,required=True);a=p.parse_args();r=inventory(staging_db=a.staging_db.resolve(),artifacts_root=a.artifacts_root.resolve(),year=a.year,symbol=a.symbol,timeframes=a.timeframes);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,indent=2,sort_keys=True)+'\n');print(json.dumps(r,indent=2,sort_keys=True));return 0
+    p=argparse.ArgumentParser();p.add_argument('--staging-db',type=Path,required=True);p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--year',type=int,required=True);p.add_argument('--symbol',required=True);p.add_argument('--timeframes',nargs='+',required=True);p.add_argument('--oos-freeze',type=Path);p.add_argument('--report',type=Path,required=True);a=p.parse_args();r=inventory(staging_db=a.staging_db.resolve(),artifacts_root=a.artifacts_root.resolve(),year=a.year,symbol=a.symbol,timeframes=a.timeframes,oos_freeze=None if a.oos_freeze is None else a.oos_freeze.resolve());a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,indent=2,sort_keys=True)+'\n');print(json.dumps(r,indent=2,sort_keys=True));return 0
 if __name__=='__main__':raise SystemExit(main())

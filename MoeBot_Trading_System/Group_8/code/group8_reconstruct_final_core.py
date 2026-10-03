@@ -15,12 +15,14 @@ from group8_global_finalizer import Group8GlobalFinalizer
 from group8_cross_shard_reference_audit import audit as ref_audit
 from group8_sqlite_fingerprint import fingerprint
 from group8_annual_validation import FORBIDDEN,GENERATED_TEXT_COLUMNS
+from moebot_group8_engine_v0_8_0 import sha256_file
 
 
 def stable(v:Any)->str:return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
 
 
 def reconstruct(*,staging_db:Path,base_core_db:Path,output_db:Path,pa7_catalog:Path,artifacts_root:Path,year:int,symbol:str,report_path:Path)->dict[str,Any]:
+ base_core_sha=sha256_file(base_core_db);pa7_catalog_sha=sha256_file(pa7_catalog)
  if year==2024:
   s=json.loads((artifacts_root/'STATUS.json').read_text())
   if s.get('annual_execution_2024_authorized') is not True:raise RuntimeError('2024 OOS is forbidden')
@@ -51,7 +53,7 @@ def reconstruct(*,staging_db:Path,base_core_db:Path,output_db:Path,pa7_catalog:P
  if any(causal_errors.values()):raise RuntimeError(f'causality violations:{causal_errors}')
  if prohibited:raise RuntimeError(f'prohibited generated trading outputs:{prohibited}')
  fp=fingerprint(output_db)
- rec={'format_version':1,'status':'PASS','year':year,'physical_role':'FINAL_NON_PA7_RECONSTRUCTION','derived_report':derived,'global_report':glob,'cross_shard_reference_report_hash':refs['report_hash'],'unresolved_group8_reference_count':refs['unresolved_group8_reference_count'],'causality':'PASS','causal_error_counts':causal_errors,'no_trading_outputs':True,'logical_sha256':fp['logical_sha256'],'database_sha256':fp['database_sha256'],'database_size_bytes':fp['database_size_bytes'],'fingerprint_report_hash':fp['report_hash'],'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable(rec);report_path.parent.mkdir(parents=True,exist_ok=True);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');return rec
+ rec={'format_version':2,'status':'PASS','year':year,'physical_role':'FINAL_NON_PA7_RECONSTRUCTION','base_core_database_sha256':base_core_sha,'pa7_catalog_sha256':pa7_catalog_sha,'derived_report':derived,'global_report':glob,'cross_shard_reference_report_hash':refs['report_hash'],'unresolved_group8_reference_count':refs['unresolved_group8_reference_count'],'causality':'PASS','causal_error_counts':causal_errors,'no_trading_outputs':True,'logical_sha256':fp['logical_sha256'],'database_sha256':fp['database_sha256'],'database_size_bytes':fp['database_size_bytes'],'fingerprint_report_hash':fp['report_hash'],'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable(rec);report_path.parent.mkdir(parents=True,exist_ok=True);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+'\n');return rec
 
 
 def main()->int:
