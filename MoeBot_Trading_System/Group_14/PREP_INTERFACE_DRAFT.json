@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "group": 14,
+  "inputs": [
+    "Group 13 frozen policy",
+    "final untouched holdout plan",
+    "cost/slippage scenarios"
+  ],
+  "outputs": [
+    "holdout_result",
+    "walk_forward_result",
+    "stress_result",
+    "monte_carlo_result",
+    "failure_analysis",
+    "final_validation_manifest"
+  ],
+  "accuracy_rules": [
+    "final holdout untouched before policy freeze",
+    "failed holdout cannot be tuned and re-called same holdout",
+    "additional years/symbols/broker feeds preferred",
+    "backtest/OOS gate before demo"
+  ],
+  "physical_contract": "MoeBot_Trading_System/GROUPS_9_15_SHARD_FORMAT_CONTRACT_DRAFT.json",
+  "real_execution_authorized": false
+}

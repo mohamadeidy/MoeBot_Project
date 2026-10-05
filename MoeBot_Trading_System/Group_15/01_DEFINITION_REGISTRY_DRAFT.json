@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "group": 15,
+  "name": "Live Execution & Integration",
+  "status": "DRAFT_NOT_FROZEN",
+  "purpose": "Integrate the frozen validated policy with demo then gradual live broker execution, preserving catastrophic safety, reconciliation and immutable audit.",
+  "semantic_rules": [
+    "demo before gradual live",
+    "risk reservation precedes order",
+    "all fills/rejects/slippage reconciled",
+    "catastrophic safety cannot be bypassed by policy",
+    "live process may diagnose but cannot self-modify trading semantics"
+  ],
+  "forbidden": [
+    "live capital before demo pass",
+    "silent self-modifying policy",
+    "risk ceiling bypass"
+  ],
+  "thresholds_frozen": false,
+  "freeze_requirements": [
+    "predecessor official closure",
+    "upstream handoff integrity PASS",
+    "causality review PASS",
+    "synthetic parity/idempotence PASS",
+    "representative sizing PASS"
+  ],
+  "note": "Definitions are deliberately draft until predecessor evidence is closed; physical preparation may proceed now."
+}

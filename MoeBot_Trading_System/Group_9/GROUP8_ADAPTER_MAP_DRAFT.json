@@ -1,0 +1,188 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_NONEXCLUSIVE_NOT_FROZEN",
+  "source_group": 8,
+  "target_group": 9,
+  "source_schema_version": "8.0.0",
+  "required_tables": {
+    "school_interpretation": [
+      "interpretation_id",
+      "definition_id",
+      "school_id",
+      "symbol",
+      "timeframe",
+      "direction",
+      "event_time",
+      "confirmation_time",
+      "availability_time",
+      "lifecycle_state",
+      "mandatory_evidence_complete",
+      "ambiguous",
+      "supporting_evidence_count",
+      "conflicting_evidence_count",
+      "upstream_refs_json",
+      "reasons_json",
+      "interpretation_hash"
+    ],
+    "narrative_hypothesis": [
+      "hypothesis_id",
+      "definition_id",
+      "school_id",
+      "symbol",
+      "timeframe",
+      "direction",
+      "event_time",
+      "confirmation_time",
+      "availability_time",
+      "initial_state",
+      "mandatory_evidence_complete",
+      "ambiguous",
+      "upstream_refs_json",
+      "reasons_json",
+      "hypothesis_hash"
+    ],
+    "hypothesis_lifecycle_event": [
+      "lifecycle_event_id",
+      "hypothesis_id",
+      "lifecycle_ordinal",
+      "event_time",
+      "availability_time",
+      "lifecycle_state",
+      "details_json",
+      "lifecycle_hash"
+    ],
+    "evidence_chain": [
+      "evidence_chain_id",
+      "subject_type",
+      "subject_id",
+      "evidence_ordinal",
+      "source_group",
+      "source_type",
+      "source_id",
+      "relation_type",
+      "source_timeframe",
+      "event_time",
+      "availability_time",
+      "details_json",
+      "evidence_hash"
+    ],
+    "invalidation_record": [
+      "invalidation_id",
+      "subject_type",
+      "subject_id",
+      "rule_id",
+      "source_type",
+      "source_id",
+      "event_time",
+      "confirmation_time",
+      "availability_time",
+      "reasons_json",
+      "details_json",
+      "invalidation_hash"
+    ],
+    "multi_timeframe_context_relation": [
+      "relation_id",
+      "subject_type",
+      "subject_id",
+      "subject_timeframe",
+      "object_type",
+      "object_id",
+      "object_timeframe",
+      "relation_type",
+      "event_time",
+      "availability_time",
+      "overlap_ratio",
+      "details_json",
+      "relation_hash"
+    ],
+    "shared_evidence": [
+      "shared_evidence_id",
+      "source_group",
+      "source_type",
+      "source_id",
+      "subject_ids_json",
+      "relation_type",
+      "availability_time",
+      "details_json",
+      "shared_evidence_hash"
+    ],
+    "conflicting_evidence": [
+      "conflict_id",
+      "left_subject_type",
+      "left_subject_id",
+      "right_subject_type",
+      "right_subject_id",
+      "conflict_type",
+      "event_time",
+      "availability_time",
+      "details_json",
+      "conflict_hash"
+    ]
+  },
+  "component_roles": {
+    "context": [
+      "dow_advancing_structure",
+      "dow_declining_structure",
+      "dow_indeterminate_structure",
+      "wyckoff_range_context",
+      "ict_premium_discount_context",
+      "ict_draw_on_liquidity_context"
+    ],
+    "location": [
+      "ict_premium_discount_context",
+      "ict_block_delivery_context",
+      "pa_context_linked_rejection",
+      "wyckoff_last_point_of_support",
+      "wyckoff_last_point_of_supply"
+    ],
+    "liquidity": [
+      "ict_liquidity_sweep_displacement",
+      "ict_draw_on_liquidity_context",
+      "wyckoff_spring_candidate",
+      "wyckoff_upthrust_candidate"
+    ],
+    "displacement": [
+      "ict_liquidity_sweep_displacement",
+      "ict_mss_fvg_delivery",
+      "wyckoff_sign_of_strength",
+      "wyckoff_sign_of_weakness"
+    ],
+    "structure": [
+      "dow_advancing_structure",
+      "dow_declining_structure",
+      "dow_indeterminate_structure",
+      "dow_bullish_transition",
+      "dow_bearish_transition",
+      "dow_protected_pullback",
+      "ict_mss_fvg_delivery",
+      "pa_structural_pullback"
+    ],
+    "poi": [
+      "ict_block_delivery_context",
+      "ict_return_to_imbalance",
+      "pa_context_linked_rejection"
+    ],
+    "retracement": [
+      "pa_retest",
+      "pa_structural_pullback",
+      "dow_protected_pullback",
+      "ict_return_to_imbalance"
+    ],
+    "confirmation": [
+      "pa_continuation_after_pullback",
+      "ict_mss_fvg_delivery",
+      "wyckoff_sign_of_strength",
+      "wyckoff_sign_of_weakness",
+      "wyckoff_last_point_of_support",
+      "wyckoff_last_point_of_supply"
+    ]
+  },
+  "rules": [
+    "roles are source-role classifications only; they do not imply a setup is READY",
+    "one Group 8 definition may serve multiple roles",
+    "no preferred school is selected",
+    "Group 8 lifecycle/invalidation evidence remains authoritative and read-only",
+    "Group 9 setup state availability is never earlier than the maximum availability of all evidence used for that transition",
+    "exact readiness/failure assembly rules remain unfrozen until Group 8 official closure and Checkpoint 3 PASS"
+  ]
+}

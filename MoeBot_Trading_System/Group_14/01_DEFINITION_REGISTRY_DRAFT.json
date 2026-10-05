@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "group": 14,
+  "name": "Final Validation & Robustness",
+  "status": "DRAFT_NOT_FROZEN",
+  "purpose": "Evaluate the frozen Group13 policy on a genuinely untouched final protocol with walk-forward, stress, Monte Carlo, transaction-cost and failure analysis.",
+  "semantic_rules": [
+    "policy immutable during final evaluation",
+    "failed holdout remains evidence",
+    "retest after redesign requires new policy version and valid untouched protocol",
+    "report net performance after costs",
+    "record sample/population/time period explicitly"
+  ],
+  "forbidden": [
+    "train on final holdout",
+    "tune and relabel same holdout untouched",
+    "live execution"
+  ],
+  "thresholds_frozen": false,
+  "freeze_requirements": [
+    "predecessor official closure",
+    "upstream handoff integrity PASS",
+    "causality review PASS",
+    "synthetic parity/idempotence PASS",
+    "representative sizing PASS"
+  ],
+  "note": "Definitions are deliberately draft until predecessor evidence is closed; physical preparation may proceed now."
+}

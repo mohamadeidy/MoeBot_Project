@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "group": 12,
+  "name": "Autonomous Discovery",
+  "status": "DRAFT_NOT_FROZEN",
+  "purpose": "Discover unforced relationships and combinations from frozen setup/outcome/audit evidence while keeping discovery and confirmation partitions separate.",
+  "semantic_rules": [
+    "discovery and confirmation partitions distinct",
+    "confirmation data cannot modify discovered definition",
+    "all feature availability causal",
+    "multiple-testing controls recorded",
+    "relation provenance reproducible"
+  ],
+  "forbidden": [
+    "OOS-conditioned semantic tuning",
+    "broker execution",
+    "policy action optimization"
+  ],
+  "thresholds_frozen": false,
+  "freeze_requirements": [
+    "predecessor official closure",
+    "upstream handoff integrity PASS",
+    "causality review PASS",
+    "synthetic parity/idempotence PASS",
+    "representative sizing PASS"
+  ],
+  "note": "Definitions are deliberately draft until predecessor evidence is closed; physical preparation may proceed now."
+}

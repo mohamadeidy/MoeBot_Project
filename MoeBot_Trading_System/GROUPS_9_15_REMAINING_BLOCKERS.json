@@ -1,0 +1,70 @@
+{
+  "format_version": 1,
+  "status": "PREPARATION_SAFE_LIMIT_REACHED",
+  "real_execution_authorized": false,
+  "branch": "groups9-15-preparation-v1",
+  "draft_pr": 160,
+  "already_prepared": [
+    "shared shard-native storage/runtime architecture",
+    "120 GiB C safety floor",
+    "D vault policy",
+    "lossless zstd+SHA retention",
+    "compact manifest catalog",
+    "dependency/resource gates",
+    "sizing projection",
+    "deterministic shard planner",
+    "resumable orchestrator",
+    "streaming union skeleton",
+    "handoff builder",
+    "draft schemas for Groups 9-15",
+    "input/output/handoff contracts",
+    "Group8-to-Group9 adapter probe",
+    "causal/outcome/visual/partition/holdout/risk primitives",
+    "synthetic CI test suite"
+  ],
+  "remaining_by_group": {
+    "9": [
+      "Group8 official closure and Checkpoint3 PASS",
+      "freeze exact setup assembly/state semantics",
+      "semantic shard materializer",
+      "real cardinality benchmark/sizing"
+    ],
+    "10": [
+      "Group9 official closure",
+      "freeze outcome horizons/reference/cost/censoring",
+      "outcome shard materializer",
+      "real sizing"
+    ],
+    "11": [
+      "Group10 official closure",
+      "freeze renderer/sampling/audit spec",
+      "renderer integration",
+      "real sizing"
+    ],
+    "12": [
+      "Group11 official closure",
+      "freeze discovery methods and chronological confirmation protocol",
+      "discovery executor",
+      "real sizing"
+    ],
+    "13": [
+      "Group12 official closure",
+      "freeze objective/model/search/selection protocol",
+      "training executor",
+      "real sizing"
+    ],
+    "14": [
+      "Group13 official closure",
+      "freeze genuinely untouched holdout plan",
+      "validation thresholds/protocol",
+      "real holdout execution"
+    ],
+    "15": [
+      "Group14 official edge/robustness PASS",
+      "MT5/broker environment identity",
+      "demo acceptance/risk config freeze",
+      "broker integration tests"
+    ]
+  },
+  "rationale": "These items depend on predecessor evidence, measured cardinality/resources, untouched-holdout governance, or the actual broker environment. Completing them now would require inventing or contaminating information."
+}

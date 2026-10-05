@@ -1,0 +1,57 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "scope": "GROUPS_9_15_SHARD_FORMAT",
+  "partition_keys": [
+    "year",
+    "root_month",
+    "symbol",
+    "timeframe",
+    "hash_bucket"
+  ],
+  "deterministic_partitioning": true,
+  "repartition_may_change_physical_layout_only": true,
+  "deterministic_domain_ids_must_survive_repartition": true,
+  "shard_limits": {
+    "soft_uncompressed_bytes": 1500000000,
+    "hard_uncompressed_bytes": 2500000000
+  },
+  "required_manifest_fields": [
+    "group",
+    "stage",
+    "year",
+    "symbol",
+    "timeframe",
+    "root_month",
+    "bucket_count",
+    "bucket_index",
+    "parent_manifest_hashes",
+    "schema_hash",
+    "config_hash",
+    "row_counts",
+    "table_logical_sha256",
+    "raw_sha256",
+    "raw_size_bytes",
+    "compressed_sha256",
+    "compressed_size_bytes",
+    "availability_boundary",
+    "manifest_hash"
+  ],
+  "archive": {
+    "compression": "zstd_lossless",
+    "test_archive_before_raw_delete": true,
+    "streamed_roundtrip_sha256_required": true
+  },
+  "union": {
+    "monolithic_reconstruction_forbidden": true,
+    "external_merge_sidecars": true,
+    "global_duplicate_id_check": true,
+    "global_reference_audit": true,
+    "global_logical_fingerprint": true
+  },
+  "storage": {
+    "active_cache_drive": "C:",
+    "preferred_vault_root": "D:\\MoeBotVault",
+    "c_free_safety_floor_gib": 120
+  }
+}

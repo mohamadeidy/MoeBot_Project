@@ -1,0 +1,61 @@
+{
+  "format_version": 1,
+  "status": "PREPARATION_ACTIVE",
+  "scope": "MOEBOT_GROUPS_9_15_SHARED_EXECUTION_CONTRACT",
+  "free_only": true,
+  "paid_runner_allowed": false,
+  "paid_service_allowed": false,
+  "execution_policy": {
+    "shard_native": true,
+    "monolithic_annual_materialization_forbidden": true,
+    "read_only_upstream": true,
+    "deterministic_ids_required": true,
+    "streaming_union_required": true,
+    "representative_benchmark_required": true,
+    "exact_cardinality_inventory_required": true,
+    "semantic_approximation_for_speed_forbidden": true
+  },
+  "storage_policy": {
+    "c_drive_role": "ACTIVE_CACHE_ONLY",
+    "c_free_safety_floor_gib": 120,
+    "raw_shard_soft_target_bytes": 1500000000,
+    "raw_shard_hard_guard_bytes": 2500000000,
+    "preferred_vault_root": "D:\\MoeBotVault",
+    "vault_required_for_large_retained_outputs": true,
+    "compression": "zstd_lossless",
+    "delete_raw_only_after_roundtrip_sha256_match": true,
+    "visual_full_population_screenshots_forbidden": true
+  },
+  "runtime_policy": {
+    "target_major_annual_stage_hours": 24,
+    "hard_planning_block_hours": 48,
+    "deterministic_parallelism_allowed": true,
+    "dynamic_worker_count_required": true,
+    "capacity_check_before_each_shard": true
+  },
+  "sequencing": {
+    "group9": [
+      "GROUP8_OFFICIALLY_CLOSED",
+      "GROUP8_CHECKPOINT_3_PASS"
+    ],
+    "group10": [
+      "GROUP9_OFFICIALLY_CLOSED"
+    ],
+    "group11": [
+      "GROUP10_OFFICIALLY_CLOSED"
+    ],
+    "group12": [
+      "GROUP11_OFFICIALLY_CLOSED"
+    ],
+    "group13": [
+      "GROUP12_OFFICIALLY_CLOSED"
+    ],
+    "group14": [
+      "GROUP13_OFFICIALLY_CLOSED",
+      "FINAL_UNTOUCHED_HOLDOUT_PLAN_FROZEN"
+    ],
+    "group15": [
+      "GROUP14_OFFICIAL_ROBUSTNESS_EDGE_PASS"
+    ]
+  }
+}
