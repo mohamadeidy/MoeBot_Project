@@ -79,16 +79,21 @@ def _export_month(*,work_db:Path,output_db:Path,artifacts_root:Path,spec:ShardSp
     base['manifest_hash']=stable_hash(base);manifest=_scope_manifest(base,boundary_scope);manifest['annual_breakout_followup_finalized']=True;manifest.pop('manifest_hash',None);manifest['manifest_hash']=stable_hash(manifest);return manifest
 
 
-def run_onepass_bucket(*,staging_db:Path,work_db:Path,output_dir:Path,artifacts_root:Path,year:int,symbol:str,timeframe:str,root_months:list[str],bucket_count:int,bucket_index:int,boundary_scope:str)->dict[str,Any]:
+def run_onepass_bucket(*,staging_db:Path,work_db:Path,output_dir:Path,artifacts_root:Path,year:int,symbol:str,timeframe:str,root_months:list[str],bucket_count:int,bucket_index:int,boundary_scope:str,oos_freeze:Path|None=None)->dict[str,Any]:
     if boundary_scope not in SCOPES:raise ValueError(boundary_scope)
     months=sorted(set(root_months))
     if not months:raise ValueError('root_months empty')
     for month in months:
         y,m=month.split('-')
         if int(y)!=year or not 1<=int(m)<=12:raise ValueError(f'invalid root month:{month}')
+    freeze_hash=None
     if year==2024:
-        status=json.loads((artifacts_root/'STATUS.json').read_text())
-        if status.get('annual_execution_2024_authorized') is not True:raise RuntimeError('2024 OOS is forbidden')
+        if oos_freeze is not None:
+            from group8_v3_oos_2024_stage5 import verify_freeze
+            freeze_hash=verify_freeze(artifacts_root,oos_freeze)["manifest_hash"]
+        else:
+            status=json.loads((artifacts_root/'STATUS.json').read_text())
+            if status.get('annual_execution_2024_authorized') is not True:raise RuntimeError('2024 OOS is forbidden')
     work_db.unlink(missing_ok=True);spec_all=ShardSpec(year,symbol,timeframe,None,bucket_count,bucket_index)
     engine=ScopedPA7ShardEngine(staging_db=staging_db,output_db=work_db,artifacts_root=artifacts_root,year=year,symbol=symbol,spec=spec_all,boundary_scope=boundary_scope)
     try:
@@ -101,10 +106,10 @@ def run_onepass_bucket(*,staging_db:Path,work_db:Path,output_dir:Path,artifacts_
     output_dir.mkdir(parents=True,exist_ok=True);manifests=[]
     for month in months:
         pad=f'{bucket_index:03d}';cnt=f'{bucket_count:03d}';base=f'g8pa7_{year}_{timeframe}_{boundary_scope}_{month}_b{pad}of{cnt}';db=output_dir/f'{base}.sqlite';mp=output_dir/f'{base}.manifest.json';spec=ShardSpec(year,symbol,timeframe,month,bucket_count,bucket_index);manifest=_export_month(work_db=work_db,output_db=db,artifacts_root=artifacts_root,spec=spec,boundary_scope=boundary_scope);mp.write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n');manifests.append({'root_month':month,'database':str(db),'manifest':str(mp),'shard_id':manifest['shard_id'],'table_row_counts':manifest['table_row_counts'],'table_logical_sha256':manifest['table_logical_sha256'],'manifest_hash':manifest['manifest_hash'],'sha256':manifest['sha256']})
-    rec={'format_version':1,'status':'PASS','year':year,'symbol':symbol,'timeframe':timeframe,'boundary_scope':boundary_scope,'bucket_count':bucket_count,'bucket_index':bucket_index,'root_months':months,'assignment':assignment,'shards':manifests,'one_engine_pass_for_all_root_months':True,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024};rec['report_hash']=stable_hash(rec);return rec
+    rec={'format_version':1,'status':'PASS','year':year,'symbol':symbol,'timeframe':timeframe,'boundary_scope':boundary_scope,'bucket_count':bucket_count,'bucket_index':bucket_index,'root_months':months,'assignment':assignment,'shards':manifests,'one_engine_pass_for_all_root_months':True,'free_only':True,'paid_runner_used':False,'paid_service_used':False,'oos_2024_accessed':year==2024,'oos_freeze_manifest_hash':freeze_hash};rec['report_hash']=stable_hash(rec);return rec
 
 
 def main()->int:
-    p=argparse.ArgumentParser();p.add_argument('--staging-db',type=Path,required=True);p.add_argument('--work-db',type=Path,required=True);p.add_argument('--output-dir',type=Path,required=True);p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--year',type=int,required=True);p.add_argument('--symbol',required=True);p.add_argument('--timeframe',required=True);p.add_argument('--root-month',action='append',required=True);p.add_argument('--bucket-count',type=int,required=True);p.add_argument('--bucket-index',type=int,required=True);p.add_argument('--boundary-scope',choices=sorted(SCOPES),required=True);p.add_argument('--report',type=Path,required=True);a=p.parse_args();r=run_onepass_bucket(staging_db=a.staging_db.resolve(),work_db=a.work_db.resolve(),output_dir=a.output_dir.resolve(),artifacts_root=a.artifacts_root.resolve(),year=a.year,symbol=a.symbol,timeframe=a.timeframe,root_months=a.root_month,bucket_count=a.bucket_count,bucket_index=a.bucket_index,boundary_scope=a.boundary_scope);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':r['status'],'shards':len(r['shards']),'report_hash':r['report_hash']},indent=2,sort_keys=True));return 0
+    p=argparse.ArgumentParser();p.add_argument('--staging-db',type=Path,required=True);p.add_argument('--work-db',type=Path,required=True);p.add_argument('--output-dir',type=Path,required=True);p.add_argument('--artifacts-root',type=Path,required=True);p.add_argument('--year',type=int,required=True);p.add_argument('--symbol',required=True);p.add_argument('--timeframe',required=True);p.add_argument('--root-month',action='append',required=True);p.add_argument('--bucket-count',type=int,required=True);p.add_argument('--bucket-index',type=int,required=True);p.add_argument('--boundary-scope',choices=sorted(SCOPES),required=True);p.add_argument('--oos-freeze',type=Path);p.add_argument('--report',type=Path,required=True);a=p.parse_args();r=run_onepass_bucket(staging_db=a.staging_db.resolve(),work_db=a.work_db.resolve(),output_dir=a.output_dir.resolve(),artifacts_root=a.artifacts_root.resolve(),year=a.year,symbol=a.symbol,timeframe=a.timeframe,root_months=a.root_month,bucket_count=a.bucket_count,bucket_index=a.bucket_index,boundary_scope=a.boundary_scope,oos_freeze=None if a.oos_freeze is None else a.oos_freeze.resolve());a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,indent=2,sort_keys=True)+'\n');print(json.dumps({'status':r['status'],'shards':len(r['shards']),'report_hash':r['report_hash']},indent=2,sort_keys=True));return 0
 
 if __name__=='__main__':raise SystemExit(main())

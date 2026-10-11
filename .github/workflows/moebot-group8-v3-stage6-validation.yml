@@ -1,0 +1,68 @@
+name: MoeBot Group 8 V3 Stage 6 Validation
+
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - "MoeBot_Trading_System/Group_8/V3_PRODUCTION_ARCHITECTURE_GUARDRAILS.md"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_stage6_range_shard_executor.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_stage6_preflight.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_stage6_orchestrator.py"
+      - "MoeBot_Trading_System/Group_8/code/group8_v3_stage6_union_validator.py"
+      - "MoeBot_Trading_System/Group_8/tests/test_group8_v3_stage6_range_shard_executor.py"
+      - ".github/workflows/moebot-group8-v3-stage6-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GROUP8_ROOT: MoeBot_Trading_System/Group_8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  v3-stage6-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile V3 executor and tests
+        run: |
+          python -m py_compile "$GROUP8_ROOT/code/group8_v3_stage6_range_shard_executor.py" "$GROUP8_ROOT/code/group8_v3_stage6_preflight.py" "$GROUP8_ROOT/code/group8_v3_stage6_orchestrator.py" "$GROUP8_ROOT/code/group8_v3_stage6_union_validator.py" "$GROUP8_ROOT/tests/test_group8_v3_stage6_range_shard_executor.py"
+
+      - name: Frozen annual-core regression tests
+        run: |
+          export PYTHONPATH="$GROUP8_ROOT/code:$GROUP8_ROOT/tests"
+          python "$GROUP8_ROOT/tests/test_group8_annual_core_driver.py" -v
+          python "$GROUP8_ROOT/tests/test_group8_segmented_annual_core.py" -v
+
+      - name: V3 Stage 6 parity resume idempotence tests
+        run: |
+          export PYTHONPATH="$GROUP8_ROOT/code:$GROUP8_ROOT/tests"
+          python "$GROUP8_ROOT/tests/test_group8_v3_stage6_range_shard_executor.py" -v
+
+      - name: Guardrail audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root=Path("MoeBot_Trading_System/Group_8")
+          text=(root/"V3_PRODUCTION_ARCHITECTURE_GUARDRAILS.md").read_text()
+          required=[
+              "Groups 1-7 remain read-only upstream dependencies",
+              "Existing Group 8 semantics remain frozen",
+              "Stage 5 is a protected recovery boundary",
+              "Downstream Groups 9-15 compatibility is a release gate",
+              "GitHub is the code authority",
+              "Stage 7 remains blocked until Stage 6 V3 is proven",
+          ]
+          missing=[x for x in required if x not in text]
+          if missing:
+              raise SystemExit(f"missing V3 guardrails: {missing}")
+          print({"status":"PASS","guardrails":len(required)})
+          PY
