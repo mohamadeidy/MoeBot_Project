@@ -215,8 +215,14 @@ def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,st
  year=int(s6r.get("year",0));symbol=str(s6r.get("symbol",""))
  if year not in (2023,2024) or int(s6u.get("year",0))!=year or int(s7r.get("year",0))!=year or int(s7u.get("year",0))!=year:raise RuntimeError("Stage6/7 year lineage mismatch")
  if str(s6u.get("symbol",""))!=symbol or str(s7r.get("symbol",""))!=symbol or str(s7u.get("symbol",""))!=symbol:raise RuntimeError("Stage6/7 symbol lineage mismatch")
- stage5_sha=sha256_file(stage5_db)
- if any(x.get("stage5_database_sha256")!=stage5_sha for x in (s6r,s6u,s7r,s7u)):raise RuntimeError("Stage5 SHA lineage mismatch")
+ expected_stage5_sha=str(s6r.get("stage5_database_sha256") or "")
+ if not expected_stage5_sha or any(x.get("stage5_database_sha256")!=expected_stage5_sha for x in (s6r,s6u,s7r,s7u)):
+  raise RuntimeError("Stage5 SHA lineage mismatch across verified releases")
+ # Fresh assembly must prove the source bytes before use. A resume never copies
+ # Stage5 again; its committed prefix is validated fail-closed at final parity.
+ # Avoid re-hashing the 152+ GB source before the first resume checkpoint.
+ stage5_sha=expected_stage5_sha if resume_existing else sha256_file(stage5_db)
+ if not resume_existing and stage5_sha!=expected_stage5_sha:raise RuntimeError("Stage5 SHA lineage mismatch")
  if s6u.get("stage6_release_hash")!=s6r.get("release_hash"):raise RuntimeError("Stage6 release/union mismatch")
  if s7r.get("stage6_release_hash")!=s6r.get("release_hash") or s7r.get("stage6_union_report_hash")!=s6u.get("report_hash"):raise RuntimeError("Stage7 release not bound to Stage6")
  if s7u.get("stage7_release_hash")!=s7r.get("release_hash") or s7u.get("stage6_union_report_hash")!=s6u.get("report_hash"):raise RuntimeError("Stage7 union lineage mismatch")
@@ -236,9 +242,10 @@ def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,st
   except sqlite3.DatabaseError:pass
   expected6={k:int(v) for k,v in s6u["table_row_counts"].items()}
   if resume_existing:
-   # Reaching Stage7 is only possible after Stage6 parity passed in the original
-   # run. Re-verify that committed Stage6 subset before trusting the checkpoint.
-   _verify_subset(out,tuple(STAGE6_DEFINITIONS),s6u,"Stage6")
+   # Resume starts from an explicitly identified uncommitted Stage7 ordinal.
+   # The original sequential assembler cannot reach Stage7 until Stage6 parity
+   # has already passed and committed. Do not rescan the huge DB before the
+   # first checkpoint; Stage6 parity is re-proved below before publication.
    merged6=dict(expected6)
   else:
    merged6={"school_interpretation":0,"evidence_chain":0}
@@ -274,7 +281,11 @@ def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,st
            "stage7_release_hash":s7r["release_hash"],"stage7_rows_committed":dict(merged7)}
     state["report_hash"]=stable_hash(state)
     state_path.write_text(json.dumps(state,indent=2,sort_keys=True)+"\n")
+    print(f"BASE_CORE_STAGE7_COMMITTED ordinal={ordinal} next={ordinal+1}/{len(entries)}",flush=True)
    _restore_bulk_secondary_indexes(out)
+   # Publication is still fail-closed: both Stage6 and Stage7 are re-proved
+   # against their official logical union fingerprints after all appends finish.
+   _verify_subset(out,tuple(STAGE6_DEFINITIONS),s6u,"Stage6")
    _verify_subset(out,tuple(STAGE7_DEFINITIONS),s7u,"Stage7")
    if merged7!={k:int(v) for k,v in s7u["table_row_counts"].items()}:raise RuntimeError("Stage7 inserted-row count mismatch")
   finally:
@@ -293,6 +304,7 @@ def assemble(*,stage5_db:Path,stage6_release_path:Path,stage6_union_path:Path,st
       "database_sha256":fp["database_sha256"],"database_size_bytes":fp["database_size_bytes"],"logical_sha256":fp["logical_sha256"],
       "fingerprint_report_hash":fp["report_hash"],"quick_check":"ok","integrity_check":"ok","foreign_key_errors":0,
       "resume_existing":bool(resume_existing),"stage7_resume_ordinal":int(resume_stage7_ordinal or 0),
+      "resume_preflight_full_rescan_deferred":bool(resume_existing),"final_stage6_parity_reverified":True,"final_stage7_parity_reverified":True,
       "frozen_semantics_changed":False,"free_only":True,"paid_runner_used":False,"paid_service_used":False,"oos_2024_accessed":oos}
  rec["report_hash"]=stable_hash(rec);report_path.parent.mkdir(parents=True,exist_ok=True);report_path.write_text(json.dumps(rec,indent=2,sort_keys=True)+"\n");return rec
 
