@@ -1,0 +1,99 @@
+{
+  "format_version": 2,
+  "status": "FROZEN",
+  "group": 9,
+  "name": "Setup State Intelligence",
+  "definition_version": "G9-SSI-1.0.0",
+  "frozen_without_outcome_tuning": true,
+  "source_group8_definition_registry_hash": "70d1d4d873249ba73a20ece3d26de90054db171d28af68b4fafc5d9806173ec9",
+  "state_vocabulary": ["FORMING","READY","FAILED","MISSING","INVALIDATED"],
+  "component_chain": ["context","location","liquidity","displacement","structure","poi","retracement","confirmation"],
+  "global_rules": {
+    "event_time_and_availability_time_separate": true,
+    "transition_availability_is_maximum_of_all_evidence_availability": true,
+    "future_outcomes_forbidden_in_state_construction": true,
+    "trade_policy_forbidden": true,
+    "performance_thresholds_forbidden": true,
+    "realized_pnl_mfe_mae_forbidden": true,
+    "direction_from_frozen_upstream_only": true,
+    "neutral_context_may_support_but_not_invent_direction": true,
+    "mandatory_same_symbol": true,
+    "same_timeframe_required_unless_group8_explicit_mtf_relation_exists": true,
+    "mere_time_proximity_never_proves_component_linkage": true,
+    "linkage_requires_shared_upstream_identity_or_group8_explicit_relation": true,
+    "earliest_causal_completion_sets_ready_transition": true,
+    "later_qualifying_evidence_is_supporting_evidence_not_new_setup": true,
+    "no_best_or_nearest_evidence_selection": true,
+    "group8_invalidation_is_authoritative": true,
+    "pre_ready_invalidation_maps_to_failed": true,
+    "post_ready_invalidation_maps_to_invalidated": true,
+    "missing_is_right_censor_only": true,
+    "no_maximum_setup_horizon": true,
+    "deterministic_setup_identity_excludes_later_evidence": true,
+    "repartitioning_must_not_change_logical_ids": true
+  },
+  "setup_families": {
+    "G9_ICT_LIQUIDITY_DELIVERY": {
+      "school_scope": "ict_smc",
+      "root_subject_type": "school_interpretation",
+      "root_definitions": ["ict_liquidity_sweep_displacement"],
+      "root_role": "liquidity+displacement",
+      "direction_rule": "use root stored direction; must be bullish or bearish",
+      "forming_rule": "emit FORMING when one qualifying root becomes causally available",
+      "ready_requirements": [
+        {"role":"structure+confirmation","subject_type":"school_interpretation","one_of":["ict_mss_fvg_delivery"],"direction":"same_as_root"},
+        {"role":"poi_or_retracement","subject_type":"school_interpretation","one_of":["ict_return_to_imbalance","ict_block_delivery_context"],"direction":"same_as_root_or_neutral"}
+      ],
+      "optional_support": ["ict_premium_discount_context","ict_draw_on_liquidity_context"],
+      "ready_rule": "earliest causal point when every ready requirement has linked evidence and no authoritative invalidation is already available"
+    },
+    "G9_WYCKOFF_RANGE_RESOLUTION": {
+      "school_scope": "wyckoff",
+      "root_subject_type": "school_interpretation",
+      "root_definitions": ["wyckoff_spring_candidate","wyckoff_upthrust_candidate"],
+      "root_role": "liquidity",
+      "direction_rule": "spring=>bullish; upthrust=>bearish; must agree with stored root direction",
+      "forming_rule": "emit FORMING when one qualifying root becomes causally available",
+      "ready_requirements": [
+        {"role":"context","subject_type":"school_interpretation","one_of":["wyckoff_range_context"],"direction":"neutral_allowed"},
+        {"role":"displacement+structure","subject_type":"school_interpretation","by_root":{"wyckoff_spring_candidate":["wyckoff_sign_of_strength"],"wyckoff_upthrust_candidate":["wyckoff_sign_of_weakness"]},"direction":"same_as_root"},
+        {"role":"retracement+confirmation","subject_type":"school_interpretation","by_root":{"wyckoff_spring_candidate":["wyckoff_last_point_of_support"],"wyckoff_upthrust_candidate":["wyckoff_last_point_of_supply"]},"direction":"same_as_root"}
+      ],
+      "optional_support": [],
+      "ready_rule": "earliest causal point when the root's exact range chain reaches its matching sign and last-point interpretation without prior authoritative invalidation"
+    },
+    "G9_STRUCTURAL_PULLBACK_CONTINUATION": {
+      "school_scope": "classical_price_action+dow_theory",
+      "root_subject_type": "narrative_hypothesis",
+      "root_definitions": ["pa_structural_pullback"],
+      "root_role": "retracement+structure",
+      "direction_rule": "use root stored direction; must be bullish or bearish",
+      "forming_rule": "emit FORMING when one qualifying structural-pullback hypothesis becomes causally available",
+      "ready_requirements": [
+        {"role":"structure_context","subject_type":"school_interpretation","one_of":["dow_advancing_structure","dow_declining_structure","dow_protected_pullback"],"direction":"same_as_root"},
+        {"role":"confirmation","subject_type":"narrative_hypothesis","one_of":["pa_continuation_after_pullback"],"direction":"same_as_root"}
+      ],
+      "optional_support": ["ict_return_to_imbalance","ict_block_delivery_context"],
+      "ready_rule": "earliest causal point when linked same-direction structure context and the first qualifying continuation hypothesis are both available without prior authoritative invalidation"
+    }
+  },
+  "terminal_rules": {
+    "FAILED": "FORMING setup receives authoritative Group 8 invalidation against its root or mandatory linked evidence before READY",
+    "INVALIDATED": "READY setup later receives authoritative Group 8 invalidation against its root or mandatory linked evidence",
+    "MISSING": "at the frozen dataset censor boundary, setup remains FORMING and at least one mandatory READY component never became causally available; MISSING is not emitted before the censor boundary"
+  },
+  "linkage_graph": {
+    "direct_subject_reference": true,
+    "shared_exact_upstream_source_identity": true,
+    "explicit_group8_multi_timeframe_relation": true,
+    "shared_symbol_and_time_only": false,
+    "nearest_price_or_nearest_time_only": false
+  },
+  "multiplicity": {
+    "one_setup_per_family_root": true,
+    "root_may_spawn_multiple_families": false,
+    "multiple_evidence_paths_retained": true,
+    "supporting_evidence_deduplicated_by_source_identity": true
+  },
+  "registry_hash": "c9dad6529c01b9a0d789312c7e1704356b642124e9da8d4afdd426e090a99c1c"
+}

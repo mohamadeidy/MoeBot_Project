@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "source_group": 9,
+  "target_group": 10,
+  "status": "DRAFT_PREPARATION",
+  "required_artifacts": [
+    "immutable setup lifecycle rows",
+    "component evidence links",
+    "transition rows",
+    "manifest hashes",
+    "availability boundaries",
+    "global logical fingerprint"
+  ],
+  "publication_rules": [
+    "source group officially closed",
+    "streaming union PASS",
+    "release manifest self-hash valid",
+    "large retained archives hash-verified",
+    "all source IDs immutable"
+  ],
+  "consumption_policy": {
+    "read_only": true,
+    "selective_shard_access": true,
+    "preserve_source_ids": true,
+    "repartition_physical_only": true
+  }
+}

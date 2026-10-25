@@ -1,0 +1,80 @@
+{
+  "format_version": 1,
+  "group": 14,
+  "name": "Final Validation & Robustness",
+  "status": "DRAFT_PREPARATION",
+  "real_execution_authorized": false,
+  "purpose": "Evaluate the frozen Group13 policy on a genuinely untouched final protocol with walk-forward, stress, Monte Carlo, transaction-cost and failure analysis.",
+  "predecessor_gates": [
+    "GROUP13_OFFICIALLY_CLOSED",
+    "FINAL_UNTOUCHED_HOLDOUT_PLAN_FROZEN"
+  ],
+  "required_inputs": [
+    "Group13 frozen policy",
+    "untouched holdout data/plan",
+    "cost/slippage scenarios",
+    "walk-forward protocol",
+    "stress/Monte Carlo protocol"
+  ],
+  "outputs": [
+    "validation_run",
+    "stress_result",
+    "monte_carlo_result",
+    "failure_analysis"
+  ],
+  "semantic_rules": [
+    "policy immutable during final evaluation",
+    "failed holdout remains evidence",
+    "retest after redesign requires new policy version and valid untouched protocol",
+    "report net performance after costs",
+    "record sample/population/time period explicitly"
+  ],
+  "forbidden": [
+    "train on final holdout",
+    "tune and relabel same holdout untouched",
+    "live execution"
+  ],
+  "partition_strategy": {
+    "keys": [
+      "validation_protocol",
+      "dataset_id",
+      "symbol",
+      "time_block",
+      "scenario_bucket"
+    ],
+    "strategy": "independent evaluation shards with compact aggregate metrics"
+  },
+  "execution_stages": [
+    "dependency_intake",
+    "holdout_integrity_check",
+    "baseline_holdout",
+    "walk_forward",
+    "cost_slippage_sensitivity",
+    "stress",
+    "monte_carlo",
+    "failure_analysis",
+    "robustness_gate",
+    "official_verdict",
+    "closure"
+  ],
+  "sizing_policy": {
+    "representative_benchmark_required": true,
+    "exact_candidate_inventory_required": true,
+    "target_major_stage_hours": 24,
+    "hard_block_hours": 48,
+    "c_free_floor_gib": 120,
+    "raw_shard_soft_bytes": 1500000000,
+    "raw_shard_hard_bytes": 2500000000
+  },
+  "handoff": {
+    "required_artifacts": [
+      "official edge/robustness verdict",
+      "frozen policy hash",
+      "all validation reports",
+      "failure taxonomy",
+      "deployment constraints"
+    ],
+    "read_only_consumption": true,
+    "hash_bound": true
+  }
+}

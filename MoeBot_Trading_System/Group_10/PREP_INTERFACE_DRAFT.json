@@ -1,0 +1,23 @@
+{
+  "format_version": 1,
+  "status": "DRAFT_PREPARATION",
+  "group": 10,
+  "inputs": [
+    "Group 9 setup_instance",
+    "Group 9 setup_transition",
+    "source bars/ticks required for post-availability path measurement"
+  ],
+  "outputs": [
+    "setup_outcome",
+    "excursion_summary",
+    "counterfactual_path",
+    "cost_model_observation"
+  ],
+  "accuracy_rules": [
+    "outcome clock starts no earlier than setup availability",
+    "setup features immutable after outcome measurement",
+    "MFE/MAE horizons explicitly versioned"
+  ],
+  "physical_contract": "MoeBot_Trading_System/GROUPS_9_15_SHARD_FORMAT_CONTRACT_DRAFT.json",
+  "real_execution_authorized": false
+}

@@ -1,0 +1,73 @@
+{
+  "format_version": 2,
+  "status": "PASS_PREPARATION_ONLY",
+  "branch": "groups9-15-preparation-v1",
+  "real_execution_authorized": false,
+  "shared": {
+    "architecture": "PREPARED",
+    "storage_runtime_contract": "PREPARED",
+    "shard_format": "PREPARED_DRAFT",
+    "dependency_gate": "IMPLEMENTED",
+    "resource_gate": "IMPLEMENTED",
+    "sizing_gate": "IMPLEMENTED",
+    "shared_shard_runtime": "IMPLEMENTED",
+    "compact_manifest_catalog": "IMPLEMENTED",
+    "deterministic_planner": "IMPLEMENTED",
+    "resumable_executor": "IMPLEMENTED",
+    "streaming_union_validator": "IMPLEMENTED",
+    "handoff_builder": "IMPLEMENTED",
+    "ci": "ACTIVE"
+  },
+  "groups": {
+    "9": {
+      "infrastructure": "PREPARED",
+      "schema": "DRAFTED",
+      "definitions": "DRAFTED",
+      "adapter_probe": "IMPLEMENTED",
+      "causal_core": "IMPLEMENTED",
+      "semantic_executor": "BLOCKED_ON_FINAL_GROUP8_EVIDENCE"
+    },
+    "10": {
+      "infrastructure": "PREPARED",
+      "schema": "DRAFTED",
+      "definitions": "DRAFTED",
+      "outcome_math": "IMPLEMENTED",
+      "semantic_executor": "BLOCKED_ON_GROUP9_CLOSURE_AND_FREEZE"
+    },
+    "11": {
+      "infrastructure": "PREPARED",
+      "schema": "DRAFTED",
+      "definitions": "DRAFTED",
+      "recipe_sampling": "IMPLEMENTED",
+      "renderer": "BLOCKED_ON_RENDERER_FREEZE"
+    },
+    "12": {
+      "infrastructure": "PREPARED",
+      "schema": "DRAFTED",
+      "definitions": "DRAFTED",
+      "partition_guard": "IMPLEMENTED",
+      "discovery_executor": "BLOCKED_ON_METHOD_PROTOCOL_FREEZE"
+    },
+    "13": {
+      "infrastructure": "PREPARED",
+      "schema": "DRAFTED",
+      "definitions": "DRAFTED",
+      "holdout_split_guard": "IMPLEMENTED",
+      "training_executor": "BLOCKED_ON_OBJECTIVE_MODEL_FREEZE"
+    },
+    "14": {
+      "infrastructure": "PREPARED",
+      "schema": "DRAFTED",
+      "definitions": "DRAFTED",
+      "holdout_identity_guard": "IMPLEMENTED",
+      "validation_executor": "BLOCKED_ON_FINAL_HOLDOUT_FREEZE"
+    },
+    "15": {
+      "infrastructure": "PREPARED",
+      "schema": "DRAFTED",
+      "definitions": "DRAFTED",
+      "risk_deployment_gate": "IMPLEMENTED",
+      "broker_executor": "BLOCKED_ON_GROUP14_PASS_AND_BROKER_ENV"
+    }
+  }
+}

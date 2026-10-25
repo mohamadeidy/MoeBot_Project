@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "group": 11,
+  "status": "DRAFT_PREPARATION",
+  "predecessor_group": 10,
+  "required_gates": [
+    "GROUP10_OFFICIALLY_CLOSED"
+  ],
+  "required_inputs": [
+    "Group9 setup states",
+    "Group10 outcomes",
+    "source chart bars",
+    "frozen renderer/overlay specification"
+  ],
+  "consumption_policy": {
+    "read_only": true,
+    "selective_shard_access": true,
+    "selective_columns": true,
+    "preserve_source_ids": true,
+    "full_history_copy_forbidden": true
+  },
+  "required_preflight": [
+    "predecessor closure hash valid",
+    "definition registry FROZEN",
+    "preparation plan FROZEN",
+    "exact candidate inventory",
+    "representative sizing PASS",
+    "resource gate PASS",
+    "C free-space floor preserved"
+  ],
+  "real_execution_authorized": false
+}

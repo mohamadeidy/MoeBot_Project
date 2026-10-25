@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "group": 10,
+  "name": "Outcome & Counterfactual Intelligence",
+  "status": "DRAFT_PREPARATION",
+  "real_execution_authorized": false,
+  "purpose": "Measure post-availability path outcomes and counterfactuals for frozen Group 9 setup states without contaminating setup construction.",
+  "predecessor_gates": [
+    "GROUP9_OFFICIALLY_CLOSED"
+  ],
+  "required_inputs": [
+    "Group9 setup_instance",
+    "Group9 setup_transition",
+    "source bars/ticks after setup availability",
+    "frozen transaction-cost assumptions"
+  ],
+  "outputs": [
+    "setup_outcome",
+    "counterfactual_path",
+    "excursion_event"
+  ],
+  "semantic_rules": [
+    "outcome clock begins no earlier than setup availability",
+    "MFE/MAE horizons are explicit and versioned",
+    "Group9 rows immutable",
+    "counterfactual assumptions versioned",
+    "no policy optimization"
+  ],
+  "forbidden": [
+    "rewrite Group9 setup state",
+    "use post-outcome data as setup feature",
+    "policy learning"
+  ],
+  "partition_strategy": {
+    "keys": [
+      "year",
+      "symbol",
+      "timeframe",
+      "root_month",
+      "setup_id_hash_bucket"
+    ],
+    "strategy": "co-partition by Group9 setup_id for direct shard locality"
+  },
+  "execution_stages": [
+    "dependency_intake",
+    "horizon_definition_freeze",
+    "candidate_inventory",
+    "benchmark",
+    "sizing_gate",
+    "outcome_shards",
+    "counterfactual_shards",
+    "union_validation",
+    "annual_release",
+    "cross_year_audit",
+    "closure"
+  ],
+  "sizing_policy": {
+    "representative_benchmark_required": true,
+    "exact_candidate_inventory_required": true,
+    "target_major_stage_hours": 24,
+    "hard_block_hours": 48,
+    "c_free_floor_gib": 120,
+    "raw_shard_soft_bytes": 1500000000,
+    "raw_shard_hard_bytes": 2500000000
+  },
+  "handoff": {
+    "required_artifacts": [
+      "outcome rows keyed to setup_id",
+      "excursion summaries",
+      "counterfactual scenario identities",
+      "cost model identities",
+      "manifest hashes",
+      "availability boundaries"
+    ],
+    "read_only_consumption": true,
+    "hash_bound": true
+  }
+}

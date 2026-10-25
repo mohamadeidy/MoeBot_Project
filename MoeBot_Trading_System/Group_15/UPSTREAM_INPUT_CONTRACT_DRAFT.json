@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "group": 15,
+  "status": "DRAFT_PREPARATION",
+  "predecessor_group": 14,
+  "required_gates": [
+    "GROUP14_OFFICIAL_ROBUSTNESS_EDGE_PASS"
+  ],
+  "required_inputs": [
+    "Group14 official PASS",
+    "frozen policy artifact",
+    "MT5/broker adapter",
+    "symbol/account constraints",
+    "risk ceiling"
+  ],
+  "consumption_policy": {
+    "read_only": true,
+    "selective_shard_access": true,
+    "selective_columns": true,
+    "preserve_source_ids": true,
+    "full_history_copy_forbidden": true
+  },
+  "required_preflight": [
+    "predecessor closure hash valid",
+    "definition registry FROZEN",
+    "preparation plan FROZEN",
+    "exact candidate inventory",
+    "representative sizing PASS",
+    "resource gate PASS",
+    "C free-space floor preserved"
+  ],
+  "real_execution_authorized": false
+}
