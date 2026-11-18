@@ -162,7 +162,7 @@ def run(args: argparse.Namespace) -> dict:
                 "transition_rows": 0, "logical_bytes": 0,
             })
             for root in roots:
-                materialize_one(idx, out, root, "G9-SSI-1.0.0", stats)
+                materialize_one(idx, out, root, "G9-SSI-1.0.0", stats, benchmark_mode=False)
             out.commit()
             integrity = out.execute("PRAGMA quick_check").fetchone()[0]
             if integrity != "ok" or out.execute("PRAGMA foreign_key_check").fetchall():
@@ -172,6 +172,9 @@ def run(args: argparse.Namespace) -> dict:
             states = dict(out.execute(
                 "SELECT current_state,COUNT(*) FROM setup_instance GROUP BY current_state"
             ))
+            if any(json.loads(row[0]).get("benchmark") is not False
+                   for row in out.execute("SELECT features_json FROM setup_instance")):
+                raise RuntimeError("production_shard_contains_benchmark_metadata")
             emitted_ids = {r[0] for r in out.execute("SELECT setup_id FROM setup_instance")}
             expected_ids = {
                 setup_id(WYCKOFF_FAMILY, r["symbol"], r["timeframe"], r["direction"],

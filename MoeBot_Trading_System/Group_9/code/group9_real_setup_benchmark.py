@@ -357,13 +357,13 @@ def insert_transition(out:sqlite3.Connection,*,sid:str,ordinal:int,from_state:st
     family_stats["transition_rows"]+=1;family_stats["logical_bytes"]+=canonical_row_bytes(row)
 
 
-def materialize_one(idx:sqlite3.Connection,out:sqlite3.Connection,sample:sqlite3.Row,version:str,stats:dict[str,dict[str,int]])->None:
+def materialize_one(idx:sqlite3.Connection,out:sqlite3.Connection,sample:sqlite3.Row,version:str,stats:dict[str,dict[str,int]],*,benchmark_mode:bool=True)->None:
     root=subject_row(idx,str(sample["source_id"]))
     if root is None:raise RuntimeError(f"sample root missing from source index:{sample['source_id']}")
     family=str(sample["setup_family"]);fs=stats[family];fs["roots"]+=1
     sid="g9s_"+stable({"family":family,"symbol":root["symbol"],"timeframe":root["timeframe"],"direction":root["direction"],
                        "root_subject_type":root["subject_type"],"root_subject_id":root["subject_id"],"definition_version":version})
-    features=json.dumps({"benchmark":True,"root_source_hash":str(root["row_hash"])},sort_keys=True,separators=(",",":"))
+    features=json.dumps({"benchmark":bool(benchmark_mode),"root_source_hash":str(root["row_hash"])},sort_keys=True,separators=(",",":"))
     initial_base={"setup_id":sid,"setup_family":family,"root_subject_type":str(root["subject_type"]),"root_subject_id":str(root["subject_id"]),
           "root_definition_id":str(root["definition_id"]),"symbol":str(root["symbol"]),"timeframe":str(root["timeframe"]),"direction":str(root["direction"]),
           "origin_event_time":int(root["event_time"]),"origin_availability_time":int(root["availability_time"]),"current_state":"FORMING",
