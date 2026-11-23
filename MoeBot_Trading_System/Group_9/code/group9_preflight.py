@@ -32,7 +32,7 @@ def main()->int:
     if handoff.get("consumption_policy",{}).get("read_only") is not True:
         failures.append("group8_handoff_not_read_only")
     report={"format_version":1,"status":"PASS" if not failures else "BLOCKED","group":9,"failures":failures,
-            "real_execution_authorized":not failures,"required_components":list(COMPONENTS),
+            "dependency_intake_authorized":not failures,"real_execution_authorized":False,"required_components":list(COMPONENTS),
             "semantic_freeze_authorized":False,
             "note":"PASS authorizes Group 9 dependency intake/sizing only; exact Group 9 semantic freeze remains a separate review gate."}
     report["report_hash"]=stable(report)
