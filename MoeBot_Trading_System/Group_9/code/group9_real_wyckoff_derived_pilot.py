@@ -16,7 +16,9 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import subprocess
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 G8 = ROOT / "Group_8"
@@ -82,10 +84,35 @@ def build_output(idx, roots, path):
         return {"states":states,"evidence_rows":out.execute("SELECT COUNT(*) FROM setup_component_evidence").fetchone()[0],
                 "transitions":out.execute("SELECT COUNT(*) FROM setup_transition").fetchone()[0]}
 
+def compress_verified(path):
+    zstd=Path("C:/MoeBotActive/tools/zstd/zstd-v1.5.7-win64/zstd.exe")
+    archive=path.with_suffix(path.suffix+".zst")
+    if archive.exists():raise FileExistsError(archive)
+    started=time.perf_counter()
+    subprocess.run([str(zstd),"-q","-6","-T2",str(path),"-o",str(archive)],check=True,timeout=180)
+    compression_seconds=time.perf_counter()-started
+    digest=hashlib.sha256(); size=0
+    with subprocess.Popen([str(zstd),"-q","-d","-c",str(archive)],stdout=subprocess.PIPE) as proc:
+        for block in iter(lambda:proc.stdout.read(8*1024*1024),b""):
+            digest.update(block);size+=len(block)
+        if proc.wait()!=0:raise RuntimeError("zstd_roundtrip_failed")
+    if size!=path.stat().st_size or digest.hexdigest()!=sha(path):
+        raise RuntimeError("zstd_roundtrip_identity_mismatch")
+    return {"raw_bytes":size,"archive_bytes":archive.stat().st_size,
+            "raw_sha256":digest.hexdigest(),"archive_sha256":sha(archive),
+            "compression_seconds":compression_seconds,"lossless_roundtrip_verified":True}
+
 def main():
+    global ACTIVE,VAULT
+    started=time.perf_counter()
     p=argparse.ArgumentParser()
     p.add_argument("--roots",type=int,default=8)
+    p.add_argument("--month",choices=[f"2023-{m:02d}" for m in range(1,13)])
     a=p.parse_args()
+    month=a.month or "2023-05"
+    if a.month:
+        ACTIVE=ACTIVE.parent/("wyckoff_sizing_20261124_"+month)
+        VAULT=VAULT.parent/"wyckoff_sizing_20261124"/month
     if not 1<=a.roots<=8:raise ValueError("bounded_scope_only")
     if ACTIVE.exists() or VAULT.exists():raise FileExistsError("pilot_output_exists")
     if shutil.disk_usage("C:/").free<124*1024**3:raise RuntimeError("C_storage_gate")
@@ -102,8 +129,8 @@ def main():
     ACTIVE.mkdir(parents=True)
     with closing(ro(SCRATCH/"group9_root_inventory.sqlite")) as inv, closing(ro(SOURCE)) as src, closing(ro(SCRATCH/"group9_support_index.sqlite")) as supp, closing(ro(CATALOG)) as cat:
         roots=inv.execute("""SELECT * FROM root_candidate WHERE dataset_year=2023
-            AND symbol='XAUUSD_' AND timeframe='H1' AND root_month='2023-05'
-            AND setup_family=? ORDER BY root_key LIMIT ?""",(WY,a.roots)).fetchall()
+            AND symbol='XAUUSD_' AND timeframe='H1' AND root_month=?
+            AND setup_family=? ORDER BY root_key LIMIT ?""",(month,WY,a.roots)).fetchall()
         if len(roots)!=a.roots:raise RuntimeError("root_inventory_short")
         source_roots=[];contexts={};patterns={};range_for={}
         for r in roots:
@@ -144,6 +171,7 @@ def main():
         print("COMPLETE_LEVEL_PROJECTION roots=%d ranges=%d levels=%d candidates=%d"%
               (len(roots),len(contexts),len(levels),len(all_candidates)),flush=True)
         derived=ACTIVE/"bounded_frozen_producer.sqlite"
+        producer_started=time.perf_counter()
         engine=PA7DerivedEngine(staging_db=STAGING,output_db=derived,
                     artifacts_root=G8,year=2023,symbol="XAUUSD_",pa7_catalog=projected)
         try:
@@ -156,6 +184,7 @@ def main():
             legs=[dict(r) for r in engine._validated_legs() if r["timeframe"]=="H1"]
             check_db(engine.out)
         finally:engine.close()
+        producer_seconds=time.perf_counter()-producer_started
         # Independent expected graph from full-year level-domain and leg rows.
         expected_signs=set();expected_lasts=set()
         def first(rows,t,strict=False):
@@ -210,10 +239,19 @@ def main():
             baseline=build_output(idx,roots,ACTIVE/"baseline.sqlite")
             for row in rows:attach(row)
             idx.commit()
+            materializer_started=time.perf_counter()
             augmented=build_output(idx,roots,ACTIVE/"augmented.sqlite")
+            materializer_seconds=time.perf_counter()-materializer_started
             check_db(idx)
-        result={"status":"PASS_BOUNDED_WYCKOFF_DERIVED_GRAPH_PARITY",
-            "scope":"2023_XAUUSD_H1_MAY_PREDETERMINED_ROOTS_ONLY",
+        compression=compress_verified(ACTIVE/"augmented.sqlite") if a.month else None
+    result={"status":"PASS_BOUNDED_WYCKOFF_DERIVED_GRAPH_PARITY",
+            "scope":"2023_XAUUSD_H1_PREDETERMINED_ROOTS_ONLY",
+            "sample_month":month,
+            "sample_selection":"first_root_keys_within_month",
+            "producer_seconds":producer_seconds,
+            "materializer_seconds":materializer_seconds,
+            "compression":compression,
+            "pre_vault_total_seconds":time.perf_counter()-started,
             "roots":len(roots),"root_ids":[r["source_id"] for r in roots],
             "range_count":len(contexts),"validated_h1_leg_rows":len(legs),
             "full_level_projection_candidates":len(all_candidates),
