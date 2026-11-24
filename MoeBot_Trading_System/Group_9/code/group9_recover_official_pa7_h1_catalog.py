@@ -9,6 +9,7 @@ Group9 annual shards, MT5, Group8 writers, or any next-group handoff.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import importlib.util
@@ -203,6 +204,56 @@ def extract_verified(stem, meta, saved):
     return stage, verified
 
 
+def verified_complete_receipt(metas):
+    """Reuse completed verified D: catalog safely, even after C: was cleared."""
+    path = D_ROOT / "verified_H1_source_catalog_receipt.json"
+    if not path.exists():
+        return False
+    record = json.loads(path.read_text(encoding="utf-8"))
+    saved = record.get("report_hash")
+    doc = dict(record)
+    doc.pop("report_hash", None)
+    if saved != stable(doc):
+        raise RuntimeError("completed_H1_receipt_hash_drift")
+    if (record.get("status") != "PASS_FROZEN_H1_PA7_SOURCE_CATALOG_ONLY"
+        or record.get("source_bundles") != list(STEMS)
+        or record.get("source_shards_verified") != 36
+        or record.get("source_report_hashes") != {
+            stem: meta["report_hash"] for stem, meta in metas
+        }):
+        raise RuntimeError("completed_H1_receipt_scope_drift")
+    catalog = D_ROOT / "H1_2023_v2_pa7_candidate_catalog.sqlite"
+    if (str(catalog) != record.get("catalog_path")
+        or not catalog.is_file()
+        or catalog.stat().st_size != record.get("catalog_bytes")
+        or sha(catalog) != record.get("catalog_sha256")):
+        raise RuntimeError("completed_H1_catalog_identity_drift")
+    for stem, meta in metas:
+        part = meta["bundle_parts"][0]
+        source = D_ROOT / part["filename"]
+        if (not source.is_file()
+            or source.stat().st_size != part["size_bytes"]
+            or sha(source) != part["sha256"]):
+            raise RuntimeError("completed_H1_source_bundle_drift:" + stem)
+    with closing(sqlite3.connect(catalog.resolve().as_uri() +
+                                 "?mode=ro&immutable=1", uri=True)) as db:
+        if db.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+            raise RuntimeError("completed_H1_catalog_integrity_failed")
+        rows = db.execute("SELECT COUNT(*) FROM pa7_candidate_catalog").fetchone()[0]
+        sources = db.execute("SELECT COUNT(*) FROM pa7_catalog_source_shard").fetchone()[0]
+        if rows != record["candidate_rows"] or sources != 36:
+            raise RuntimeError("completed_H1_catalog_row_drift")
+    if CATALOG.exists():
+        if CATALOG.stat().st_size != record["catalog_bytes"] or sha(CATALOG) != record["catalog_sha256"]:
+            raise RuntimeError("existing_C_catalog_differs_from_verified_D")
+        CATALOG.unlink()
+        print("VERIFIED_DUPLICATE_C_CATALOG_CLEARED=PASS", flush=True)
+    print("H1_SOURCE_CATALOG=ALREADY_VERIFIED_COMPLETE", flush=True)
+    print("H1_SOURCE_SHARDS=36 CANDIDATES=" + str(record["candidate_rows"]), flush=True)
+    print("GROUP9_ANNUAL_AUTHORIZED=False", flush=True)
+    return True
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--workers", type=int, default=8)
@@ -219,11 +270,13 @@ def main():
     if a.validate_only:
         print("PRECHECK_PASS=H1_2023_SOURCE_CATALOG_ONLY;NO_ANNUAL_PERMISSION", flush=True)
         return 0
+    if verified_complete_receipt(metas):
+        return 0
     sys.path.insert(0, str(G8_CODE))
     import group8_pa7_catalog as builder
     chunker = recovery_module()
     if CATALOG.exists():
-        with sqlite3.connect(CATALOG) as db:
+        with closing(sqlite3.connect(CATALOG)) as db:
             if db.execute("PRAGMA quick_check").fetchone()[0] != "ok":
                 raise RuntimeError("partial_catalog_integrity_failed")
     else:
@@ -231,7 +284,7 @@ def main():
     for stem, meta in metas:
         require_space(2*int(meta["raw_shard_bytes"]) + 5*1024**3)
         archive = acquire_bundle(stem, meta, a.workers, chunker)
-        with sqlite3.connect(CATALOG) as db:
+        with closing(sqlite3.connect(CATALOG)) as db:
             done = {str(r[0]): (str(r[1]),int(r[2])) for r in db.execute(
                 "SELECT filename,file_sha256,file_size_bytes FROM pa7_catalog_source_shard"
             )}
@@ -251,7 +304,7 @@ def main():
                     missing.append(p)
             if missing:
                 builder.append_shards(CATALOG, missing)
-            with sqlite3.connect(CATALOG) as db:
+            with closing(sqlite3.connect(CATALOG)) as db:
                 for row in meta["shards"]:
                     got = db.execute(
                         "SELECT file_sha256,file_size_bytes FROM pa7_catalog_source_shard WHERE filename=?",
